@@ -1,0 +1,29 @@
+# Secrets — existing .env.example contains a credential and must also stay local
+.env
+.env.*
+*.key
+*.pem
+
+# Local real inputs, outputs, and raw evidence
+.runtime/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Node (if chosen later)
+node_modules/
+.next/
+dist/
+
+# Editor & OS
+.DS_Store
+.vscode/
+.idea/
+
+# Temp files
+*.log
+*.tmp
