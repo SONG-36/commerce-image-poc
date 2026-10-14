@@ -8,7 +8,7 @@
   <script src="/static/prepare.js" defer></script>
 </head>
 <body>
-  <header class="topbar"><span class="brand"><span class="brand-mark">图</span>商品图制作</span><nav aria-label="制作阶段"><strong>01 准备与规划</strong><span>02 生成与审核 · 后续提供</span></nav></header>
+  <header class="topbar"><span class="brand"><span class="brand-mark">图</span>商品图制作</span><nav aria-label="制作阶段"><strong>01 准备与规划</strong><a id="generate-nav" aria-disabled="true">02 生成图片</a></nav></header>
   <main>
     <div class="heading"><div><p class="eyebrow">PREPARE & PLAN</p><h1>准备资料，逐张规划图片</h1><p>先看清商品与参考设计，再把每张图要做什么说明白。</p></div><span id="saved-status" class="pill">尚未加载资料</span></div>
     <div id="message" role="status" aria-live="polite" hidden></div>
@@ -36,9 +36,9 @@
       <div class="section-head"><div><span class="number">C</span><h2 id="plans-title">逐图制作计划 <span id="plan-count" class="count"></span></h2></div><button id="replan" class="secondary" disabled>按当前理解重新规划全部</button></div>
       <p class="muted">每张参考图对应一个独立计划。修改单张计划，只更新这一张。</p>
       <div id="plans-empty" class="empty">尚未生成制作计划。</div><div id="plans" class="plan-grid"></div>
-      <div class="confirm-bar"><div><strong id="confirmation-title">确认整套当前计划</strong><p id="confirmation-note" class="muted">计划确认后保存在本地，刷新页面可继续查看。</p></div><button id="confirm" class="primary" disabled>确认计划</button></div>
+      <div class="confirm-bar"><div><strong id="confirmation-title">确认整套当前计划</strong><p id="confirmation-note" class="muted">计划确认后保存在本地，刷新页面可继续查看。</p></div><div class="confirmation-controls"><button id="confirm" class="primary" disabled>确认计划</button><a id="enter-generate" class="primary button-link" hidden>进入图片生成 →</a></div></div>
     </section>
-    <footer>当前提供准备与规划。图片生成、图片修改和导出将在后续阶段提供。</footer>
+    <footer>本页准备与规划，第二页逐张生成图片。图片审核、修改及导出在后续阶段提供。</footer>
   </main>
 </body>
 </html>

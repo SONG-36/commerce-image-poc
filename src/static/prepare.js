@@ -14,6 +14,10 @@ function updateButtons() {
   $('replan').disabled=busy||!state?.product||dirty;
   $('confirm').disabled=busy||!state?.product||dirty||Boolean(state?.stale_plans.length)||state?.confirmed;
   document.querySelectorAll('.ai-mutation').forEach(e=>e.disabled=busy||dirty);
+  const canGenerate=Boolean(state?.confirmed&&!dirty&&!busy);
+  $('enter-generate').hidden=!canGenerate;
+  $('generate-nav').setAttribute('aria-disabled',String(!canGenerate));
+  for(const id of ['enter-generate','generate-nav']){if(canGenerate)$(id).href='/generate/'+state.id;else $(id).removeAttribute('href');}
   document.body.classList.toggle('busy',busy);
 }
 async function work(fn) {if(busy)return;busy=true;updateButtons();try{await fn();}catch(error){notify(error.message,true);}finally{busy=false;updateButtons();}}
@@ -51,7 +55,7 @@ function renderResults(){
   }
   const count=Object.keys(state?.plans||{}).length;$('plan-count').textContent=count?count+' 张':'';$('plans-empty').hidden=count>0;
   $('confirmation-title').textContent=state?.confirmed?'出图计划已保存，可进入图片生成阶段。':'确认整套当前计划';$('confirmation-title').className=state?.confirmed?'confirmed':'';
-  $('confirmation-note').textContent=state?.confirmed?'本次已保存计划。图片生成阶段尚未开发，未生成任何新图片。':state?.stale_plans.length?'请先让计划采用修正后的理解，再确认整套计划。':'计划确认后保存在本地，刷新页面可继续查看。';
+  $('confirmation-note').textContent=state?.confirmed?'本次已保存计划。进入第二页后，可逐张点击生成图片；切换页面不会产生费用。':state?.stale_plans.length?'请先让计划采用修正后的理解，再确认整套计划。':'计划确认后保存在本地，刷新页面可继续查看。';
   updateButtons();
 }
 function applyState(value){state=value;dirty=false;releasePending();kept=state.images.map(i=>({...i}));for(const key of ['listing','description','requirements'])$(key).value=state.inputs[key];$('product-files').value='';$('reference-files').value='';$('saved-status').textContent=state.confirmed?'计划已确认':'资料与修改已保存';$('input-note').textContent=state.title+' · 当前任务已保存，刷新后可恢复。';renderImages();renderResults();}
@@ -79,4 +83,4 @@ $('replan').onclick=()=>work(()=>runAction('replan'));
 $('confirm').onclick=()=>work(()=>runAction('confirm'));
 for(const key of ['listing','description','requirements'])$(key).addEventListener('input',markDirty);
 for(const role of ['product','reference'])$(role+'-files').onchange=event=>{for(const file of event.target.files)pending[role].push({file,name:file.name,url:URL.createObjectURL(file),role});event.target.value='';renderImages();markDirty();};
-work(async()=>{const body=await api('/api/current');$('config-note').hidden=body.ai_configured;if(body.state)applyState(body.state);else renderResults();});
+work(async()=>{const session=new URLSearchParams(location.search).get('session');const body=await api(session?'/api/sessions/'+encodeURIComponent(session):'/api/current');$('config-note').hidden=body.ai_configured;if(body.state)applyState(body.state);else renderResults();});

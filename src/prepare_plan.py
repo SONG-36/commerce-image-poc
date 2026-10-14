@@ -19,7 +19,10 @@ from openai import OpenAI
 from PIL import Image
 from werkzeug.exceptions import HTTPException
 
-from generate_image import redact, sha256
+from generate_image import sha256
+from generate_plan_image import GenerationService
+from evidence import clean_record, safe_text
+from experiment_export import export_experiment, ExportError, historical_case_match
 
 ROOT = Path(__file__).resolve().parents[1]
 PRODUCT_FIELDS = ("identity", "claims", "appearance", "uncertainties")
@@ -33,7 +36,7 @@ def now():
 
 
 def write_json(path, value, exclusive=False):
-    data = redact(json.dumps(value, ensure_ascii=False, indent=2), os.environ.get("OPENAI_API_KEY", "")) + "\n"
+    data = json.dumps(clean_record(value), ensure_ascii=False, indent=2) + "\n"
     if exclusive:
         with path.open("x", encoding="utf-8") as stream:
             stream.write(data)
@@ -72,9 +75,17 @@ def stale_ids(state):
 
 
 class Store:
-    def __init__(self, root):
+    def __init__(self, root, case_dir=None):
         self.root = Path(root)
+        self.case_dir = Path(case_dir) if case_dir else None
         self.lock = threading.Lock()
+
+    def case_id(self, state):
+        if state.get("case_id"):
+            return state["case_id"]
+        if self.case_dir and historical_case_match(state, self.folder(state["id"]), self.case_dir):
+            return "case-001"
+        return "case-" + state["id"]
 
     def folder(self, session_id):
         if not re.fullmatch(r"[0-9a-f]{32}", session_id or ""):
@@ -96,7 +107,7 @@ class Store:
         write_json(folder / "versions" / f"{state['revision']:06}.json", state, exclusive=True)
         write_json(folder / "state.json", state)
 
-    def create(self, text, uploads, title):
+    def create(self, text, uploads, title, case_id=None):
         if not any(role == "product" for role, _, _ in uploads) or not any(role == "reference" for role, _, _ in uploads):
             raise Problem("请至少提供一张商品原图和一张设计参考图。")
         if any(not isinstance(text.get(key), str) for key in ["listing", "description", "requirements"]):
@@ -120,6 +131,7 @@ class Store:
         (folder / "inputs").mkdir(parents=True)
         state = {
             "id": session_id, "title": title, "created_at": now(), "revision": 0,
+            "case_id": case_id or "case-" + session_id,
             "inputs": text, "images": [], "product": None, "references": {}, "plans": {},
             "product_version": 0, "reference_versions": {}, "plan_context": {},
             "corrections": {"product": [], "references": {}}, "events": [], "confirmed": False,
@@ -188,10 +200,13 @@ def call_ai(store, state, action, target, feedback):
     evidence = folder / "calls" / call_id
     evidence.mkdir(parents=True)
     model = os.environ.get("OPENAI_PLANNING_MODEL", MODELS[0])
-    record = {"id": call_id, "action": action, "target": target, "feedback": feedback,
+    record = {"id": call_id, "run_id": call_id, "case_id": store.case_id(state), "session_id": state["id"],
+              "parent_revision": state["revision"], "parent_version_file": f"versions/{state['revision']:06}.json",
+              "action": action, "target": target, "feedback": feedback,
               "started_at": now(), "model": model, "sdk_version": version("openai"),
               "source_sha256": sha256(Path(__file__).read_bytes()), "endpoint": "https://api.openai.com/v1/responses",
-              "max_retries": 0, "api_call_attempted": False, "status": "PREPARING", "usage": None, "request_id": None}
+              "max_retries": 0, "timeout_seconds": 120.0, "api_call_attempted": False,
+              "status": "PREPARING", "usage": None, "request_id": None}
     started = time.perf_counter()
     try:
         if model not in MODELS:
@@ -224,21 +239,31 @@ def call_ai(store, state, action, target, feedback):
                 raise Problem("保存的输入图片发生变化，已停止调用。")
             content.append({"type": "input_text", "text": f"{image['id']}：{'商品外观依据' if image['role']=='product' else '仅设计参考'}（{image['name']}）"})
             content.append({"type": "input_image", "image_url": f"data:{image['mime']};base64,{base64.b64encode(data).decode()}", "detail": "auto"})
-            image_order.append(image)
+            image_order.append({"slot": len(image_order) + 1, **image})
         arguments = {"model": model, "instructions": RULES,
                      "input": [{"role": "user", "content": content}],
                      "text": {"format": {"type": "json_object"}}, "store": False,
                      "max_output_tokens": 6000 if action in ["understand", "replan"] else 2500}
         write_json(evidence / "request.json", arguments, exclusive=True)
         write_json(evidence / "image_order.json", image_order, exclusive=True)
-        (evidence / "prompt.txt").write_text(redact(RULES + "\n\n" + prompt, os.environ.get("OPENAI_API_KEY", "")), encoding="utf-8")
+        # Include every text part, including per-image labels, in sent order.
+        (evidence / "prompt.txt").write_text(safe_text(RULES + "\n\n" + "\n\n".join(
+            item["text"] for item in content if item["type"] == "input_text")), encoding="utf-8")
+        record["inputs"] = image_order
+        record["parameters"] = {key: value for key, value in arguments.items() if key not in ["input", "instructions"]}
+        record["request_file"] = "request.json"
         key = os.environ.get("OPENAI_API_KEY", "")
         if not key.strip():
             raise Problem("AI 服务尚未配置。请由运行人员在启动服务的终端设置环境密钥；本次没有调用模型。", 503)
         with OpenAI(api_key=key, base_url="https://api.openai.com/v1", max_retries=0, timeout=120.0) as client:
             record["api_call_attempted"] = True
+            record["api_started_at"] = now()
             write_json(evidence / "run.json", record)
-            response = client.responses.create(**arguments)
+            api_started = time.perf_counter()
+            try:
+                response = client.responses.create(**arguments)
+            finally:
+                record["api_elapsed_seconds"] = round(time.perf_counter() - api_started, 3)
         record["request_id"] = response._request_id
         raw = response.model_dump(mode="json")
         record["usage"] = raw.get("usage")
@@ -248,6 +273,7 @@ def call_ai(store, state, action, target, feedback):
             raise Problem("AI 本次未完整返回结果，请查看错误后再决定是否重试。", 502)
         result = validate_result(json.loads(response.output_text), action, ids)
         write_json(evidence / "result.json", result, exclusive=True)
+        record["result_file"] = "result.json"
         record["status"] = "AI_RESULT_RECEIVED"
         return result, call_id
     except Exception as error:
@@ -260,7 +286,7 @@ def call_ai(store, state, action, target, feedback):
             raise
         if isinstance(error, (json.JSONDecodeError, TypeError)):
             raise Problem("AI 返回内容无法解析，已保存原始响应；当前理解与计划未替换。", 502) from error
-        raise Problem("AI 请求失败：" + redact(str(error), os.environ.get("OPENAI_API_KEY", "")), 502) from error
+        raise Problem("AI 请求失败：" + safe_text(str(error)), 502) from error
     finally:
         record["finished_at"] = now()
         record["elapsed_seconds"] = round(time.perf_counter() - started, 3)
@@ -271,9 +297,11 @@ def create_app(runtime_dir=None, case_dir=None):
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 80 * 1024 * 1024
     app.config["MAX_FORM_MEMORY_SIZE"] = 2 * 1024 * 1024
-    store = Store(runtime_dir or ROOT / ".runtime/prepare-plan")
     case = Path(case_dir or ROOT / ".runtime/inputs/case-001")
+    store = Store(runtime_dir or ROOT / ".runtime/prepare-plan", case)
+    generation = GenerationService(store)
     app.extensions["plan_store"] = store
+    app.extensions["generation_service"] = generation
 
     @app.before_request
     def local_action():
@@ -285,7 +313,7 @@ def create_app(runtime_dir=None, case_dir=None):
 
     @app.errorhandler(Problem)
     def problem(error):
-        return jsonify(error=redact(str(error), os.environ.get("OPENAI_API_KEY", ""))), error.status
+        return jsonify(error=safe_text(str(error))), error.status
 
     @app.errorhandler(HTTPException)
     def http_problem(error):
@@ -302,11 +330,77 @@ def create_app(runtime_dir=None, case_dir=None):
     def home():
         return render_template("prepare.html")
 
+    def confirmed_state(session_id):
+        state = store.load(session_id)
+        if not state.get("confirmed") or set(state["plans"]) != set(reference_ids(state)) or stale_ids(state):
+            raise Problem("请先在第一页确认采用最新理解的整套计划，再进入图片生成。", 409)
+        return state
+
+    @app.get("/generate/<session_id>")
+    def generate_page(session_id):
+        store.load(session_id)
+        return render_template("generate.html", session_id=session_id)
+
+    @app.post("/api/sessions/<session_id>/export-experiment")
+    def export_case(session_id):
+        store.folder(session_id)  # Validate the identifier before filesystem access.
+        try:
+            if not store.lock.acquire(blocking=False):
+                raise Problem("理解或规划尚在处理中，请完成后再导出。", 409)
+            try:
+                with generation.guard:
+                    if any(key[0] == session_id for key in generation.active):
+                        raise Problem("当前任务有图片正在生成，请完成后再导出。", 409)
+                    package, filename = export_experiment(store, session_id)
+            finally:
+                store.lock.release()
+        except (ExportError, OSError, KeyError, TypeError) as error:
+            raise Problem(str(error) if isinstance(error, ExportError) else "实验包导出失败：允许范围内的证据缺失或不可读取；原文件未改动。", 409) from error
+        return send_file(package, mimetype="application/zip", as_attachment=True, download_name=filename, max_age=0)
+
+    @app.get("/api/sessions/<session_id>/generation")
+    def generation_state(session_id):
+        state = confirmed_state(session_id)
+        return jsonify(session_id=session_id, title=state["title"], confirmed_revision=state["revision"],
+                       cards=[generation.card(state, target) for target in reference_ids(state)])
+
+    @app.post("/api/sessions/<session_id>/generate/<target>")
+    def generate_one(session_id, target):
+        state = confirmed_state(session_id)
+        body = request.get_json()
+        if not isinstance(body, dict) or body.get("confirmed_revision") != state["revision"]:
+            raise Problem("确认计划的版本已改变，请刷新页面；本次没有调用模型。", 409)
+        if target not in reference_ids(state):
+            raise Problem("指定图片计划不存在。", 404)
+        try:
+            record = generation.generate(state, target)
+        except ValueError as error:
+            raise Problem(str(error), 409) from error
+        if record["status"] == "FAILED":
+            message = safe_text(record["error"]["message"])
+            return jsonify(error=message, run_id=record["run_id"], confirmed_revision=state["revision"]), 502 if record["api_call_attempted"] else 400
+        return jsonify(run_id=record["run_id"], confirmed_revision=state["revision"], status="SUCCEEDED")
+
+    @app.get("/api/sessions/<session_id>/generated-images/<int:revision>/<target>/<run_id>")
+    def generated_image(session_id, revision, target, run_id):
+        store.load(session_id)
+        try:
+            folder = generation.run_folder(session_id, revision, target, run_id)
+        except ValueError as error:
+            raise Problem(str(error), 404) from error
+        if not (folder / "run.json").is_file() or read_json(folder / "run.json").get("status") != "SUCCEEDED":
+            raise Problem("成功生成的图片不存在。", 404)
+        return send_file(folder / "image.png", mimetype="image/png")
+
     @app.get("/api/current")
     def current():
         path = store.root / "current.json"
         state = store.load(read_json(path)["id"]) if path.is_file() else None
         return jsonify(state=public(state) if state else None, ai_configured=bool(os.environ.get("OPENAI_API_KEY", "")))
+
+    @app.get("/api/sessions/<session_id>")
+    def saved_session(session_id):
+        return jsonify(state=public(store.load(session_id)), ai_configured=bool(os.environ.get("OPENAI_API_KEY", "")))
 
     @app.get("/api/sessions/<session_id>/images/<image_id>")
     def image_file(session_id, image_id):
@@ -323,7 +417,7 @@ def create_app(runtime_dir=None, case_dir=None):
                     "description": "", "requirements": (case / "requirements.md").read_text(encoding="utf-8")}
             uploads = [(role, path.name, path.read_bytes()) for role, folder in [("product", "product"), ("reference", "references")]
                        for path in sorted((case / folder).iterdir()) if path.is_file() and path.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]]
-            state = store.create(text, uploads, "case-001")
+            state = store.create(text, uploads, "case-001", case_id="case-001")
             return jsonify(state=public(state))
 
     @app.post("/api/sessions")
@@ -375,6 +469,7 @@ def create_app(runtime_dir=None, case_dir=None):
                 state["confirmed"] = True
                 store.save(state, {"action": "confirm", "target": None, "feedback": "", "message": "出图计划已保存，可进入图片生成阶段。"})
                 return jsonify(state=public(state))
+            parent_revision = state["revision"]
             result, call_id = call_ai(store, state, kind, target, feedback)
             event = {"action": kind, "target": target, "feedback": feedback, "call_id": call_id}
             if kind in ["understand", "product"]:
@@ -403,7 +498,9 @@ def create_app(runtime_dir=None, case_dir=None):
             event["after"] = result
             state["confirmed"] = False
             store.save(state, event)
-            write_json(store.folder(session_id) / "calls" / call_id / "applied.json", {"revision": state["revision"], "at": now()}, exclusive=True)
+            write_json(store.folder(session_id) / "calls" / call_id / "applied.json",
+                       {"revision": state["revision"], "parent_revision": parent_revision, "run_id": call_id,
+                        "case_id": store.case_id(state), "version_file": f"versions/{state['revision']:06}.json", "at": now()}, exclusive=True)
             return jsonify(state=public(state))
         finally:
             store.lock.release()
