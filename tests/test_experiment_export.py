@@ -199,7 +199,8 @@ class ExperimentExportTests(unittest.TestCase):
         with self.client.get("/static/generate.js") as response:
             script = response.get_data(as_text=True)
         handler = script[script.index("node('export-experiment').onclick"):]
-        self.assertIn("/export-experiment", handler)
+        self.assertIn("downloadPackage('experiment')", handler)
+        self.assertIn('/export-${kind}', script)
         self.assertNotIn("generateOne(", handler)
 
     def test_symlinks_escaping_paths_and_hash_tampering_rejected(self):

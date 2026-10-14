@@ -7,16 +7,18 @@
   <link rel="stylesheet" href="/static/prepare.css">
   <script src="/static/prepare.js" defer></script>
 </head>
-<body>
-  <header class="topbar"><span class="brand"><span class="brand-mark">图</span>商品图制作</span><nav aria-label="制作阶段"><strong>01 准备与规划</strong><a id="generate-nav" aria-disabled="true">02 生成图片</a></nav></header>
+<body data-session-id="{{ session_id }}">
+  <header class="topbar"><a class="brand" href="/">图 · 商品图制作</a><nav aria-label="制作阶段"><strong>01 准备与规划</strong><a id="generate-nav" aria-disabled="true">02 生成与审核</a></nav></header>
   <main>
     <div class="heading"><div><p class="eyebrow">PREPARE & PLAN</p><h1>准备资料，逐张规划图片</h1><p>先看清商品与参考设计，再把每张图要做什么说明白。</p></div><span id="saved-status" class="pill">尚未加载资料</span></div>
     <div id="message" role="status" aria-live="polite" hidden></div>
+    <div id="operation-progress" role="status" aria-live="polite" hidden></div>
     <div id="config-note" class="notice" hidden>AI 服务尚未配置。可先准备和保存资料，请由运行人员配置后再使用 AI。</div>
     <section class="panel" aria-labelledby="input-title">
       <div class="section-head"><div><span class="number">A</span><h2 id="input-title">商品资料与参考图</h2></div><button id="load-case" class="secondary">加载 case-001 示例资料</button></div>
       <p class="muted">商品原图用于识别外观；参考图用于借鉴设计。加载和保存资料不会调用 AI。</p>
       <form id="input-form">
+        <label class="task-name">任务名称<input id="task-title" type="text" maxlength="120" required placeholder="例如：日本站螺丝刀商品图"></label>
         <div class="columns">
           <div><h3>商品原图 <span id="product-count" class="count">0 张</span></h3><div id="product-images" class="image-grid"></div><label class="upload">＋ 添加商品图片<input id="product-files" type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label="上传商品原始图片"></label></div>
           <div><h3>设计参考图 <span id="reference-count" class="count">0 张</span></h3><div id="reference-images" class="image-grid"></div><label class="upload">＋ 添加设计参考图<input id="reference-files" type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label="上传设计参考图"></label></div>
@@ -38,7 +40,7 @@
       <div id="plans-empty" class="empty">尚未生成制作计划。</div><div id="plans" class="plan-grid"></div>
       <div class="confirm-bar"><div><strong id="confirmation-title">确认整套当前计划</strong><p id="confirmation-note" class="muted">计划确认后保存在本地，刷新页面可继续查看。</p></div><div class="confirmation-controls"><button id="confirm" class="primary" disabled>确认计划</button><a id="enter-generate" class="primary button-link" hidden>进入图片生成 →</a></div></div>
     </section>
-    <footer>本页准备与规划，第二页逐张生成图片。图片审核、修改及导出在后续阶段提供。</footer>
+    <footer>本页准备与规划，第二页逐张生成、修改、审核与导出。</footer>
   </main>
 </body>
 </html>

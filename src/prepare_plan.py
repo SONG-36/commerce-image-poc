@@ -14,7 +14,7 @@ import threading
 import time
 from uuid import uuid4
 
-from flask import Flask, jsonify, render_template, request, send_file
+from flask import Flask, jsonify, render_template, request, send_file, redirect
 from openai import OpenAI
 from PIL import Image
 from werkzeug.exceptions import HTTPException
@@ -22,7 +22,8 @@ from werkzeug.exceptions import HTTPException
 from generate_image import sha256
 from generate_plan_image import GenerationService
 from evidence import clean_record, safe_text
-from experiment_export import export_experiment, ExportError, historical_case_match
+from experiment_export import export_experiment, ExportError, historical_case_match, safe_path
+import image_review
 
 ROOT = Path(__file__).resolve().parents[1]
 PRODUCT_FIELDS = ("identity", "claims", "appearance", "uncertainties")
@@ -36,18 +37,19 @@ def now():
 
 
 def write_json(path, value, exclusive=False):
+    path = safe_path(path.parent, path.name)
     data = json.dumps(clean_record(value), ensure_ascii=False, indent=2) + "\n"
     if exclusive:
         with path.open("x", encoding="utf-8") as stream:
             stream.write(data)
     else:
-        temporary = path.with_name(path.name + ".tmp")
+        temporary = safe_path(path.parent, path.name + '.tmp')
         temporary.write_text(data, encoding="utf-8")
         temporary.replace(path)
 
 
 def read_json(path):
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(safe_path(path.parent, path.name).read_text(encoding="utf-8"))
 
 
 class Problem(Exception):
@@ -79,6 +81,7 @@ class Store:
         self.root = Path(root)
         self.case_dir = Path(case_dir) if case_dir else None
         self.lock = threading.Lock()
+        self.planning = {}
 
     def case_id(self, state):
         if state.get("case_id"):
@@ -90,13 +93,20 @@ class Store:
     def folder(self, session_id):
         if not re.fullmatch(r"[0-9a-f]{32}", session_id or ""):
             raise Problem("无效的任务标识。", 404)
-        return self.root / "sessions" / session_id
+        return safe_path(self.root, 'sessions/' + session_id)
 
     def load(self, session_id):
-        path = self.folder(session_id) / "state.json"
+        path = safe_path(self.folder(session_id), 'state.json')
         if not path.is_file():
             raise Problem("准备任务不存在，请重新加载资料。", 404)
-        return read_json(path)
+        state = read_json(path)
+        if state.get('id') != session_id:
+            raise Problem('任务标识与保存记录不一致。', 409)
+        for image in state['images']:
+            if not re.fullmatch(r'inputs/(?:product|reference)_[0-9]+\.(?:jpg|jpeg|png|webp)', image['file']):
+                raise Problem('任务图片路径不在本任务允许范围内。', 409)
+            safe_path(self.folder(session_id), image['file'])
+        return state
 
     def save(self, state, event):
         state["revision"] += 1
@@ -209,6 +219,8 @@ def call_ai(store, state, action, target, feedback):
               "status": "PREPARING", "usage": None, "request_id": None}
     started = time.perf_counter()
     try:
+        store.planning[state['id']] = record
+        write_json(evidence / 'run.json', record)
         if model not in MODELS:
             raise Problem("规划模型配置不在已核实的模型列表内，请检查运行配置。")
         ids = reference_ids(state)
@@ -257,6 +269,7 @@ def call_ai(store, state, action, target, feedback):
             raise Problem("AI 服务尚未配置。请由运行人员在启动服务的终端设置环境密钥；本次没有调用模型。", 503)
         with OpenAI(api_key=key, base_url="https://api.openai.com/v1", max_retries=0, timeout=120.0) as client:
             record["api_call_attempted"] = True
+            record['status'] = 'RUNNING'
             record["api_started_at"] = now()
             write_json(evidence / "run.json", record)
             api_started = time.perf_counter()
@@ -290,6 +303,7 @@ def call_ai(store, state, action, target, feedback):
     finally:
         record["finished_at"] = now()
         record["elapsed_seconds"] = round(time.perf_counter() - started, 3)
+        store.planning.pop(state['id'], None)
         write_json(evidence / "run.json", record)
 
 
@@ -319,6 +333,23 @@ def create_app(runtime_dir=None, case_dir=None):
     def http_problem(error):
         return jsonify(error="上传体积过大，请减少图片或文件大小。" if error.code == 413 else error.description), error.code
 
+    @app.errorhandler(ExportError)
+    def unsafe_path(error):
+        return jsonify(error=safe_text(str(error))), 409
+
+    def activity(state):
+        active = store.planning.get(state['id'])
+        if active:
+            result = {key: active.get(key) for key in ['action','status','started_at','api_call_attempted','id']}
+            result['status'] = 'RUNNING'
+        else:
+            calls = [read_json(path) for path in store.folder(state['id']).glob('calls/*/run.json')]
+            latest = max(calls, key=lambda call: call['started_at']) if calls else None
+            result = {key: latest.get(key) for key in ['action','status','started_at','finished_at','elapsed_seconds','api_call_attempted','id']} if latest else None
+            if latest and latest['status'] in ['RUNNING','PREPARING']:
+                result['status'] = 'INTERRUPTED'
+        return result
+
     def public(state):
         result = copy.deepcopy(state)
         result["stale_plans"] = stale_ids(state)
@@ -328,7 +359,52 @@ def create_app(runtime_dir=None, case_dir=None):
 
     @app.get("/")
     def home():
-        return render_template("prepare.html")
+        legacy = request.args.get('session')
+        if legacy:
+            store.load(legacy)
+            return redirect('/prepare/' + legacy)
+        return render_template('tasks.html')
+
+    @app.get('/prepare/new')
+    def new_task_page():
+        return render_template('prepare.html', session_id='')
+
+    @app.get('/prepare/<session_id>')
+    def prepare_page(session_id):
+        store.load(session_id)
+        return render_template('prepare.html', session_id=session_id)
+
+    @app.get('/api/tasks')
+    def task_list():
+        tasks = []
+        sessions = safe_path(store.root, 'sessions')
+        for folder in sorted(sessions.iterdir()) if sessions.is_dir() else []:
+            if not re.fullmatch(r'[0-9a-f]{32}', folder.name):
+                continue
+            state = store.load(folder.name)
+            cards = [generation.card(state, target) for target in reference_ids(state)] if state.get('confirmed') and not stale_ids(state) else []
+            generated = sum(bool(card['versions']) for card in cards)
+            passed = sum(bool(card['passed_run']) for card in cards)
+            total = len(reference_ids(state))
+            if state['id'] in store.planning:
+                status = 'AI 理解或规划正在执行'
+            elif cards and any(card['status'] == 'RUNNING' for card in cards):
+                status = '图片正在处理'
+            elif passed and passed == total:
+                status = '新版本待审核，已有通过版本' if any(c['selected_run'] != c['passed_run'] for c in cards) else '全部图片已 Pass'
+            elif generated:
+                status = '图片待审核'
+            elif cards:
+                status = '计划已确认，待生图'
+            elif state.get('product'):
+                status = '计划待确认'
+            else:
+                status = '资料已保存，待规划'
+            tasks.append({'id': state['id'], 'title': state['title'], 'created_at': state['created_at'],
+                          'status': status, 'generated': generated, 'passed': passed, 'total': total,
+                          'url': ('/generate/' if cards else '/prepare/') + state['id']})
+        tasks.sort(key=lambda task: task['created_at'], reverse=True)
+        return jsonify(tasks=tasks)
 
     def confirmed_state(session_id):
         state = store.load(session_id)
@@ -364,6 +440,53 @@ def create_app(runtime_dir=None, case_dir=None):
         return jsonify(session_id=session_id, title=state["title"], confirmed_revision=state["revision"],
                        cards=[generation.card(state, target) for target in reference_ids(state)])
 
+    @app.post('/api/sessions/<session_id>/review/<target>')
+    def review_one(session_id, target):
+        state = confirmed_state(session_id)
+        body = request.get_json()
+        if target not in reference_ids(state) or not isinstance(body, dict) or body.get('confirmed_revision') != state['revision']:
+            raise Problem('任务、图片或确认计划已改变，请刷新。', 409)
+        try:
+            event = image_review.review(generation, state, target, body.get('action'), body.get('run_id'), body.get('card_revision'))
+        except (ValueError, OSError) as error:
+            raise Problem(safe_text(str(error)), 409) from error
+        return jsonify(event=event)
+
+    @app.post('/api/sessions/<session_id>/revise/<target>')
+    def revise_one(session_id, target):
+        state = confirmed_state(session_id)
+        body = request.get_json()
+        if target not in reference_ids(state) or not isinstance(body, dict) or body.get('confirmed_revision') != state['revision']:
+            raise Problem('任务、图片或确认计划已改变，请刷新；未调用模型。', 409)
+        feedback = body.get('feedback')
+        if not isinstance(feedback, str) or not feedback.strip() or len(feedback) > 12000 or not body.get('parent_run_id') or not body.get('operation_id') or not isinstance(body.get('card_revision'), int):
+            raise Problem('请选择当前版本并填写修改意见（最多 12000 字）。')
+        try:
+            record = generation.generate(state, target, body['parent_run_id'], feedback, body['card_revision'], body['operation_id'])
+        except ValueError as error:
+            raise Problem(str(error), 409) from error
+        return generation_result(record)
+
+    @app.post('/api/sessions/<session_id>/export-passed')
+    def passed_images(session_id):
+        state = confirmed_state(session_id)
+        try:
+            with generation.guard:
+                if any(key[0] == session_id for key in generation.active):
+                    raise ValueError('任务有图片正在处理，请完成后再导出。')
+                package, filename = image_review.export_passed(generation, state)
+        except (ValueError, OSError) as error:
+            raise Problem(str(error), 409) from error
+        return send_file(package, mimetype='application/zip', as_attachment=True, download_name=filename, max_age=0)
+
+    def generation_result(record):
+        if record['status'] == 'FAILED':
+            message = safe_text(record['error']['message'])
+            if record['api_call_attempted']:
+                message += '；服务端是否执行或计费尚未确认，未自动重试，已保留之前成功的图片。'
+            return jsonify(error=message, run_id=record['run_id'], confirmed_revision=record['confirmed_revision']), 502 if record['api_call_attempted'] else 400
+        return jsonify(run_id=record['run_id'], confirmed_revision=record['confirmed_revision'], status='SUCCEEDED')
+
     @app.post("/api/sessions/<session_id>/generate/<target>")
     def generate_one(session_id, target):
         state = confirmed_state(session_id)
@@ -373,13 +496,10 @@ def create_app(runtime_dir=None, case_dir=None):
         if target not in reference_ids(state):
             raise Problem("指定图片计划不存在。", 404)
         try:
-            record = generation.generate(state, target)
+            record = generation.generate(state, target, expected_revision=body.get('card_revision'), operation_id=body.get('operation_id'))
         except ValueError as error:
             raise Problem(str(error), 409) from error
-        if record["status"] == "FAILED":
-            message = safe_text(record["error"]["message"])
-            return jsonify(error=message, run_id=record["run_id"], confirmed_revision=state["revision"]), 502 if record["api_call_attempted"] else 400
-        return jsonify(run_id=record["run_id"], confirmed_revision=state["revision"], status="SUCCEEDED")
+        return generation_result(record)
 
     @app.get("/api/sessions/<session_id>/generated-images/<int:revision>/<target>/<run_id>")
     def generated_image(session_id, revision, target, run_id):
@@ -390,17 +510,24 @@ def create_app(runtime_dir=None, case_dir=None):
             raise Problem(str(error), 404) from error
         if not (folder / "run.json").is_file() or read_json(folder / "run.json").get("status") != "SUCCEEDED":
             raise Problem("成功生成的图片不存在。", 404)
-        return send_file(folder / "image.png", mimetype="image/png")
+        try:
+            image_state = store.load(session_id)
+            image_state['revision'] = revision
+            data, _ = image_review.image_bytes(generation, image_state, target, run_id)
+        except (ValueError, OSError) as error:
+            raise Problem(str(error), 409) from error
+        return send_file(io.BytesIO(data), mimetype="image/png")
 
     @app.get("/api/current")
     def current():
         path = store.root / "current.json"
         state = store.load(read_json(path)["id"]) if path.is_file() else None
-        return jsonify(state=public(state) if state else None, ai_configured=bool(os.environ.get("OPENAI_API_KEY", "")))
+        return jsonify(state=public(state) if state else None, activity=activity(state) if state else None, ai_configured=bool(os.environ.get("OPENAI_API_KEY", "")))
 
     @app.get("/api/sessions/<session_id>")
     def saved_session(session_id):
-        return jsonify(state=public(store.load(session_id)), ai_configured=bool(os.environ.get("OPENAI_API_KEY", "")))
+        state = store.load(session_id)
+        return jsonify(state=public(state), activity=activity(state), ai_configured=bool(os.environ.get("OPENAI_API_KEY", "")))
 
     @app.get("/api/sessions/<session_id>/images/<image_id>")
     def image_file(session_id, image_id):
@@ -408,7 +535,10 @@ def create_app(runtime_dir=None, case_dir=None):
         image = next((image for image in state["images"] if image["id"] == image_id), None)
         if not image:
             raise Problem("图片不存在。", 404)
-        return send_file(store.folder(session_id) / image["file"], mimetype=image["mime"])
+        path = safe_path(store.folder(session_id), image['file'])
+        if sha256(path.read_bytes()) != image['sha256']:
+            raise Problem('图片与本任务保存的记录不一致。', 409)
+        return send_file(path, mimetype=image["mime"])
 
     @app.post("/api/case-001")
     def load_case():
@@ -439,7 +569,10 @@ def create_app(runtime_dir=None, case_dir=None):
             for role in ["product", "reference"]:
                 uploads.extend((role, file.filename, file.read()) for file in request.files.getlist(role) if file.filename)
             text = {key: request.form.get(key, "") for key in ["listing", "description", "requirements"]}
-            state = store.create(text, uploads, "新商品资料")
+            title = request.form.get('title', '新商品资料').strip()
+            if not title or len(title) > 120:
+                raise Problem('请填写任务名称（最多 120 字）。')
+            state = store.create(text, uploads, title)
             return jsonify(state=public(state))
 
     @app.post("/api/sessions/<session_id>/action")

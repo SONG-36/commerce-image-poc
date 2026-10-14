@@ -91,7 +91,7 @@ class GenerationPageTests(unittest.TestCase):
             self.assertTrue(all(card["status"] == "NOT_STARTED" for card in response.json["cards"]))
             self.assertFalse((self.store.folder(state["id"]) / "generations").exists())
             self.assertEqual(self.client.get(f"/api/sessions/{state['id']}").json["state"]["id"], state["id"])
-        self.assertIn(b'enter-generate', self.client.get("/").data)
+        self.assertIn(b'enter-generate', self.client.get('/prepare/new').data)
         self.assertEqual(self.requests, [])
 
     def test_confirmed_version_and_target_checked_before_paid_attempt(self):

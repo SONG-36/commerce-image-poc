@@ -1,6 +1,10 @@
 "use strict";
 let state = null, dirty = false, busy = false;
 let kept = [], pending = {product: [], reference: []};
+let operation=null,remoteBusy=false,progressPoll=null;
+const actionNames={understand:'AI 理解与规划',product:'AI 修正商品理解',reference:'AI 修正参考理解',plan:'AI 修改本张计划',replan:'AI 重新规划',confirm:'确认计划'};
+function drawProgress(){const box=$('operation-progress');if(!operation){box.hidden=true;return;}box.hidden=false;box.className=operation.status==='RUNNING'?'waiting':'muted';const end=operation.finished_at?Date.parse(operation.finished_at):Date.now();const seconds=Math.max(0,Math.floor((end-Date.parse(operation.started_at))/1000));box.textContent=`${operation.name} · ${operation.status==='RUNNING'?'正在执行':operation.status==='SUCCEEDED'?'已完成':operation.status==='FAILED'?'失败':'执行状态待确认'} · 已等待 ${seconds} 秒${operation.status==='INTERRUPTED'?'；服务曾中断，服务端执行及费用需核对，未自动重试。':''}`;}
+setInterval(drawProgress,1000);
 const $ = id => document.getElementById(id);
 const productFields = {identity:"商品识别", claims:"Listing 声称 · 待核验", appearance:"实拍外观 · 候选识别", uncertainties:"冲突与待确认"};
 const referenceFields = {style:"视觉风格", composition:"构图方式", layout:"信息布局", expression:"视觉表达", applicable:"可借鉴的方法", risks:"边界与待确认"};
@@ -9,18 +13,20 @@ function element(tag, text, className) {const e=document.createElement(tag); if(
 function notify(text, error=false) {$('message').textContent=text;$('message').className=error?'error':'';$('message').hidden=false;}
 async function api(url, options={}) {const response=await fetch(url,{...options,headers:{'X-Local-Action':'prepare-plan',...options.headers}});let body;try{body=await response.json();}catch{throw new Error('服务未返回可读结果，请检查本地服务是否仍在运行。');}if(!response.ok)throw new Error(body.error||'操作失败');return body;}
 function updateButtons() {
-  document.querySelectorAll('button,input[type=file],#input-form textarea').forEach(e=>e.disabled=busy);
+  const locked=busy||remoteBusy;
+  document.querySelectorAll('button,input,textarea').forEach(e=>e.disabled=locked);
   $('understand').disabled=busy||Boolean(state?.product&&!dirty);
   $('replan').disabled=busy||!state?.product||dirty;
   $('confirm').disabled=busy||!state?.product||dirty||Boolean(state?.stale_plans.length)||state?.confirmed;
   document.querySelectorAll('.ai-mutation').forEach(e=>e.disabled=busy||dirty);
-  const canGenerate=Boolean(state?.confirmed&&!dirty&&!busy);
+  const canGenerate=Boolean(state?.confirmed&&!dirty&&!busy&&!remoteBusy);
   $('enter-generate').hidden=!canGenerate;
   $('generate-nav').setAttribute('aria-disabled',String(!canGenerate));
   for(const id of ['enter-generate','generate-nav']){if(canGenerate)$(id).href='/generate/'+state.id;else $(id).removeAttribute('href');}
-  document.body.classList.toggle('busy',busy);
+  if(remoteBusy)document.querySelectorAll('button').forEach(e=>e.disabled=true);
+  document.body.classList.toggle('busy',locked);
 }
-async function work(fn) {if(busy)return;busy=true;updateButtons();try{await fn();}catch(error){notify(error.message,true);}finally{busy=false;updateButtons();}}
+async function work(fn) {if(busy||remoteBusy)return;busy=true;operation={name:'读取或保存资料',started_at:new Date().toISOString(),status:'RUNNING'};drawProgress();updateButtons();try{await fn();if(!remoteBusy&&!operation.fromSaved)operation.status='SUCCEEDED';}catch(error){operation.status='FAILED';notify(error.message,true);}finally{busy=false;if(!remoteBusy&&!operation.fromSaved)operation.finished_at=new Date().toISOString();drawProgress();updateButtons();}}
 function markDirty(){dirty=true;$('input-note').textContent='资料有修改。保存为新任务后重新理解与规划，旧任务保留。';updateButtons();}
 function releasePending(){Object.values(pending).flat().forEach(item=>URL.revokeObjectURL(item.url));pending={product:[],reference:[]};}
 function renderImages(){
@@ -32,7 +38,7 @@ function renderImages(){
   }
 }
 function describe(value, labels){const dl=element('dl',undefined,'details');for(const [key,label] of Object.entries(labels))dl.append(element('dt',label),element('dd',value[key]));return dl;}
-function history(target, action){
+function renderHistory(target, action){
   const events=(state?.events||[]).filter(event=>event.action===action&&event.target===target);
   const box=element('details',undefined,'history');box.append(element('summary',`修改记录（${events.length}）`));
   events.forEach(event=>{const row=element('div',undefined,'history-item');row.append(element('small',new Date(event.at).toLocaleString('zh-CN')),element('p','意见：'+event.feedback));
@@ -41,7 +47,7 @@ function history(target, action){
 function feedbackBox(action,target,label,buttonText){
   const box=element('div',undefined,'feedback');const id='feedback-'+action+'-'+(target||'product');
   const lab=element('label',label);lab.htmlFor=id;const row=element('div',undefined,'row');const input=element('textarea');input.id=id;input.rows=2;input.maxLength=12000;input.placeholder=action==='plan'?'例如：不要展示配件，采用浅粉色背景。':action==='product'?'例如：这不是冲击电钻，不要强调冲击功能。':'例如：只参考信息排版，不参考产品使用场景。';
-  const button=element('button',buttonText,'secondary ai-mutation');button.type='button';button.onclick=()=>{if(!input.value.trim()){notify('请先填写修改意见。',true);return;}work(()=>runAction(action,target,input.value));};row.append(input,button);box.append(lab,row,history(target,action));return box;
+  const button=element('button',buttonText,'secondary ai-mutation');button.type='button';button.onclick=()=>{if(!input.value.trim()){notify('请先填写修改意见。',true);return;}work(()=>runAction(action,target,input.value));};row.append(input,button);box.append(lab,row,renderHistory(target,action));return box;
 }
 function renderResults(){
   const ready=Boolean(state?.product);$('understanding-empty').hidden=ready;$('understanding-content').hidden=!ready;
@@ -58,9 +64,14 @@ function renderResults(){
   $('confirmation-note').textContent=state?.confirmed?'本次已保存计划。进入第二页后，可逐张点击生成图片；切换页面不会产生费用。':state?.stale_plans.length?'请先让计划采用修正后的理解，再确认整套计划。':'计划确认后保存在本地，刷新页面可继续查看。';
   updateButtons();
 }
-function applyState(value){state=value;dirty=false;releasePending();kept=state.images.map(i=>({...i}));for(const key of ['listing','description','requirements'])$(key).value=state.inputs[key];$('product-files').value='';$('reference-files').value='';$('saved-status').textContent=state.confirmed?'计划已确认':'资料与修改已保存';$('input-note').textContent=state.title+' · 当前任务已保存，刷新后可恢复。';renderImages();renderResults();}
+function applyState(value,activity=null){state=value;dirty=false;window.history.replaceState(null,'','/prepare/'+state.id);$('task-title').value=state.title;releasePending();kept=state.images.map(i=>({...i}));for(const key of ['listing','description','requirements'])$(key).value=state.inputs[key];$('product-files').value='';$('reference-files').value='';$('saved-status').textContent=state.confirmed?'计划已确认':'资料与修改已保存';$('input-note').textContent=state.title+' · 当前任务已保存，刷新后可恢复。';
+  remoteBusy=activity?.status==='RUNNING';clearTimeout(progressPoll);
+  if(activity){operation={...activity,fromSaved:true,name:actionNames[activity.action]||'AI 操作',status:activity.status==='AI_RESULT_RECEIVED'?'SUCCEEDED':activity.status};drawProgress();}
+  if(remoteBusy)progressPoll=setTimeout(async()=>{try{const body=await api('/api/sessions/'+state.id);const active=body.activity;if(active?.status!=='RUNNING'){operation={...active,name:actionNames[active?.action]||'AI 操作',status:active?.status==='AI_RESULT_RECEIVED'?'SUCCEEDED':active?.status||'FAILED'};drawProgress();}applyState(body.state,body.activity);}catch(error){notify('状态读取失败：'+error.message+'；未自动重试模型请求。',true);}},2000);
+  renderImages();renderResults();}
 async function saveInputs(){
   const data=new FormData();for(const key of ['listing','description','requirements'])data.append(key,$(key).value);
+  data.append('title',$('task-title').value);
   if(state){data.append('from_session',state.id);data.append('keep_images',JSON.stringify(kept.map(i=>i.id)));}
   for(const role of ['product','reference'])pending[role].forEach(item=>data.append(role,item.file,item.file.name));
   const body=await api('/api/sessions',{method:'POST',body:data});applyState(body.state);
@@ -68,7 +79,7 @@ async function saveInputs(){
 async function runAction(action,target=null,feedback=''){
   if(dirty)throw new Error('资料有修改，请先保存为新任务，再进行 AI 理解与规划。');
   if(!state)throw new Error('请先加载或保存商品资料。');
-  notify('AI 正在处理，请稍候。不会自动重试。');
+  operation.name=actionNames[action];drawProgress();notify(action==='confirm'?'正在保存确认计划。':'AI 正在处理，请稍候。不会自动重试；连接失败时服务端执行与费用需核对。');
   const body=await api(`/api/sessions/${state.id}/action`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,target,feedback,revision:state.revision})});
   const drafts=[...document.querySelectorAll('.feedback textarea')].map(input=>({id:input.id,value:input.value}));
   applyState(body.state);
@@ -81,6 +92,6 @@ $('input-form').onsubmit=event=>{event.preventDefault();work(async()=>{await sav
 $('understand').onclick=()=>work(async()=>{if(dirty||!state)await saveInputs();await runAction('understand');});
 $('replan').onclick=()=>work(()=>runAction('replan'));
 $('confirm').onclick=()=>work(()=>runAction('confirm'));
-for(const key of ['listing','description','requirements'])$(key).addEventListener('input',markDirty);
+for(const key of ['listing','description','requirements','task-title'])$(key).addEventListener('input',markDirty);
 for(const role of ['product','reference'])$(role+'-files').onchange=event=>{for(const file of event.target.files)pending[role].push({file,name:file.name,url:URL.createObjectURL(file),role});event.target.value='';renderImages();markDirty();};
-work(async()=>{const session=new URLSearchParams(location.search).get('session');const body=await api(session?'/api/sessions/'+encodeURIComponent(session):'/api/current');$('config-note').hidden=body.ai_configured;if(body.state)applyState(body.state);else renderResults();});
+work(async()=>{const session=document.body.dataset.sessionId;if(session){const body=await api('/api/sessions/'+encodeURIComponent(session));$('config-note').hidden=body.ai_configured;applyState(body.state,body.activity);}else renderResults();});

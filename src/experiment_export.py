@@ -226,13 +226,17 @@ def export_experiment(store, session_id):
             for target in children(session, str(revision.relative_to(session)), r"reference_[0-9]+"):
                 task = str(target.relative_to(session))
                 add(session, task + "/current.json", "generations/" + revision.name + "/" + target.name + "/current.json")
+                for event in children(session, task + '/reviews', r'[0-9a-f]{32}\.json'):
+                    add(session, str(event.relative_to(session)), 'generations/' + revision.name + '/' + target.name + '/reviews/' + event.name)
                 for run in children(session, task + "/runs", RUN_ID):
                     relative = str(run.relative_to(session))
                     destination = "generations/runs/" + run.name
-                    record, entry = gather_run(session, relative, destination, "T03", run.name, ("plan.json",))
+                    recorded = read_json(session, relative + '/run.json')
+                    record, entry = gather_run(session, relative, destination, "T04" if recorded.get('action') == 'revise_image' else "T03", run.name, ("plan.json",))
+                    entry.update(parent_run_id=record.get('parent_run_id'), version=record.get('version'), feedback=record.get('feedback'))
                     entry.update(confirmed_revision=record.get("confirmed_revision"), reference_id=record.get("reference_id"))
                     for image in record.get("inputs", []):
-                        if not re.fullmatch("inputs/" + IMAGE_NAME, image["file"]):
+                        if not re.fullmatch("inputs/(?:" + IMAGE_NAME + r"|current_image\.png)", image["file"]):
                             raise ExportError("导出已停止：生图输入路径不在白名单。")
                         exported = add(session, relative + "/" + image["file"], destination + "/" + image["file"], image["sha256"], run.name, True)
                         entry["inputs"].append({"slot": image["slot"], "id": image["id"], "sha256": image["sha256"], "file": exported})
