@@ -87,7 +87,7 @@ python3 -m venv .venv
 
 `LOCAL_CHECK_ONLY` 表示未调用模型。`API_IMAGE_SAVED_AWAITING_REVIEW` 仅表示实际图片已保存，不代表运营接受或业务价值通过；usage 缺失时记为 `null`，不编造费用。
 
-本地 Git 的 `main` 已有 T01、T02、T03 三个本地提交（T03：`ede6f6a`），**尚未恢复远程历史**；本轮不提交 T04 或推送。待连接恢复后，另行安全获取并同步远程历史。
+本地 Git 的 `main` 已有 T01～T04 本地提交（T03：`ede6f6a`；T04：`7a692f3`），**尚未恢复远程历史**；本轮获授权提交 T04 并部署，不推送。待连接恢复后，另行安全获取并同步远程历史。
 
 ## 5. 先不做
 
@@ -104,7 +104,7 @@ python3 -m venv .venv
 .venv/bin/python src/prepare_plan.py --port 8010
 ```
 
-浏览器打开 `http://127.0.0.1:8010`。页面仅绑定本机，关闭调试模式。默认规划模型为 `gpt-4.1-mini`；可用 `OPENAI_PLANNING_MODEL` 指定该模型或已核实的快照 `gpt-4.1-mini-2025-04-14`。官方说明确认它支持 [图片输入与 Responses API](https://developers.openai.com/api/docs/models/gpt-4.1-mini)，请求使用 [多图片 data URL 输入](https://developers.openai.com/api/docs/guides/images-vision) 与简单 JSON 输出，不引入独立 Agent 或复杂 Schema。
+浏览器打开 `http://127.0.0.1:8010`。页面仅绑定本机，关闭调试模式。2026-10-15 起默认规划模型为 `gpt-5.4-mini`，设置 `reasoning.effort=low`；通过 `OPENAI_PLANNING_MODEL` 可显式回退 `gpt-4.1-mini` 或 `gpt-4.1-mini-2025-04-14`，回退请求不携带 reasoning 参数，不自动切换或重试。模型允许列表集中在 `src/prepare_plan.py`。官方确认新模型支持 [图片输入与 Responses API](https://developers.openai.com/api/docs/models/gpt-5.4-mini)，仍使用原有多图片 data URL、`instructions`、JSON 对象输出、`store=false` 和 6000/2500 输出 token 上限，不改变输入或 T03/T04 图像模型。新模型实际质量、速度、账户权限和费用待人工验证；它不承诺比 4.1 mini 更便宜。
 
 **免费准备与本地检查**：
 
@@ -215,3 +215,107 @@ AI 操作立即显示操作名、正在执行状态及实际等待秒数；多�
 本轮浏览器验证使用独立合成资料和 MockTransport：创建任务、规划、生成/编辑、V1/V2 选择、Pass、刷新与任务切换、两种 ZIP 下载均已检查，最终包仍取指定已 Pass 的 V1，实验包哈希全部匹配。检查资料在 `.runtime/prepare-plan/local-checks/t04-ui-20261014T081319Z/`，不等同真实模型或商品质量验收。
 
 人工体验时可从任务中心打开现有 case-001，核对原有四张图片后选择一张，明确输入意见并主动点击「修改图片」。密钥只由服务端环境读取，程序不加载 `.env` 或 `.env.example`。本轮未付费调用；真实编辑账户访问、结果展示、商品/日文保持能力、连续修改稳定性及运营闭环接受等待人工验证，不自动批量或重试。
+
+## 10. Mac mini 内部试用 — 2026-10-14
+
+定位为 **INTERNAL PILOT / BUSINESS VALIDATION**。服务器 `andy_server@192.168.112.37`，首次部署版本为 T04 本地 Commit **`7a692f30d73b69b26cfbd74cb9e4d6aec456e25b`**，提交信息 `feat: implement T04 review revision and task management`；当前增量版本见下节。通过 `git archive` 传输已提交版本，28 个受版本控制文件逐文件 SHA-256 一致；代码归档不含 `.env`、`.env.example`、本地密钥、虚拟环境、原始业务资料或历史 ZIP。用户另行确认后，单独迁移 case-001 原始资料、任务 `7e0c5261dd6b40b9aa81f0750c626517`、T01 真实首图及证据、T02 实际计划与 T03 四张真实成图/失败记录，101 个文件在本地和服务器逐文件 hash 一致；没有迁移其他本地任务、Mock、LOCAL_CHECK_ONLY 或历史 ZIP，原件未改动。
+
+访问地址：**https://192.168.112.37:8444/**，**不设置登录账号或密码**。本轮改为网段配置：服务器 `/Users/andy_server/commerce-image-poc-pilot/config/settings.json` 的 `PILOT_ALLOWED_CIDRS` 默认允许 **`192.168.112.0/24`、`127.0.0.1/32`、`::1/128`**。所有页面、API、图片与下载使用同一访问控制层，以实际 `REMOTE_ADDR` 和标准库 `ipaddress` 判断，不信任 `X-Forwarded-For`。仅监听 LAN IP、IPv4/IPv6 回环的 8444，不监听公网或通配地址，拒绝其他 Host；未添加公网映射或修改其他服务。获准网段内设备可查看全部试用任务；Task ID 只隔离资料，不构成每人权限系统。
+
+更改允许来源只需编辑配置文件并重启，无需改 Python。可配置多个 CIDR（JSON 数组或逗号分隔字符串）；服务进程环境变量 `PILOT_ALLOWED_CIDRS` 优先于文件，例如 `192.168.112.0/24,127.0.0.1,::1`。环境覆盖应放在本服务 LaunchAgent 的环境配置，API Key 仍不能放入 plist。无效 CIDR、空列表、公网范围或 `0.0.0.0/0` / `::/0` 会拒绝启动。
+
+```json
+"PILOT_ALLOWED_CIDRS": ["192.168.112.0/24", "127.0.0.1/32", "::1/128"]
+```
+
+采用专用自签名 HTTPS 证书，需由管理员安全分发并在每台运营设备核对、信任。证书有效期至 2027-10-14；SHA-256 指纹：
+
+```text
+86:6C:F7:D5:5A:59:D0:75:E8:B9:9D:65:20:D5:6D:A7:7F:AF:DF:BC:7E:75:26:E8:39:9E:12:85:94:18:B8:44
+```
+
+公开证书位于服务器 `config/server.crt`（本地检查副本 `.runtime/deployment/pilot-20261014/server.crt`），不要分发 `server.key`。用户已手动处理浏览器证书警告，Codex 随后验证了无登录的任务中心、真实成图、新建/恢复及合成任务审核下载。Edge 地址栏仍显示 `Not Secure`，不声称已建立系统信任链；运营设备仍应按指纹核对并安装信任证书。Codex 没有代为绕过证书警告。
+
+独立目录如下，根目录及数据/配置目录为用户私有，密钥文件为 `0600`：
+
+```text
+/Users/andy_server/commerce-image-poc-pilot/
+├── releases/7a692f30d73b69b26cfbd74cb9e4d6aec456e25b/  # 已提交的应用源码
+├── venv/                         # Python 3.12.13；OpenAI 2.54.0；Flask 3.1.3
+├── config/                       # 部署入口、设备 IP 白名单、TLS 与密钥录入工具
+├── data/.runtime/prepare-plan/   # 原有 sessions 机制，全部运营任务/历史/Evidence
+├── data/.runtime/inputs/         # 已迁移的 case-001 原始资料
+├── backups/                      # 独立时间戳备份及校验清单
+└── logs/                         # 仅本服务日志，不记录认证请求头
+```
+
+WSGI 使用 [Gunicorn](https://gunicorn.org/reference/settings/) 26.2.0，1 个 `gthread` worker、4 个线程、TLS 1.2 及以上；单进程保持现有锁有效，独占数据文件锁阻止第二个服务进程。TLS 客户端连接 IO 设置 10 秒超时，模型调用仍使用原有 120/180 秒超时，不改变费用与重试规则。外部部署入口复用 `create_app(runtime_dir, case_dir)`，不修改 T01～T04 业务源码或数据结构。所有 POST 使用单个非阻塞写锁，忙时返回明确提示，不排队、不自动重试；GET 可继续读取。生图请求必须带当前卡片修订号与操作 ID。代码更新应解包到新的 `releases/<SHA>/`，只调整 launchd 的源码路径，不覆盖 `data/`、`config/` 或 `backups/`。
+
+macOS 用户 LaunchAgent：`~/Library/LaunchAgents/com.song36.commerce-image-pilot.plist`，Label `com.song36.commerce-image-pilot`，运行于 `gui/501`。该方式需要 `andy_server` 登录会话；本轮验证服务进程重启，未验证整机重启或注销后的可用性。以下命令在服务器 SSH 终端执行，先确认没有 AI 请求正在执行：
+
+```bash
+# 停止
+launchctl bootout gui/501 ~/Library/LaunchAgents/com.song36.commerce-image-pilot.plist
+# 启动（仅在已停止时）
+launchctl bootstrap gui/501 ~/Library/LaunchAgents/com.song36.commerce-image-pilot.plist
+# 重启已运行的服务
+launchctl kickstart -k gui/501/com.song36.commerce-image-pilot
+# 查看状态
+launchctl print gui/501/com.song36.commerce-image-pilot
+```
+
+服务器启动时从用户私有文件 `/Users/andy_server/commerce-image-poc-pilot/config/openai_api_key` 注入 `OPENAI_API_KEY`，launchd plist 不含密钥。配置目录必须为用户自有 `0700`，密钥必须为用户自有普通文件 `0600`；不读取 `.env.example`。**2026-10-14 检查为未配置；2026-10-15 检查文件权限为 `0600`，重启后的服务返回 `ai_configured=true`。本轮未显示或传输密钥内容；免费模型元数据查询成功，但未执行推理，不能据此确认推理权限或旧密钥已轮换。** 未配置时，AI 操作返回明确 503，模型和运行证据写入之前停止，免费资料操作仍可用。
+
+管理员在自己的终端执行下列命令：只接受交互终端，隐藏输入失败时拒绝录入；以 `0600` 临时文件原子保存，不输出密钥，不进入 Shell 历史、前端或证据。录入后确认无 AI 操作，再重启服务使其加载配置。不要向聊天发送密钥；本轮曾出现对话内密钥，已提醒撤销轮换，未保存或使用。
+
+```bash
+ssh -t -o ClearAllForwardings=yes andy_server@192.168.112.37 '/Users/andy_server/commerce-image-poc-pilot/venv/bin/python /Users/andy_server/commerce-image-poc-pilot/config/configure_secret.py openai'
+```
+
+服务器现有 `127.0.0.1:7897` 代理能连接 OpenAI，未带密钥请求返回 401、TLS 校验正常；直连失败。仅在本试用进程配置代理，未修改 Clash、Jellyfin、Nextcloud、FileBrowser 或其他服务。代理可用性是后续真实调用的依赖，账户/模型访问仍须人工验证。
+
+**备份**：在服务器执行以下命令。工具先检查未完成 AI Run，存在 RUNNING/PREPARING 时拒绝暂停，须先核对状态与 Evidence；随后仅停止本试用服务、等待独占数据锁、打包 `data/`，校验包内每个文件 SHA-256，再启动本服务。每次独立时间戳，不覆盖历史，不包含代码、配置密钥或日志。需要恢复时先停止本服务，将备份解到独立恢复目录并按清单核对，再人工切换数据目录；不直接覆盖现有任务。
+
+```bash
+/Users/andy_server/commerce-image-poc-pilot/venv/bin/python /Users/andy_server/commerce-image-poc-pilot/config/backup.py
+```
+
+首份验证备份 `backups/20261014T091328Z-94c8a05b.tar.gz` 保留。最新备份 **`backups/20261014T094115Z-8bd1dc9c.tar.gz`**，包含 case-001 与独立合成检查任务共 163 个文件，逐文件 hash 一致；归档 SHA-256 `b5996ecf6a282b1dd1eb8fe1e528294db083dbe28601c9639053cb6a48f08ea8`。持有空闲 TLS 连接时，暂停/备份/重启在 8.353 秒内完成。这是同机本地备份，尚无异机副本或自动定时备份。
+
+**本轮免费验收**：本地与服务器各 45 项测试通过，依赖检查通过；launchd 启动、HTTPS、无登录/IP 白名单与 Host 限制、HTTP 创建/上传/读取、合成计划/图片恢复、V1/V2 选择、Pass、最终包仅含通过的 V1、实验包全部文件 hash、任务隔离、备份及服务重启恢复通过。用户处理证书警告后，浏览器验证真实 case-001 四张成图、合成新建上传/保存/刷新、版本选择/Pass 和两种下载；下载实验包 42 个文件 hash 一致。服务器保留三个明确命名的合成检查任务，SDK MockTransport 记录标记 `OFFLINE_MOCK_NO_PAID_CALL`，不作为真实实验；真实图片未由 Codex 标记 Pass。检查记录为服务器 `config/deployment-checks.json`，本地 `.runtime/deployment/pilot-20261014/browser-checks.json`，以及同目录迁移/部署清单。
+
+**本轮配置免费检查**：原有 45 项回归、7 项配置检查通过（配置检查同时在本地和服务器执行），覆盖多个 CIDR/环境覆盖、同网段允许、公网及伪造转发头拒绝、密钥权限、隐藏输入约束和临时 Canary 的日志/前端/ZIP 隔离。确认无 AI Run 后仅重启一次；LAN、IPv4/IPv6 回环 TLS 连接返回 200。回环测试保留 LAN IP 作为证书校验名称（使用 `curl --connect-to`），证书未新增 localhost SAN。case-001 四张成图可读取，实验包 77 文件 hash 一致；全部 163 个业务数据文件和 28 个已提交源码文件 hash 未变。其他 LAN 设备来源通过访问控制逻辑测试，实际其他设备联测留给运营。服务器记录 `config/access-adjustment-checks.json`，本地副本位于 `.runtime/deployment/pilot-20261014/`；未执行付费调用。
+
+**运营开始方式**：管理员先配置新的服务器密钥并分发证书；可信 LAN `192.168.112.0/24` 内设备打开任务中心，按指纹信任证书，无需登录。可直接继续已迁移的 case-001，或创建自己的任务、上传商品/参考图及保存文本。新任务由运营主动点击 AI 理解与规划、检查并确认计划，再逐张生成。选择一张真实成图，填写如「保留布局，背景改浅粉色，商品和日文尽量不变」，明确点击「修改图片」；检查新版本、原图保留、其他图不变，再 Pass 指定版本并导出。每次 AI 点击产生费用，本轮 Codex 未执行这些操作。
+
+真实规划、生成、编辑、编辑后版本保存与人工 Pass，以及商品/文字保持、连续编辑稳定性和实际费用，仍待人工验收。连接中断期间原请求可能继续执行：同一处理中请求、同操作 ID 重放和过期卡片会被拒绝或返回原记录；失败后人工建立新请求仍可能重复远端执行/计费，不能承诺超时即免费。先查看当前状态与 Evidence，再决定是否人工重试。
+
+## 11. 规划模型升级与安全增量部署 — 2026-10-15
+
+已提交并部署 `a2e1123d1d80a3f15194872365340bdaee9b6349`（`chore: update planning model configuration`）。服务器新 release 位于 `releases/a2e1123d1d80a3f15194872365340bdaee9b6349/`；只经 SSH 传输 `src/prepare_plan.py`、`tests/test_prepare_plan.py`，其余原 release 文件在服务器本地复制，旧目录不改动。部署脚本仅在 MacBook 使用。`gpt-5-mini` 已被官方标为 Deprecated，因此没有选为新默认；[官方弃用记录](https://developers.openai.com/api/docs/deprecations)列出其快照关闭计划。选用仍受支持的 `gpt-5.4-mini`，官方标准文本价格为每百万输入/输出 token $0.75/$4.50，低于 `gpt-5.6-terra` 的 $2/$12；这只是配置取舍，非业务质量或总成本实测。
+
+规划模型显式保存在服务器 `~/Library/LaunchAgents/com.song36.commerce-image-pilot.plist` 的 `EnvironmentVariables.OPENAI_PLANNING_MODEL`，当前值 `gpt-5.4-mini`，重启后 worker 启动环境已核对。密钥仍由原 `config/pilot_wsgi.py` 从原私有文件加载；未修改 `config/`、WSGI、Gunicorn、CIDR 或 HTTPS 8444。数据继续保存在 `data/.runtime/`。
+
+在 MacBook 项目根目录执行，默认仅只读预检；**确认运营空闲后**才加 `--apply`：
+
+```bash
+.venv/bin/python scripts/deploy_pilot.py --planning-model gpt-5.4-mini \
+  --file src/prepare_plan.py --file tests/test_prepare_plan.py
+# 将来发布新的已提交版本时，重复指定本次实际需要同步的文件，再执行：
+.venv/bin/python scripts/deploy_pilot.py --planning-model gpt-5.4-mini \
+  --file src/prepare_plan.py --file tests/test_prepare_plan.py --apply
+```
+
+脚本只读取指定 Git Commit 的普通文件，限定源码/测试/README/依赖路径，拒绝未提交的选中文件及隐藏路径，不复制 env、`config/` 密钥文件、runtime 或虚拟环境；提交前仍须检查源码中未误写密钥。它不执行 Push 或 rsync 删除。先核对服务器所有清单文件，无独立修改且未遗漏必要变更才继续；在 `backups/deploy-<时间戳>/` 保存并逐文件核验代码备份、保存原 LaunchAgent，再建立新的 release 并运行免费测试。重复发布到已存在的 release 会停止，不覆盖旧目录。检查无 RUNNING/PREPARING Run 后，仅通过原 LaunchAgent 优雅停止本服务、等待数据锁、持久化非密钥模型配置并启动；启动失败会恢复原 LaunchAgent。前后核对数据与 `config/` 的文件字节；不恢复或覆盖运营数据。成功后写入新 release 的 `.pilot-source.json` 与备份目录的 `result.json`。没有后台部署平台或模型调用。
+
+本轮代码/LaunchAgent 备份：`backups/deploy-20261015T030737Z-4844112e/`。本地和服务器各 47 项离线测试通过；依赖检查通过。HTTPS 任务中心 6 个任务可读取，case-001 的 7 张输入图及 4 张历史成图 SHA-256 匹配，实验包 77 个文件 SHA-256 匹配；全部 217 个运行数据文件、服务器配置及 T01/T03/T04 图像源码未改动。服务器另执行一次免费的 `GET /v1/models/gpt-5.4-mini`，HTTP 200 返回同名模型，确认账户模型可见性；未调用 Responses/Images 或发送业务资料，不代表推理权限/额度已验收。检查记录为备份目录的 `result.json`、`http-checks.json`、`model-metadata-check.json`；MacBook 副本在 `.runtime/deployment/planning-upgrade-20261015/`。本轮未付费调用。
+
+**人工验证新模型**：打开 https://192.168.112.37:8444/ ，创建新任务并加载 case-001 为独立副本，或上传新资料；检查后主动点击一次「AI 理解与规划」。不要在旧确认任务上为测试而重做全部计划。成功后核对该任务 `calls/<call-id>/request.json` 的 `model`、`reasoning`，以及 `run.json` 的 `model`、`returned_model`、`request_id`、`usage`、状态与 `applied.json`；服务返回的真实模型 ID 也在 `response.json`。这才是新模型真实调用证据，不能用本轮 Mock 测试替代。失败时先核对原请求，不自动或连续付费重试。
+
+**只回退模型、不传源码**：在 MacBook 执行以下命令，先去掉 `--apply` 预检，再确认无 AI 请求后执行。它持久修改同一个 LaunchAgent 并重启，不改计划、成图或 Evidence；无自动付费回退。
+
+```bash
+.venv/bin/python scripts/deploy_pilot.py --planning-model gpt-4.1-mini --apply
+```
+
+若要回退整份代码，先确认运营空闲，使用上述备份的 `launchagent.plist` 恢复原源码入口再启动；原 T04 release 一直保留，禁止恢复数据备份覆盖当前任务。本轮 README/CURRENT_STATE 的使用记录与原有文档修改保留在工作区，未混入上述源码提交；未 Push 或处理远程历史。
