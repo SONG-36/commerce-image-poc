@@ -92,7 +92,7 @@ class PreparePlanTests(unittest.TestCase):
             if handler:
                 return handler(body, result)
             return httpx.Response(200, json={"id": "resp_offline_test", "object": "response", "created_at": 1,
-                "model": "gpt-4.1-mini", "status": "completed", "output": [{"type": "message", "id": "msg_test", "role": "assistant", "status": "completed", "content": [{"type": "output_text", "text": json.dumps(result), "annotations": []}]}],
+                "model": body["model"], "status": "completed", "output": [{"type": "message", "id": "msg_test", "role": "assistant", "status": "completed", "content": [{"type": "output_text", "text": json.dumps(result), "annotations": []}]}],
                 "usage": {"input_tokens": 10, "output_tokens": 20, "total_tokens": 30}}, headers={"x-request-id": "req_offline_test"})
         return OfficialClient(api_key=os.environ["OPENAI_API_KEY"], max_retries=0, http_client=httpx.Client(transport=httpx.MockTransport(respond)))
 
@@ -144,6 +144,51 @@ class PreparePlanTests(unittest.TestCase):
         self.assertEqual(web.read_json(evidence / "request.json"), request)
         self.assertEqual(web.read_json(evidence / "run.json")["request_id"], "req_offline_test")
         self.assertEqual(len(web.read_json(evidence / "image_order.json")), 5)
+
+    def test_planning_default_and_fallbacks_preserve_inputs_and_record_parameters(self):
+        baseline = None
+        for configured in [None, *web.MODELS]:
+            with self.subTest(configured=configured), patch.dict(os.environ):
+                if configured is None:
+                    os.environ.pop("OPENAI_PLANNING_MODEL", None)
+                else:
+                    os.environ["OPENAI_PLANNING_MODEL"] = configured
+                state = self.initial()
+                request = self.requests[-1]
+                expected = configured or web.MODELS[0]
+                self.assertEqual(request["model"], expected)
+                if expected == web.MODELS[0]:
+                    self.assertEqual(request["reasoning"], {"effort": "low"})
+                else:
+                    self.assertNotIn("reasoning", request)
+                self.assertNotIn("temperature", request)
+                self.assertNotIn("top_p", request)
+                self.assertEqual(request["max_output_tokens"], 6000)
+                self.assertEqual(request["text"], {"format": {"type": "json_object"}})
+                if baseline is None:
+                    baseline = request["input"]
+                self.assertEqual(request["input"], baseline)
+                evidence = next((self.runtime / "sessions" / state["id"] / "calls").iterdir())
+                run = web.read_json(evidence / "run.json")
+                self.assertEqual(run["model"], expected)
+                self.assertEqual(run["returned_model"], expected)
+                self.assertEqual(web.read_json(evidence / "request.json"), request)
+                target = web.reference_ids(state)[0]
+                with self.with_ai():
+                    response = self.action(state, "plan", target, "仅修改背景配色")
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(self.requests[-1]["max_output_tokens"], 2500)
+                self.assertEqual(len([part for part in self.requests[-1]["input"][0]["content"] if part["type"] == "input_image"]), 3)
+
+    def test_unknown_planning_model_is_rejected_before_api(self):
+        state = self.load_case()
+        with patch.dict(os.environ, {"OPENAI_PLANNING_MODEL": "not-a-supported-model"}):
+            response = self.action(state, "understand")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.requests, [])
+        run = next((self.runtime / "sessions" / state["id"]).glob("calls/*/run.json"))
+        self.assertFalse(web.read_json(run)["api_call_attempted"])
+        self.assertEqual(self.client.get("/api/current").json["state"], state)
 
     def test_corrections_targeted_plan_history_confirmation_and_restart(self):
         state = self.initial()

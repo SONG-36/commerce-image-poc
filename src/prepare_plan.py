@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PRODUCT_FIELDS = ("identity", "claims", "appearance", "uncertainties")
 REFERENCE_FIELDS = ("style", "composition", "layout", "expression", "applicable", "risks")
 PLAN_FIELDS = ("goal", "selling_points", "design", "scene_style", "risks")
-MODELS = ("gpt-4.1-mini", "gpt-4.1-mini-2025-04-14")
+MODELS = ("gpt-5.4-mini", "gpt-4.1-mini", "gpt-4.1-mini-2025-04-14")
 
 
 def now():
@@ -256,6 +256,9 @@ def call_ai(store, state, action, target, feedback):
                      "input": [{"role": "user", "content": content}],
                      "text": {"format": {"type": "json_object"}}, "store": False,
                      "max_output_tokens": 6000 if action in ["understand", "replan"] else 2500}
+        # Bound reasoning cost/latency for the new default; 4.1 does not accept this parameter.
+        if model == MODELS[0]:
+            arguments["reasoning"] = {"effort": "low"}
         write_json(evidence / "request.json", arguments, exclusive=True)
         write_json(evidence / "image_order.json", image_order, exclusive=True)
         # Include every text part, including per-image labels, in sent order.
