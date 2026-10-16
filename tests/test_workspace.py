@@ -60,9 +60,11 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.json)
         changed = response.json['state']
         view = self.view().json
-        self.assertFalse(view['generation_allowed'])
+        self.assertTrue(view['generation_allowed'])  # Other confirmed cards remain usable.
         self.assertTrue(view['historical_generation'])
-        self.assertEqual(view['generation']['confirmed_revision'], self.state['revision'])
+        self.assertEqual(view['generation']['cards'][0]['confirmed_revision'], self.state['revision'])
+        self.assertFalse(view['generation']['cards'][0]['generation_allowed'])
+        self.assertTrue(view['generation']['cards'][1]['generation_allowed'])
         self.assertEqual(view['state']['plans'][target]['design'], '本张采用浅粉色背景，保留商品外观')
         self.assertEqual(view['generation']['cards'][0]['image_url'], old['image_url'])
         self.assertEqual(self.client.get(old['image_url']).data, image_bytes)
@@ -70,7 +72,7 @@ class WorkspaceTests(unittest.TestCase):
             result = self.client.post(f"/api/sessions/{changed['id']}/{endpoint}/{target}",
                                       headers=fixtures.HEADERS, json={'confirmed_revision': changed['revision']})
             self.assertEqual(result.status_code, 409)
-        confirmed = self.action(changed, 'confirm').json['state']
+        confirmed = self.action(changed, 'confirm', target).json['state']
         view = self.view().json
         self.assertTrue(view['generation_allowed'])
         self.assertFalse(view['historical_generation'])

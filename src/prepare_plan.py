@@ -77,6 +77,30 @@ def stale_ids(state):
     return [ref_id for ref_id in reference_ids(state) if ref_id in state["plans"] and state["plan_context"].get(ref_id) != context_version(state, ref_id)]
 
 
+def plan_status(state, target):
+    plan = state['plans'].get(target)
+    version = state.get('plan_versions', {}).get(target, 1 if plan else 0)
+    entry = state.get('plan_confirmations', {}).get(target)
+    legacy = bool(not state.get('plan_confirmations') and state.get('confirmed') and plan and target not in stale_ids(state))
+    digest = sha256(json.dumps(plan, ensure_ascii=False, sort_keys=True).encode())
+    if legacy:
+        entry = {'plan_version': version, 'revision': state['revision'], 'plan_sha256': digest,
+                 'context': context_version(state, target), 'confirmed_at': state.get('updated_at', state['created_at']),
+                 'source': 'LEGACY_GLOBAL_CONFIRMED'}
+    current = bool(entry and plan and target not in stale_ids(state)
+                   and entry['plan_version'] == version and entry['plan_sha256'] == digest
+                   and entry['context'] == context_version(state, target)
+                   and isinstance(entry['revision'], int) and 1 <= entry['revision'] <= state['revision'])
+    return {'plan_version': version, 'confirmed': current, 'confirmation': entry, 'legacy': legacy}
+
+
+def materialize_confirmations(state):
+    """Only on an explicit write: retain legacy confirmations before changing a plan."""
+    statuses = {target: plan_status(state, target) for target in reference_ids(state)}
+    state['plan_versions'] = {target: item['plan_version'] for target, item in statuses.items()}
+    state['plan_confirmations'] = {target: copy.deepcopy(item['confirmation']) for target, item in statuses.items() if item['confirmation']}
+
+
 class Store:
     def __init__(self, root, case_dir=None):
         self.root = Path(root)
@@ -111,12 +135,81 @@ class Store:
 
     def save(self, state, event):
         state["revision"] += 1
+        if state.get('plan_confirmations'):
+            state['confirmed'] = all(plan_status(state, target)['confirmed'] for target in reference_ids(state))
         state["updated_at"] = now()
         state["events"].append({"at": now(), "revision": state["revision"], **event})
         folder = self.folder(state["id"])
         (folder / "versions").mkdir(exist_ok=True)
         write_json(folder / "versions" / f"{state['revision']:06}.json", state, exclusive=True)
         write_json(folder / "state.json", state)
+
+    def version(self, state, revision):
+        if not isinstance(revision, int) or not 1 <= revision <= state['revision']:
+            raise Problem('图片确认版本无效。', 409)
+        path = safe_path(self.folder(state['id']), f'versions/{revision:06}.json')
+        if not path.is_file():
+            raise Problem('本任务的确认版本记录不存在。', 409)
+        saved = read_json(path)
+        if saved.get('id') != state['id'] or saved.get('revision') != revision:
+            raise Problem('历史计划记录与本任务不一致，已停止读取。', 409)
+        return saved
+
+    def image_state(self, state, target, required=True):
+        if state.get('mode') == 'quick_redesign':
+            return state
+        status = plan_status(state, target)
+        if required and not status['confirmed']:
+            raise Problem('请先确认本图当前版本的计划；本次未调用模型。', 409)
+        entry = status['confirmation']
+        if not entry:
+            return state
+        saved = self.version(state, entry['revision'])
+        if target not in reference_ids(saved) or saved['plans'].get(target) is None:
+            raise Problem('本图确认快照不完整。', 409)
+        if sha256(json.dumps(saved['plans'][target], ensure_ascii=False, sort_keys=True).encode()) != entry['plan_sha256']:
+            raise Problem('本图确认快照与计划不一致。', 409)
+        if context_version(saved, target) != entry['context']:
+            raise Problem('本图确认快照与理解版本不一致。', 409)
+        return saved
+
+    def image_history(self, state, target):
+        """Read immutable, task-scoped plan buckets without migrating existing runs."""
+        directory = safe_path(self.folder(state['id']), 'generations')
+        for folder in sorted(directory.iterdir(), reverse=True) if directory.is_dir() else []:
+            if not re.fullmatch(r'[0-9]{6}', folder.name) or not (folder / target).is_dir():
+                continue
+            saved = self.version(state, int(folder.name))
+            if target in reference_ids(saved) or saved.get('mode') == 'quick_redesign' and target in [i['id'] for i in saved['images'] if i['role'] == 'product']:
+                yield saved
+
+    def card_view(self, generation, state, target):
+        quick = state.get('mode') == 'quick_redesign'
+        status = None if quick else plan_status(state, target)
+        current = self.image_state(state, target, required=False)
+        card = generation.card(current, target)
+        history = [generation.card(saved, target) for saved in self.image_history(state, target)]
+        older = next((old for old in history if old['versions'] and old['confirmed_revision'] != current['revision']), None)
+        allowed = quick or status['confirmed']
+        historical = False
+        if not allowed and older and not card['versions']:
+            card = copy.deepcopy(older)
+            historical = True
+        elif not allowed and card['versions']:
+            historical = True
+        elif older and not card['versions']:
+            card['previous_result'] = {'revision': older['confirmed_revision'], 'image_url': older['image_url']}
+        has_history = bool(card['versions'] or any(old['versions'] for old in history))
+        passed = next((old for old in history if old['passed_run']), None)
+        attempted = any(old['run_id'] for old in history)
+        card.update(generation_allowed=allowed, historical_generation=historical,
+                    generation_revision=current['revision'], plan_status=status,
+                    has_generated_history=has_history, has_passed_history=bool(passed),
+                    request_uncertain=card['request_uncertain'] or any(old['request_uncertain'] for old in history))
+        if passed:
+            card['accepted_result'] = {'revision': passed['confirmed_revision'], 'run_id': passed['passed_run']}
+        card['batch_eligible'] = bool(allowed and not has_history and not passed and not attempted and card['status'] == 'NOT_STARTED')
+        return card
 
     def create(self, text, uploads, title, case_id=None, mode="product_pack", output_size="1024x1536"):
         if mode not in ("product_pack", "quick_redesign"):
@@ -372,6 +465,7 @@ def create_app(runtime_dir=None, case_dir=None):
         result = copy.deepcopy(state)
         result["mode"] = state.get("mode", "product_pack")
         result["stale_plans"] = stale_ids(state)
+        result['plan_status'] = {target: plan_status(state, target) for target in reference_ids(state)}
         for image in result["images"]:
             image["url"] = f"/api/sessions/{state['id']}/images/{image['id']}"
         return result
@@ -404,9 +498,9 @@ def create_app(runtime_dir=None, case_dir=None):
                 continue
             state = store.load(folder.name)
             quick = state.get('mode') == 'quick_redesign'
-            cards = [generation.card(state, target) for target in generation.targets(state)] if quick or state.get('confirmed') and not stale_ids(state) else []
-            generated = sum(bool(card['versions']) for card in cards)
-            passed = sum(bool(card['passed_run']) for card in cards)
+            cards = [store.card_view(generation, state, target) for target in generation.targets(state)]
+            generated = sum(card['has_generated_history'] for card in cards)
+            passed = sum(card['has_passed_history'] for card in cards)
             total = len(generation.targets(state))
             if state['id'] in store.planning:
                 status = 'AI 理解或规划正在执行'
@@ -416,8 +510,8 @@ def create_app(runtime_dir=None, case_dir=None):
                 status = '新版本待审核，已有通过版本' if any(c['selected_run'] != c['passed_run'] for c in cards) else '全部图片已 Pass'
             elif generated:
                 status = '图片待审核'
-            elif cards:
-                status = '资料已保存，待重设计' if quick else '计划已确认，待生图'
+            elif quick or any(card['generation_allowed'] for card in cards):
+                status = '资料已保存，待重设计' if quick else '部分或全部计划已确认，待生图'
             elif state.get('product'):
                 status = '计划待确认'
             else:
@@ -428,15 +522,25 @@ def create_app(runtime_dir=None, case_dir=None):
         tasks.sort(key=lambda task: task['created_at'], reverse=True)
         return jsonify(tasks=tasks)
 
-    def confirmed_state(session_id):
+    def confirmed_state(session_id, target=None):
         state = store.load(session_id)
+        if target is not None and target not in generation.targets(state):
+            raise Problem('指定图片计划不存在。', 404)
         if state.get("mode") == "quick_redesign":
             if not generation.targets(state) or state.get("output_size") not in SIZES:
                 raise Problem("重设计任务的原图或输出比例无效。", 409)
             return state
-        if not state.get("confirmed") or set(state["plans"]) != set(reference_ids(state)) or stale_ids(state):
-            raise Problem("请先在第一页确认采用最新理解的整套计划，再进入图片生成。", 409)
+        if target is not None:
+            if target not in generation.targets(state):
+                raise Problem('指定图片计划不存在。', 404)
+            return store.image_state(state, target)
         return state
+
+    def generation_view(state):
+        return {'session_id': state['id'], 'title': state['title'], 'mode': state.get('mode', 'product_pack'),
+                'confirmed_revision': state['revision'], 'auxiliary_purposes': image_review.AUXILIARY_PURPOSES,
+                'auxiliary_max_bytes': image_review.MAX_AUXILIARY_BYTES,
+                'cards': [store.card_view(generation, state, target) for target in generation.targets(state)]}
 
     @app.get("/generate/<session_id>")
     def generate_page(session_id):
@@ -447,43 +551,10 @@ def create_app(runtime_dir=None, case_dir=None):
     def workspace_state(session_id):
         """Read current planning plus scoped image history; never mutate or call AI."""
         state = store.load(session_id)
-        quick = state.get('mode') == 'quick_redesign'
-        ready = quick or bool(state.get('confirmed') and set(state['plans']) == set(reference_ids(state)) and not stale_ids(state))
-        cards = [generation.card(state, target) for target in generation.targets(state)]
-        previous = None
-        if not quick and (not ready or any(not card['versions'] for card in cards)):
-            history = safe_path(store.folder(session_id), 'generations')
-            for directory in sorted(history.iterdir(), reverse=True) if history.is_dir() else []:
-                if not re.fullmatch(r'[0-9]{6}', directory.name) or int(directory.name) >= state['revision']:
-                    continue
-                path = safe_path(store.folder(session_id), f'versions/{directory.name}.json')
-                if not path.is_file():
-                    continue
-                saved = read_json(path)
-                if saved.get('id') != session_id or saved.get('revision') != int(directory.name):
-                    raise Problem('历史计划记录与本任务不一致，已停止读取。', 409)
-                if not saved.get('confirmed') or stale_ids(saved):
-                    continue
-                old_cards = [generation.card(saved, target) for target in generation.targets(saved)]
-                if any(card['versions'] for card in old_cards):
-                    previous = {'revision': saved['revision'], 'cards': old_cards}
-                    break
-        historical = bool(not ready and previous)
-        if historical:
-            old_by_id = {card['id']: card for card in previous['cards']}
-            cards = [old_by_id.get(card['id'], card) for card in cards]
-        elif previous:
-            old_by_id = {card['id']: card for card in previous['cards']}
-            for card in cards:
-                old = old_by_id.get(card['id'])
-                if not card['versions'] and old and old['image_url']:
-                    card['previous_result'] = {'revision': previous['revision'], 'image_url': old['image_url']}
+        view = generation_view(state)
         return jsonify(state=public(state), activity=activity(state), ai_configured=bool(os.environ.get('OPENAI_API_KEY', '')),
-                       generation_allowed=ready, historical_generation=historical,
-                       generation={'session_id': session_id, 'title': state['title'], 'mode': state.get('mode', 'product_pack'),
-                                   'confirmed_revision': previous['revision'] if historical else state['revision'],
-                                   'auxiliary_purposes': image_review.AUXILIARY_PURPOSES,
-                                   'auxiliary_max_bytes': image_review.MAX_AUXILIARY_BYTES, 'cards': cards})
+                       generation_allowed=any(card['generation_allowed'] for card in view['cards']),
+                       historical_generation=any(card['historical_generation'] for card in view['cards']), generation=view)
 
     @app.post("/api/sessions/<session_id>/export-experiment")
     def export_case(session_id):
@@ -505,14 +576,11 @@ def create_app(runtime_dir=None, case_dir=None):
     @app.get("/api/sessions/<session_id>/generation")
     def generation_state(session_id):
         state = confirmed_state(session_id)
-        return jsonify(session_id=session_id, title=state["title"], confirmed_revision=state["revision"],
-                       mode=state.get("mode", "product_pack"),
-                       auxiliary_purposes=image_review.AUXILIARY_PURPOSES, auxiliary_max_bytes=image_review.MAX_AUXILIARY_BYTES,
-                       cards=[generation.card(state, target) for target in generation.targets(state)])
+        return jsonify(generation_view(state))
 
     @app.post('/api/sessions/<session_id>/review/<target>')
     def review_one(session_id, target):
-        state = confirmed_state(session_id)
+        state = confirmed_state(session_id, target)
         body = request.get_json()
         if target not in generation.targets(state) or not isinstance(body, dict) or body.get('confirmed_revision') != state['revision']:
             raise Problem('任务、图片或确认计划已改变，请刷新。', 409)
@@ -524,7 +592,9 @@ def create_app(runtime_dir=None, case_dir=None):
 
     @app.post('/api/sessions/<session_id>/revise/<target>')
     def revise_one(session_id, target):
-        state = confirmed_state(session_id)
+        state = confirmed_state(session_id, target)
+        if store.card_view(generation, store.load(session_id), target)['request_uncertain']:
+            raise Problem('本图存在运行中或结果不确定的请求，请先人工核对；未重新调用模型。', 409)
         multipart = request.mimetype == 'multipart/form-data'
         body = request.form.to_dict() if multipart else request.get_json()
         if multipart:
@@ -581,7 +651,10 @@ def create_app(runtime_dir=None, case_dir=None):
 
     @app.post("/api/sessions/<session_id>/generate/<target>")
     def generate_one(session_id, target):
-        state = confirmed_state(session_id)
+        latest = store.load(session_id)
+        state = confirmed_state(session_id, target)
+        if store.card_view(generation, latest, target)['request_uncertain']:
+            raise Problem('本图存在运行中或结果不确定的请求，请先人工核对；未重新调用模型。', 409)
         body = request.get_json()
         if not isinstance(body, dict) or body.get("confirmed_revision") != state["revision"]:
             raise Problem("确认计划的版本已改变，请刷新页面；本次没有调用模型。", 409)
@@ -589,11 +662,28 @@ def create_app(runtime_dir=None, case_dir=None):
             raise Problem("指定图片计划不存在。", 404)
         if state.get("mode") == "quick_redesign" and (not isinstance(body.get("card_revision"), int) or not body.get("operation_id")):
             raise Problem("请刷新图片状态后再提交；本次未调用模型。", 409)
+        if body.get('batch_only'):
+            if not body.get('operation_id') or not isinstance(body.get('card_revision'), int) or not store.card_view(generation, latest, target)['batch_eligible']:
+                raise Problem('本图不再符合批量条件，已生成、已尝试、已 Pass 或状态待确认；未调用模型。', 409)
         try:
             record = generation.generate(state, target, expected_revision=body.get('card_revision'), operation_id=body.get('operation_id'))
         except ValueError as error:
             raise Problem(str(error), 409) from error
         return generation_result(record)
+
+    @app.get('/api/sessions/<session_id>/operations/<target>/<operation_id>')
+    def operation_status(session_id, target, operation_id):
+        state = store.load(session_id)
+        if target not in generation.targets(state):
+            raise Problem('图片不属于当前任务。', 404)
+        try:
+            revision = int(request.args.get('confirmed_revision', ''))
+            snapshot = store.version(state, revision)
+            if target not in generation.targets(snapshot):
+                raise Problem('图片不属于请求版本。', 404)
+            return jsonify(generation.operation(snapshot, target, operation_id))
+        except ValueError as error:
+            raise Problem(str(error), 400) from error
 
     @app.get("/api/sessions/<session_id>/generated-images/<int:revision>/<target>/<run_id>")
     def generated_image(session_id, revision, target, run_id):
@@ -678,6 +768,9 @@ def create_app(runtime_dir=None, case_dir=None):
         if not store.lock.acquire(blocking=False):
             raise Problem("有操作正在处理，请稍候；本次没有重复调用模型。", 409)
         try:
+            with generation.guard:
+                if any(key[0] == session_id for key in generation.active):
+                    raise Problem('本任务有图片正在处理，请完成后再改动或确认计划。', 409)
             state = store.load(session_id)
             if state.get("mode") == "quick_redesign":
                 raise Problem("快速重设计不执行商品理解或规划；请进入图片生成。", 409)
@@ -697,13 +790,25 @@ def create_app(runtime_dir=None, case_dir=None):
             if kind == "understand" and state["product"] is not None:
                 raise Problem("已有理解与计划，请使用修正或重新规划按钮，避免覆盖修改。")
             if kind == "confirm":
-                if set(state["plans"]) != set(ids) or stale_ids(state):
-                    raise Problem("部分计划尚未采用最新理解，请重新规划或逐张修改后再确认。")
-                state["confirmed"] = True
-                store.save(state, {"action": "confirm", "target": None, "feedback": "", "message": "出图计划已保存，可进入图片生成阶段。"})
+                if target not in ids or target not in state['plans'] or target in stale_ids(state):
+                    raise Problem('请在对应卡片确认已采用最新理解的本图计划。')
+                status = plan_status(state, target)
+                if body.get('plan_version', status['plan_version']) != status['plan_version']:
+                    raise Problem('本图计划版本已改变，请刷新后确认。', 409)
+                if status['confirmed']:
+                    return jsonify(state=public(state))
+                materialize_confirmations(state)
+                state['plan_confirmations'][target] = {
+                    'plan_version': status['plan_version'], 'revision': state['revision'] + 1,
+                    'plan_sha256': sha256(json.dumps(state['plans'][target], ensure_ascii=False, sort_keys=True).encode()),
+                    'context': context_version(state, target), 'confirmed_at': now()}
+                state['plan_confirmations'][target]['source'] = 'EXPLICIT_PER_IMAGE'
+                store.save(state, {"action": "confirm", "target": target, "feedback": "", "plan_version": status['plan_version'],
+                                   "message": "本图当前计划已确认，其他图片的确认不变。"})
                 return jsonify(state=public(state))
             parent_revision = state["revision"]
             result, call_id = call_ai(store, state, kind, target, feedback)
+            materialize_confirmations(state)
             event = {"action": kind, "target": target, "feedback": feedback, "call_id": call_id}
             if kind in ["understand", "product"]:
                 event["before"] = copy.deepcopy(state["product"])
@@ -724,10 +829,13 @@ def create_app(runtime_dir=None, case_dir=None):
                     event["before"] = copy.deepcopy(state["plans"])
                 state["plans"] = result["plans"]
                 state["plan_context"] = {key: context_version(state, key) for key in ids}
+                for key in ids:
+                    state['plan_versions'][key] = state['plan_versions'].get(key, 0) + 1
             elif kind == "plan":
                 event["before"] = copy.deepcopy(state["plans"][target])
                 state["plans"][target] = result["plan"]
                 state["plan_context"][target] = context_version(state, target)
+                state['plan_versions'][target] = state['plan_versions'].get(target, 0) + 1
             event["after"] = result
             state["confirmed"] = False
             store.save(state, event)

@@ -8,12 +8,33 @@ const drafts=new Map();
 const auxiliaryDrafts=new Map();
 const jobs=new Map();
 let current=null,poll=null,available=true;
+let batch=null,batchTask=null,batchStorageError=false;
+let pageActive=true;
+const batchRunner=window.ImageBatchRunner;
+const batchKey=id=>'commerce:image-batch:'+id;
+function persistBatch(value){sessionStorage.setItem(batchKey(value.session_id),JSON.stringify(value));}
+function loadBatch(id){
+  if(batchTask===id)return;
+  batchTask=id;batchStorageError=false;
+  try{batch=batchRunner.restore(sessionStorage.getItem(batchKey(id)));if(batch)persistBatch(batch);}
+  catch{batch=null;batchStorageError=true;}
+}
+function renderBatch(processing=false){
+  const eligible=current?.cards.filter(c=>c.batch_eligible)||[],quick=current?.mode==='quick_redesign';
+  const button=node('batch-generate');button.textContent=`${quick?'一键生成尚未生成图片':'一键生成已确认图片'}（${eligible.length} 张）`;
+  button.disabled=!eligible.length||processing||presentation.blocked||!available||batchStorageError||batchRunner.unresolved(batch);
+  node('batch-count').textContent=batchStorageError?'浏览器无法读取批次记录，已禁用批量；请先人工核对。':'跳过已生成、已 Pass、曾尝试或状态待确认的图片；顺序执行，不自动重试。';
+  const progress=node('batch-progress');progress.hidden=!batch;
+  if(batch){const done=batch.items.filter(i=>['SUCCEEDED','FAILED'].includes(i.status)).length,success=batch.items.filter(i=>i.status==='SUCCEEDED').length;
+    progress.textContent=`${batch.status==='RUNNING'?'批量生成中':batch.status==='FINISHED'?'批次已结束':'批次已暂停'} · 已完成 ${done} / ${batch.items.length} 张 · 成功 ${success} · 失败 ${done-success}。${batch.reason||''}`;}
+  node('check-batch').hidden=!batchRunner.unresolved(batch);node('check-batch').disabled=processing||presentation.blocked;
+}
 const statuses={NOT_STARTED:'尚未生成',RUNNING:'正在生成',SUCCEEDED:'图片已生成',FAILED:'本次生成失败',INTERRUPTED:'执行状态待确认'};
 function el(tag,text,className){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(className)e.className=className;return e;}
 function message(text,error=false){node('generation-message').hidden=false;node('generation-message').textContent=text;node('generation-message').className=error?'error':'';}
 function clearAuxiliary(target){const draft=auxiliaryDrafts.get(target);if(draft?.url)URL.revokeObjectURL(draft.url);auxiliaryDrafts.delete(target);}
-window.addEventListener('pagehide',()=>{for(const target of auxiliaryDrafts.keys())clearAuxiliary(target);});
-window.addEventListener('pageshow',event=>{if(event.persisted)render();});
+window.addEventListener('pagehide',()=>{pageActive=false;for(const target of auxiliaryDrafts.keys())clearAuxiliary(target);if(batch?.status==='RUNNING'){batch.status='PAUSED';batch.reason='页面已离开，批次暂停；返回后不会自动续跑。';try{persistBatch(batch);}catch{}}});
+window.addEventListener('pageshow',event=>{pageActive=true;if(event.persisted){batchTask=null;loadBatch(sessionId);render();}});
 function auxiliaryControls(card,index,disabled){
   const draft=auxiliaryDrafts.get(card.id),box=el('div',undefined,'auxiliary-controls');
   const label=el('label','辅助参考图片（可选，每次最多一张）');const input=el('input');input.type='file';input.accept='image/jpeg,image/png,image/webp';input.setAttribute('aria-label',`图片 ${index+1} 的辅助参考图片`);input.disabled=disabled;label.append(input);box.append(label);
@@ -30,7 +51,8 @@ function render(){
   const container=node('generation-cards');container.replaceChildren();
   if(!current)return;
   const quick=current.mode==='quick_redesign';
-  const completed=current.cards.filter(card=>card.versions.length).length,passed=current.cards.filter(card=>card.passed_run).length;
+  const inBatch=batch?.status==='RUNNING';
+  const completed=current.cards.filter(card=>card.has_generated_history).length,passed=current.cards.filter(card=>card.has_passed_history).length;
   node('task-summary').textContent=`${current.title} · 已生成 ${completed} / ${current.cards.length} 张 · 已 Pass ${passed} 张`;
   current.cards.forEach((card,index)=>{
     const article=el('article',undefined,'generation-card');article.dataset.cardId=card.id;
@@ -44,17 +66,19 @@ function render(){
     else result.append(el('p','尚无生成图片。点击下方按钮后，这里展示实际返回的图片。'));
     const status=running.has(card.id)?'RUNNING':card.status;
     const actions=el('div',undefined,'generation-actions');const badge=el('span',jobs.get(card.id)?.name||statuses[status]||'状态待确认','generation-status'+(status==='SUCCEEDED'?' success':status==='FAILED'||status==='INTERRUPTED'?' failed':''));
-    const button=el('button','生成图片','primary');button.disabled=status==='RUNNING'||!available||!presentation.allowed||presentation.blocked;button.onclick=()=>generateOne(card.id);actions.append(badge,button);
+    const button=el('button','生成图片','primary');button.disabled=status==='RUNNING'||!available||!card.generation_allowed||presentation.blocked||inBatch||card.request_uncertain;button.onclick=()=>generateOne(card.id);actions.append(badge,button);
+    if(!quick){const confirm=el('button',card.plan_status?.confirmed?'本图计划已确认':'确认本图计划','secondary ai-mutation');confirm.disabled=Boolean(card.plan_status?.confirmed)||!card.plan||window.PreparePlan.getState().stale_plans.includes(card.id)||presentation.blocked||inBatch||running.size>0;confirm.onclick=()=>window.PreparePlan.confirmPlan(card.id);actions.prepend(confirm);}
     article.append(heading,details);
-    if(presentation.historical)article.append(el('p',`旧确认版本 R${current.confirmed_revision} 的成图，仅供查看；当前计划需重新确认，不能用旧计划生成或修改。`,'notice'));
+    if(card.historical_generation)article.append(el('p',`旧确认版本 R${card.confirmed_revision} 的成图，仅供查看；本图当前计划需重新确认，其他图片不受影响。`,'notice'));
     article.append(result);
     if(card.previous_result){const previous=el('details',undefined,'history');previous.append(el('summary',`查看上一确认版本 R${card.previous_result.revision} 的成图（仅查看）`));const image=el('img');image.src=card.previous_result.image_url;image.alt='上一确认计划的历史成图';image.className='previous-image';previous.append(image);article.append(previous);}
+    if(card.accepted_result&&card.accepted_result.revision!==card.confirmed_revision)article.append(el('p',`最终导出保留已 Pass 的 R${card.accepted_result.revision} 版本；未被本次计划或生成替换。`,'muted'));
     if(card.error&&!running.has(card.id))article.append(el('div',card.error+(card.api_call_attempted?'；服务端执行或计费需核对，未自动重试。':''),'generation-error'));
     if(status==='INTERRUPTED')article.append(el('p','服务曾中断，远端调用结果未确认。现有记录保留，未自动重试。','generation-error'));
     article.append(actions);container.append(article);
     const history=el('div',undefined,'version-controls');const select=el('select');select.setAttribute('aria-label',`图片 ${index+1} 的历史版本`);
     card.versions.forEach(version=>{const option=el('option',`V${version.version} · ${version.action==='revise_image'?'修改':'生成'} · ${new Date(version.created_at).toLocaleString()}`);option.value=version.run_id;select.append(option);});
-    const readOnly=!presentation.allowed||presentation.blocked;
+    const readOnly=!card.generation_allowed||card.historical_generation||presentation.blocked||inBatch||card.request_uncertain;
     select.value=card.selected_run||'';select.disabled=running.has(card.id)||status==='RUNNING'||!card.versions.length||!available;select.onchange=()=>{if(readOnly){card.selected_run=select.value;card.image_url=card.versions.find(v=>v.run_id===select.value).url;render();}else reviewOne(card.id,'select',select.value);};
     const pass=el('button','Pass · 接受当前版本','secondary');pass.disabled=select.disabled||readOnly||card.passed_run===card.selected_run;pass.onclick=()=>reviewOne(card.id,'pass',card.selected_run);
     history.append(select,pass);article.append(history);
@@ -65,43 +89,74 @@ function render(){
     const revision=el('div',undefined,'revision-controls');revision.append(auxiliaryControls(card,index,select.disabled||readOnly),feedback,revise);article.append(revision);
     if(status==='RUNNING'){const job=jobs.get(card.id);const wait=el('p',`${job?.name||'AI 操作'}正在执行 · 已等待 0 秒`,'waiting');wait.dataset.started=job?.started_at||card.started_at||new Date().toISOString();wait.dataset.operation=job?.name||(card.operation==='revise_image'?'图片修改':'图片生成');article.append(wait);}
   });
-  const processing=running.size>0||current.cards.some(card=>card.status==='RUNNING');
-  node('export-passed').disabled=!presentation.allowed||presentation.blocked||processing||!available||!passed;
+  const processing=running.size>0||current.cards.some(card=>card.status==='RUNNING')||inBatch;
+  node('export-passed').disabled=presentation.blocked||processing||!available||!passed;
   node('export-experiment').disabled=presentation.blocked||processing||!available;
   window.PreparePlan.setImageBusy(processing);
+  renderBatch(processing);
 }
 async function refresh(){return window.Workspace.refresh();}
-async function generateOne(target,revise=false){
+async function generateOne(target,revise=false,batchItem=null){
   if(running.has(target)||!current)return;
-  if(!presentation.allowed||presentation.blocked){message('请先保存资料、检查并确认当前计划；本次没有调用模型。',true);return;}
   const card=current.cards.find(card=>card.id===target),feedback=drafts.get(target)||'';
+  if(!card.generation_allowed||presentation.blocked||card.request_uncertain||batch?.status==='RUNNING'&&!batchItem){const error=new Error('请先保存资料、确认本图计划并核对请求状态；本次没有调用模型。');message(error.message,true);if(batchItem)throw error;return;}
+  if(batchItem&&(!card.batch_eligible||batchItem.confirmed_revision!==card.generation_revision||batchItem.card_revision!==card.card_revision))throw new Error('本图不再符合已确认批次的条件，请重新核对。');
   if(revise&&!feedback.trim()){message('请先填写本次修改意见。',true);return;}
   const auxiliary=revise?auxiliaryDrafts.get(target):null;
   if(auxiliary?.file&&!current.auxiliary_purposes[auxiliary.purpose]){message('请选择本次辅助图片的用途。',true);return;}
-  const revision=current.confirmed_revision;
+  const revision=card.generation_revision;
   running.add(target);jobs.set(target,{started_at:new Date().toISOString(),name:revise?'图片修改':'图片生成'});render();
   try{
-    const operation_id=crypto.randomUUID().replaceAll('-','');
-    const payload={confirmed_revision:revision,card_revision:card.card_revision,operation_id,...(revise?{parent_run_id:card.selected_run,feedback}:{})};
+    const operation_id=batchItem?.operation_id||crypto.randomUUID().replaceAll('-','');
+    const payload={confirmed_revision:revision,card_revision:card.card_revision,operation_id,...(batchItem?{batch_only:true}:{}),...(revise?{parent_run_id:card.selected_run,feedback}:{})};
     let options={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)};
     if(auxiliary?.file){const data=new FormData();for(const [key,value] of Object.entries(payload))data.append(key,String(value));data.append('auxiliary_purpose',auxiliary.purpose);data.append('auxiliary',auxiliary.file,auxiliary.file.name);options={method:'POST',body:data};}
     const result=await api(`/api/sessions/${sessionId}/${revise?'revise':'generate'}/${target}`,options);
     if(revise){drafts.delete(target);clearAuxiliary(target);}
     message(revise?'本张图片的新版本已保存，等待人工审核；原图及已 Pass 版本保留。':'本张图片已生成并保存；其他图片未改动。');
     if(result.confirmed_revision!==revision)message('计划版本已改变，结果保留在原版本中。',true);
-  }catch(error){message(error.message+' 若请求已发出，服务端执行与费用需核对；本页不会自动重试。',true);}
+  }catch(error){message(error.message+' 若请求已发出，服务端执行与费用需核对；本页不会自动重试。',true);if(batchItem)throw error;}
   finally{
     running.delete(target);
     jobs.delete(target);
-    try{await refresh();if(current.confirmed_revision!==revision)message('计划版本已改变，本次生成记录保留在原版本中。',true);}catch(error){available=false;render();message(error.message,true);node('task-summary').textContent='当前状态无法确认，保留已显示结果；请检查连接并刷新当前任务。';}
+    try{await refresh();if(current.cards.find(c=>c.id===target)?.generation_revision!==revision)message('本图计划版本已改变，本次生成记录保留在原版本中。',true);}catch(error){available=false;render();message(error.message,true);node('task-summary').textContent='当前状态无法确认，保留已显示结果；请检查连接并刷新当前任务。';}
   }
 }
 async function reviewOne(target,action,run_id){
-  if(running.has(target)||!presentation.allowed||presentation.blocked)return;const card=current.cards.find(card=>card.id===target);running.add(target);jobs.set(target,{started_at:new Date().toISOString(),name:action==='pass'?'记录人工审核':'选择版本'});render();
-  try{await api(`/api/sessions/${sessionId}/review/${target}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed_revision:current.confirmed_revision,card_revision:card.card_revision,action,run_id})});message(action==='pass'?'当前指定版本已记录为人工 Pass。':'已切换查看版本，原有 Pass 版本未替换。');}
+  const card=current.cards.find(card=>card.id===target);if(running.has(target)||!card.generation_allowed||card.historical_generation||presentation.blocked||batch?.status==='RUNNING')return;running.add(target);jobs.set(target,{started_at:new Date().toISOString(),name:action==='pass'?'记录人工审核':'选择版本'});render();
+  try{await api(`/api/sessions/${sessionId}/review/${target}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed_revision:card.confirmed_revision,card_revision:card.card_revision,action,run_id})});message(action==='pass'?'当前指定版本已记录为人工 Pass。':'已切换查看版本，原有 Pass 版本未替换。');}
   catch(error){message(error.message,true);}
   finally{running.delete(target);jobs.delete(target);try{await refresh();}catch(error){available=false;render();message(error.message,true);}}
 }
+function batchPorts(){
+  const id=sessionId;
+  return {
+    execute(item){if(sessionId!==id||!pageActive)throw new Error('页面或任务已切换，批次暂停。');return generateOne(item.target,false,item);},
+    query(item){return api(`/api/sessions/${id}/operations/${item.target}/${item.operation_id}?confirmed_revision=${item.confirmed_revision}`);},
+    persist:persistBatch,update(){render();},
+  };
+}
+async function startBatch(){
+  if(node('batch-generate').disabled)return;
+  try{
+    await refresh();
+    const cards=current.cards.filter(c=>c.batch_eligible);
+    if(!cards.length||presentation.blocked||batchRunner.unresolved(batch))return;
+    if(!window.confirm(`将顺序生成 ${cards.length} 张图片，会产生 API 费用。已生成、已 Pass 和曾尝试的图片会跳过；不自动重试。是否开始？`))return;
+    batch={id:crypto.randomUUID(),session_id:sessionId,status:'NEW',items:cards.map(c=>({target:c.id,
+      confirmed_revision:c.generation_revision,card_revision:c.card_revision,operation_id:crypto.randomUUID().replaceAll('-',''),status:'PENDING'}))};
+    await batchRunner.run(batch,batchPorts());
+  }catch(error){if(batch){batch.status='PAUSED';batch.reason=error.message;}message('批次已停止：'+error.message+'；未自动重发。',true);}
+  finally{render();}
+}
+node('batch-generate').onclick=startBatch;
+node('check-batch').onclick=async()=>{
+  if(!batch||node('check-batch').disabled)return;
+  node('check-batch').disabled=true;
+  try{await batchRunner.inspect(batch,batchPorts());await refresh();}
+  catch(error){message('查询失败：'+error.message+'；未重试模型请求。',true);}
+  finally{render();}
+};
 async function downloadPackage(kind){
   const button=node('export-'+kind);if(button.disabled)return;button.disabled=true;const label=button.textContent;button.textContent='正在打包…';
   try{
@@ -121,11 +176,12 @@ setInterval(()=>document.querySelectorAll('#generation-cards .waiting').forEach(
 
 window.ImageGeneration={
   present(data,options){
-    if(presentation.key!==options.key){for(const target of auxiliaryDrafts.keys())clearAuxiliary(target);drafts.clear();}
-    current=data;sessionId=data.session_id;presentation=options;available=true;render();
+    if(current?.session_id!==data.session_id){for(const target of auxiliaryDrafts.keys())clearAuxiliary(target);drafts.clear();}
+    else for(const card of data.cards){if(current.cards.find(c=>c.id===card.id)?.generation_revision!==card.generation_revision){clearAuxiliary(card.id);drafts.delete(card.id);}}
+    current=data;sessionId=data.session_id;loadBatch(sessionId);presentation=options;available=true;render();
     clearTimeout(poll);if(current.cards.some(card=>card.status==='RUNNING'))poll=setTimeout(()=>refresh().catch(error=>message(error.message,true)),4000);
   },
   lock(){presentation.blocked=true;render();},
-  clear(){current=null;node('generation-cards').replaceChildren(el('p','保存资料后，这里按实际图片数量展示独立卡片。','empty'));node('export-passed').disabled=true;node('export-experiment').disabled=true;},
+  clear(){current=null;node('generation-cards').replaceChildren(el('p','保存资料后，这里按实际图片数量展示独立卡片。','empty'));node('export-passed').disabled=true;node('export-experiment').disabled=true;renderBatch();},
 };
 })();

@@ -128,7 +128,7 @@ class ExperimentExportTests(unittest.TestCase):
         with self.sdk():
             for action, target in [("product", None), ("reference", "reference_001"), ("plan", "reference_001"), ("replan", None)]:
                 self.assertEqual(self.action(action, target, "人工修正意见").status_code, 200)
-        self.assertEqual(self.action("confirm").status_code, 200)
+        self.assertEqual(self.action("confirm", "reference_001").status_code, 200)
         for event in self.state["events"]:
             if not event.get("call_id"):
                 continue
@@ -158,7 +158,7 @@ class ExperimentExportTests(unittest.TestCase):
 
     def test_generation_failure_and_export_preserve_success_bytes(self):
         self.initial()
-        self.assertEqual(self.action("confirm").status_code, 200)
+        self.assertEqual(self.action("confirm", "reference_001").status_code, 200)
         success = self.generate()
         self.assertEqual(success.status_code, 200)
         folder = self.store.folder(self.state["id"])

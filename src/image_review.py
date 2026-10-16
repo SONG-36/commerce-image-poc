@@ -157,10 +157,15 @@ def export_passed(service, state):
     count = 0
     with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as archive:
         for index, target in enumerate(service.targets(state), 1):
-            path = safe_path(service.folder(state['id'], state['revision'], target), 'current.json')
-            pointer = read_json(path) if path.is_file() else {}
-            if pointer.get('passed_run'):
-                data, version = image_bytes(service, state, target, pointer['passed_run'])
+            accepted = None
+            for saved in service.store.image_history(state, target):
+                path = safe_path(service.folder(saved['id'], saved['revision'], target), 'current.json')
+                pointer = read_json(path) if path.is_file() else {}
+                if pointer.get('passed_run'):
+                    accepted = (saved, pointer['passed_run'])
+                    break
+            if accepted:
+                data, version = image_bytes(service, accepted[0], target, accepted[1])
                 if contains_private(data.decode('utf-8', errors='ignore')):
                     raise ValueError('图片包含认证信息，已停止导出。')
                 archive.writestr(f"图片_{index:02}_V{version['version']}.png", data)

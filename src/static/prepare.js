@@ -34,7 +34,6 @@ function updateButtons() {
   $('task-mode').disabled=locked||Boolean(state);
   $('understand').disabled=locked||Boolean(state?.product&&!dirty);
   $('replan').disabled=locked||!state?.product||dirty;
-  $('confirm').disabled=locked||!state?.product||dirty||Boolean(state?.stale_plans.length)||state?.confirmed;
   document.querySelectorAll('.ai-mutation,.feedback textarea').forEach(e=>e.disabled=locked||dirty);
   $('enter-generate').hidden=!(state?.confirmed&&!dirty);
   document.body.classList.toggle('busy',locked);
@@ -65,8 +64,8 @@ function feedbackBox(action,target,label,buttonText){
 }
 function renderCardPlan(image){
   const details=element('details',undefined,'card-plan');const plan=state?.plans[image.id];
-  const stale=state?.stale_plans.includes(image.id);details.open=Boolean(plan&&!state.confirmed);
-  details.append(element('summary',plan?(stale?'当前计划 · 理解已改变，待更新':state.confirmed?'当前计划 · 已确认':'当前计划 · 待确认'):'制作计划 · 尚未规划'));
+  const status=state?.plan_status[image.id],stale=state?.stale_plans.includes(image.id);details.open=Boolean(plan&&!status?.confirmed);
+  details.append(element('summary',plan?(stale?'当前计划 · 理解已改变，待更新':`当前计划 V${status.plan_version} · ${status.confirmed?'已确认':'待确认'}`):'制作计划 · 尚未规划'));
   if(plan)details.append(describe(plan,planFields),feedbackBox('plan',image.id,'本张计划的修改意见','根据意见修改计划'));
   else details.append(element('p','先保存资料并主动点击 AI 理解与规划。','muted'));
   if(state?.references[image.id]){const understanding=element('details',undefined,'history');understanding.append(element('summary','参考图理解与修正'),describe(state.references[image.id],referenceFields),feedbackBox('reference',image.id,'修正这张参考图的理解','根据意见修正理解'));details.append(understanding);}
@@ -76,8 +75,9 @@ function renderResults(){
   renderMode();const ready=Boolean(state?.product);$('understanding-empty').hidden=ready;
   const product=$('product-understanding');product.hidden=!ready;product.replaceChildren();
   if(ready)product.append(describe(state.product,productFields),feedbackBox('product',null,'修正商品理解','根据意见修正理解'));
-  $('confirmation-title').textContent=state?.confirmed?'当前整套计划已确认':state?.product?'确认当前整套计划后才可生成':'先保存资料，再主动执行 AI 理解与规划';
-  $('confirmation-note').textContent=state?.stale_plans.length?'理解已修正，请更新相关计划后确认；旧成图仍保留供查看。':state?.confirmed?'每张卡片可独立生成、修改和审核。修改计划会撤销确认，旧成图按原确认版本保留。':'计划、结果与修改集中在下方卡片；确认与刷新不调用模型。';
+  const plans=Object.values(state?.plan_status||{}),confirmed=plans.filter(p=>p.confirmed).length;
+  $('confirmation-title').textContent=state?.product?`本图计划逐张确认 · 已确认 ${confirmed} / ${plans.length} 张`:'先保存资料，再主动执行 AI 理解与规划';
+  $('confirmation-note').textContent=state?.stale_plans.length?'理解已修正，请更新受影响计划后逐张确认；其他有效确认和旧成图保留。':'在对应卡片点击「确认本图计划」后即可单独生成。修改本张计划只撤销本图确认，不自动批量确认。';
   updateButtons();
 }
 function applyState(value,activity=null){if(state?.id!==value.id)feedbackDrafts.clear();state=value;dirty=false;window.history.replaceState(null,'','/workspace/'+state.id);$('task-mode').value=state.mode||'product_pack';$('task-title').value=state.title;releasePending();kept=state.images.map(i=>({...i}));for(const key of ['listing','description','requirements','product_facts'])$(key).value=state.inputs[key]||'';$('output-size').value=state.output_size||'1024x1536';$('product-files').value='';$('reference-files').value='';$('saved-status').textContent=isQuick()?'重设计资料已保存':state.confirmed?'计划已确认':'资料与修改已保存';$('input-note').textContent=state.title+' · 当前任务已保存，刷新后可恢复。';
@@ -98,21 +98,21 @@ async function runAction(action,target=null,feedback=''){
   if(dirty)throw new Error('资料有修改，请先保存为新任务，再进行 AI 理解与规划。');
   if(!state)throw new Error('请先加载或保存商品资料。');
   operation.name=actionNames[action];drawProgress();notify(action==='confirm'?'正在保存确认计划。':'AI 正在处理，请稍候。不会自动重试；连接失败时服务端执行与费用需核对。');
-  const body=await api(`/api/sessions/${state.id}/action`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,target,feedback,revision:state.revision})});
+  const body=await api(`/api/sessions/${state.id}/action`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,target,feedback,revision:state.revision,...(action==='confirm'?{plan_version:state.plan_status[target].plan_version}:{})})});
   feedbackDrafts.delete('feedback-'+action+'-'+(target||'product'));
   applyState(body.state);
-  notify(action==='confirm'?'当前计划已确认，可在本页逐张生成。':action==='plan'?'本张计划已更新，其他计划保持不变。':action==='product'||action==='reference'?'理解已修正。后续规划将使用修正结果，已有计划请显式更新后再确认。':'AI 理解与规划已保存，请检查候选结果。');
+  notify(action==='confirm'?'本图当前计划已确认，其他图片的确认和成图未改变。':action==='plan'?'本张计划已更新，请重新确认本图；其他计划保持不变。':action==='product'||action==='reference'?'理解已修正。后续规划将使用修正结果，受影响的已有计划请显式更新后再确认。':'AI 理解与规划已保存，请逐图检查并确认候选计划。');
 }
 $('load-case').onclick=()=>work(async()=>{const body=await api('/api/case-001',{method:'POST'});applyState(body.state);notify('case-001 已加载为独立资料副本，未调用 AI。');});
 $('input-form').onsubmit=event=>{event.preventDefault();work(async()=>{await saveInputs();$('input-panel').open=false;notify('资料已保存为新任务，旧任务未覆盖；可在下方卡片继续。');});};
 $('understand').onclick=()=>work(async()=>{if(dirty||!state)await saveInputs();await runAction('understand');});
 $('replan').onclick=()=>work(()=>runAction('replan'));
-$('confirm').onclick=()=>work(()=>runAction('confirm'));
 for(const key of ['listing','description','requirements','task-title','product_facts','output-size'])$(key).addEventListener('input',markDirty);
 $('task-mode').onchange=()=>{if(isQuick()&&!$('requirements').value.trim())$('requirements').value=redesignDefault;renderMode();markDirty();};
 for(const role of ['product','reference'])$(role+'-files').onchange=event=>{for(const file of event.target.files)pending[role].push({file,name:file.name,url:URL.createObjectURL(file),role});event.target.value='';renderImages();markDirty();};
 work(async()=>{const session=document.body.dataset.sessionId;if(session){const body=await api('/api/sessions/'+encodeURIComponent(session));$('config-note').hidden=body.ai_configured;applyState(body.state,body.activity);}else renderResults();});
 
 window.PreparePlan={getState:()=>state,getStatus:()=>({dirty,busy:busy||remoteBusy}),api,applyState,renderCardPlan,
+  confirmPlan(target){return work(()=>runAction('confirm',target));},
   setImageBusy(value){if(imageBusy!==value){imageBusy=value;updateButtons();}}};
 })();

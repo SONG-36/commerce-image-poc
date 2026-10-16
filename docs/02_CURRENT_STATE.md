@@ -5,17 +5,19 @@
 
 ## 现状
 
-- 2026-10-16 I03 最新本地状态：**IMPLEMENTED / OPERATOR REVIEW PENDING**。任务中心进入统一工作台，共享 INPUT 可折叠，OUTPUT 每卡集中参考/原图、计划、成图、版本、文字/辅助图修改及 Pass；两种模式沿用既有 API、模型 Context、资料与 Evidence 格式。80 项离线测试通过，Edge 临时 Mock 交互验证完成；本轮无付费调用、服务器部署或 I03 Commit，运营体验仍待评价。
+- 2026-10-16 I03 本地补充：**逐图计划确认与顺序批量生成 IMPLEMENTED / OPERATOR REVIEW PENDING**。每卡独立确认当前计划，支持部分确认；顶部显示候选数，人工确认费用后顺序生成，连接/Run 状态不确定即暂停且不重发。92 项免费离线测试及临时 Mock 浏览器验证完成；本轮未调用付费 API、部署、Commit 或 Push，Mac mini 保持下述已部署版本。
+- 2026-10-16 最新部署：I01～I03 已从本地 Commit `a69470f5afa9e4cc59639a8b88b8a5a40eae4ae3` 增量部署到 Mac mini，替换实际旧应用版本 `a2e1123d1d80a3f15194872365340bdaee9b6349`；HTTPS 8444 与原服务/访问配置保留。新 release 80 项离线测试及实际 HTTPS/浏览器免费检查通过；没有付费调用，I01 BUSINESS VALIDATION、I02 REAL EDIT VALIDATION、I03 OPERATOR REVIEW 仍 PENDING。详见下方本次部署记录。
+- 2026-10-16 I03 本地实现节点：**IMPLEMENTED / OPERATOR REVIEW PENDING**。任务中心进入统一工作台，共享 INPUT 可折叠，OUTPUT 每卡集中参考/原图、计划、成图、版本、文字/辅助图修改及 Pass；两种模式沿用既有 API、模型 Context、资料与 Evidence 格式。80 项离线测试通过，Edge 临时 Mock 交互验证完成；当时未执行付费调用、部署或 I03 Commit。随后已授权提交 I03 并增量部署，运营体验仍待评价。
 - 2026-10-16 I02 交付状态保留：**I02 IMPLEMENTED / REAL EDIT VALIDATION PENDING**。商品图包与 Quick Redesign 共用的修改区域支持文字加最多一张辅助图、预览及三种用途；实际传入 images.edit，并复用原 Run、版本、Pass 和实验包。交付时 75 项离线测试通过，临时 Mock 浏览器完成带图修改与刷新恢复；当时未提交，后按本轮 PART A 授权先行提交后再开发 I03，未进行真实编辑验收。
 - Git（I02 检查点 / I03 Preflight）：分支 main，I02 的 9 个修改文件及 1 个新增文件经范围、密钥排除与 staged 检查后提交为 `1354a0b80fe01384c57b0377bec715d23a54821f`，`feat: implement I02 image-guided editing`，前一 HEAD 为 I01 `60d98e0da944287e0df9f9add99c4eff686d01ea`。提交后工作区干净，再开始 I03；本轮不提交 I03、不 Push、不处理远程历史。
 - 2026-10-16 I01 最新本地状态：**PRODUCT INTEGRATION IMPLEMENTED / BUSINESS VALIDATION PENDING**。任务中心新建支持「商品图包制作 / 快速重设计」；快速模式以 N 张原图独立生成，跳过 T02，复用 T04 修改、版本、Pass 及两种导出。65 项离线测试通过；本轮无付费调用、部署或 Git 提交，不进入 I02/I03。
 - I01 初步真实证据：已存在成功 Run `20261016T013618Z-c0952e3ddfff430189e350a8bbb27c00`，图片已保存并校验，耗时 21.445 秒、usage total_tokens=2329。用户本轮陈述一个样本获正面评价；原始 `review.json` decision 仍为空，实际费用未记录。只允许据此进入内部试用，不推导充分商业验证。
 - I01 免费准备历史：先前增加独立 CLI 与 9 项检查，当时 56 项离线测试通过；首次 Run `20261016T012440Z-f41214714e514459b9c64e83f5b8717d` 因缺资料而停止，未调用模型。该缺资料状态现已解除；CLI 和已有真实输入/输出/Evidence 全部保留，未补写或覆盖历史。
 - 2026-10-16 早前文档节点：记录运营试用反馈，新增 **Commerce Image Workspace** 候选方向与 I01～I03 安排；当时仅更新两份文档，未启动 Coding 或付费调用。后续 I01 实验、I01/I02/I03 本地集成见最新记录，不将后续实现写成当时已完成。
-- 当前部署继续供运营使用：沿用 2026-10-15 已记录的 Mac mini release `a2e1123d1d80a3f15194872365340bdaee9b6349`、HTTPS 8444、现有 LAN 访问限制和独立数据目录。本轮未连接服务器复核、部署、重启或修改运行数据；下方历史检查不写成本日新验证。
+- 部署历史：2026-10-15 release `a2e1123d1d80a3f15194872365340bdaee9b6349` 已于本次由 I03 release 替换，旧目录保留可回滚；HTTPS 8444、LAN 访问限制和独立数据目录未变。下方各历史检查按原日期理解，最新复核仅见本次部署记录。
 - Git（2026-10-16 本轮只读检查）：分支 `main`，修改前工作区干净，HEAD 为 `1b0fb3c`（`merge: reconcile remote baseline with local development`）。此前“远程历史尚未恢复”和“文档尚未提交”保留为各日期的历史记录；本轮不推断远程当前同步状态，不 Commit 或 Push。
 - 2026-10-15 规划模型升级：本地 Commit `a2e1123d1d80a3f15194872365340bdaee9b6349`，`chore: update planning model configuration`。T02 默认与服务器实际配置改为 `gpt-5.4-mini` / reasoning low，保留显式 4.1 mini 回退；Mac mini 安全增量部署及免费检查完成，真实新模型调用/质量仍 PENDING。未 Push；原有 README 修改和本文件已暂存内容均未混入源码提交，文档使用记录另保留在工作区。
-- 业务 / 产品：现有部署保持“跨境电商商品图包提效”的两页式 POC；最新方向为面向运营的 **Commerce Image Workspace**，详见 `01_PRODUCT_BRIEF.md` 第 7 节的初始候选记录。当前本地 I01/I02/I03 已集成，分别保留商业效果、真实编辑和运营体验待验证；不能据本地实现推断服务器已上线或业务价值通过。
+- 业务 / 产品：Mac mini 试用应用已由原两页式 POC 增量更新为 **Commerce Image Workspace**，保留任务中心和两种模式；详见 `01_PRODUCT_BRIEF.md` 第 7 节的初始候选记录与本次部署记录。I01/I02/I03 分别保留商业效果、真实编辑和运营体验待验证；部署成功不等于业务价值通过。
 - Git（2026-10-14 T04 记录）：实际检查 `main`，T01～T03 本地 Commit 保留（`3cb9f4b`、`696994d`、`ede6f6a`）。19 个明确属于 T04/OF 及既有状态记录的未提交文件经范围、密钥、忽略规则及 45 项免费测试检查后，已按当轮授权提交：`7a692f30d73b69b26cfbd74cb9e4d6aec456e25b`，`feat: implement T04 review revision and task management`。部署后 README/本文件的运行记录更新尚未提交；未 Push，远程历史仍未恢复或处理。
 - 密钥保护：发现现有 `.env.example` 含疑似真实 API Key，已移除 `.gitignore` 对该文件的放行规则；文件内容未修改，密钥未输出或用于调用。
 - 代码：`src/generate_image.py` 为 T01 最小运行入口；Python 3.12.13、OpenAI 官方 SDK 2.54.0、Pillow 12.3.0、httpx 0.28.1（含 SOCKS 支持）；依赖见 `requirements.txt`，运行命令见 `README.md`。
@@ -260,7 +262,7 @@
 
 ## 下一轮改进任务
 
-以下记录改进任务。I01、I02 已有独立本地提交；本轮严格先提交 I02，再按授权整合 I03 界面，未改变真实模型验收结论。部署与付费调用未授权。当前 Mac mini 内部试用继续，原有任务和 Evidence 不迁移、不清理。
+以下保留改进任务的实现记录。I01、I02、I03 已有独立本地提交，现已按后续授权增量部署；最初 I03 实现轮严格先提交 I02，再整合界面。真实模型验收结论不变，本次仍无付费调用。Mac mini 内部试用继续，原有任务和 Evidence 不迁移、不清理。
 
 ### I01 — Quick Redesign Integration
 
@@ -367,13 +369,35 @@
 - **浏览器**：Edge + 独立临时合成任务 + MockTransport。商品图包完成查看计划 → 修改指定计划 → 旧图只读显示 → 确认 → 同页生成；Quick 完成查看原图/成图 → 上传辅助图/外观修正用途 → 修改 V2 → Pass → 选择 V1 → 刷新，Pass 仍为 V2。临时 Evidence 核对辅助图原字节、输入顺序及父 Run，不冒充真实模型验收。
 - **资产与边界**：现有 `.runtime/` 301 个文件前后 SHA-256 一致；核心生成/编辑/导出/Evidence 源码、Product Brief、AGENTS 和实验日志未变，T01～T04/早前运营反馈与部署历史保留。I03 未提交、未部署；真实模型质量、运营操作成本和界面接受度待人工验证。
 
+### I03 补充 — 逐图确认与一键批量生成（2026-10-16，仅本地）
+
+- **确认粒度**：顶部统一确认按钮已移除，改为只读已确认 X/N；每个 OUTPUT 卡片提供「确认本图计划」。`plan_versions[图片 ID]` 独立计数，`plan_confirmations[图片 ID]` 绑定计划版本、SHA-256、商品/参考理解版本、确认快照修订号、时间与来源。修改本图计划只使本图确认失效，其他有效确认和成图保留；整体理解/重新规划及既有过期保护继续有效。
+- **生成校验与兼容**：正式生成/修改使用本图确认快照，并校验卡片修订号；未确认的本图不能生成。旧整体 `confirmed=true` 任务在读取时派生有效确认，明确记录来源 `LEGACY_GLOBAL_CONFIRMED`，不改原文件；仅显式操作时补充逐图字段。旧 generations/Run、图片与 Pass 不迁移、不覆盖，最终导出保留最近一次明确 Pass，不被新确认或未通过的新成图替换。
+- **显式批量**：选择已确认且从未尝试的图片，显示数量并再次提示费用，随后浏览器顺序调用原单图 API；服务端复核资格与 operation_id。已有成图、Pass、历史结果或尝试记录均跳过。Quick Redesign 不要求计划确认，同样支持单图与顺序批量，无新 Worker/队列。确定失败保留证据并可继续下一张，不自动重试；不确定失败立即暂停。
+- **断线与刷新**：当前标签页 sessionStorage 在请求发出前保存批次图片 ID、operation_id 与确认修订号；新只读 operation 查询绑定本任务、本图、本确认版本的实际 Run。连接失败、查询失败/无记录、RUNNING 或中断结果不确定时暂停，不宣称未执行或未计费。刷新/离开不自动续跑，只能显式查询提交结果；请求仍不确定时需人工核对服务商记录，不提供自动解除或付费重发。
+- **免费验证**：92 项 Python 测试通过（原 80 + 12；其中包含 7 项 Node 批次测试），覆盖部分确认、绑定版本、单张修改隔离、旧整体确认只读兼容、单图/批量、跨任务隔离、Pass/历史跳过、确定失败继续、未知状态停止、重启/刷新不重发及确认信息进入原实验包。Edge 临时合成任务和 MockTransport 验证逐图确认/修改失效、成功 2/2、Pass/刷新恢复；Quick 第二张模拟断线后暂停，第一张保留，第三张未调用，刷新和只读查询未新增请求。
+- **未完成验收与边界**：真实批量费用、耗时和运营操作体验仍待人工验证；未知服务端执行/计费仍需人工核对。没有改变图像模型、生成/编辑 Prompt、T02 模型请求、原资料或 Evidence；现有 `.runtime/` 306 个文件前后 SHA-256 一致，Product Brief、AGENTS、实验日志与部署历史保留。开始时 README/本文件已有部署记录修改，本轮保留；不部署、不 Commit/Push。
+
 ## Current Task
 
-**Current Task**：I03 — Unified Workspace，本地 **IMPLEMENTED / OPERATOR REVIEW PENDING**。I02 检查点 `1354a0b80fe01384c57b0377bec715d23a54821f` 已先行提交；I02 真实编辑验收仍 PENDING。Mac mini 继续原 INTERNAL PILOT / BUSINESS VALIDATION 部署，本轮未更新服务器。
+**Current Task**：I03 本地逐图确认与一键顺序生成补充已实现，**IMPLEMENTED / OPERATOR REVIEW PENDING**。本地 HEAD 仍为 `a69470f5afa9e4cc59639a8b88b8a5a40eae4ae3`，本轮代码及文档未提交、未部署；Mac mini 继续使用该已提交 release（不含本轮补充）。I01 `60d98e0`、I02 `1354a0b`、I03 `a69470f` 历史保留，阶段仍为 INTERNAL PILOT / BUSINESS VALIDATION；I01 商业验证、I02 真实编辑与 I03 运营评价继续 PENDING。
 
-**Next Action**：停止并交用户体验本地统一工作台，操作见 README 第 15 节；真实规划/生成/文字及辅助图编辑仍由运营确认资料和费用后主动触发，评价质量、耗时、保持能力与操作成本。I03 Commit、Mac mini 发布另行授权；不自动进入下一阶段，既有 T03/T04 未完成验收继续保留。
+**Next Action**：停止，等待人工体验本地补充功能，使用方式见 README 第 17 节；真实批量请求仍须运营主动确认费用。Mac mini 已有试用继续按第 16 节进行，后续部署需另行授权。Quick 真实生成、辅助图编辑、商品/文字保持及 Pass/导出等原待验事项继续保留，不把本轮 Mock 测试写为真实业务 PASS。
 
-**T01～T04 已完成工程记录、原有运营反馈、2026-10-14/15 部署与检查历史均保留。以下部署记录按原日期理解，不代表本轮重新验证；本轮只整合工作台入口、只读状态与前端交互，不改变模型调用、数据/Evidence 格式、部署配置、运营数据或原始真实实验记录。**
+**T01～T04 已完成工程记录、原有运营反馈、2026-10-14/15 部署与检查历史均保留。I03 本地实现只整合工作台入口、只读状态与前端交互；本次服务器增量部署另记如下，不改变模型调用、数据/Evidence 格式或原始真实实验结论。早前部署记录按原日期理解。**
+
+## I01～I03 增量部署 — 2026-10-16
+
+- **实际版本**：本地开始时 main 干净，HEAD `a69470f5afa9e4cc59639a8b88b8a5a40eae4ae3`，I01/I02/I03 提交均存在。服务器只读核对实际旧 release `a2e1123d1d80a3f15194872365340bdaee9b6349`，28 个清单文件无独立修改，尚无 I01/I02。新应用位于 `releases/a69470f5afa9e4cc59639a8b88b8a5a40eae4ae3/`，批次 `20261016T023608Z-c3c76339`（UTC，上海时间 10:36 起），继续使用 HTTPS 8444。
+- **同步方式**：复用既有 deploy_pilot.py 的服务器端部署逻辑，显式清单预览后仅传 16 个应用/静态文件及 4 个测试文件；完整清单见 README 第 16 节及 result.json。仅应用/测试/依赖按源提交校验，服务器非应用历史文档按原哈希保留，没有假称整仓文件完全相同。依赖无变化，本地与服务器 pip check 通过；无 GitHub Pull、Push 或 rsync 删除。
+- **数据备份**：原备份早于运营新增数据，先使用既有 config/backup.py 新建 `backups/20261016T023530Z-f0d54881.tar.gz`，738 文件逐字节验证通过，归档 SHA-256 `c57004b0121ec5d2642e6d84f4a1ae11193396984285b77c4eb50ca8b3da9742`；清单为同名 `.tar.manifest.json`。不包含 config、密钥或代码，不覆盖原备份。
+- **安全切换**：两次检查无 RUNNING/PREPARING Run；先保存并校验旧代码归档及原 LaunchAgent，构建独立 release 并通过 80 项离线测试，再停止原服务、等待独占数据锁、仅切换 `--chdir`、启动同一个 `com.song36.commerce-image-pilot`。当前 master/worker 为 `68170`/`68172`（本次快照），HTTPS 正常；切换前后 738 个业务文件与 config 全部字节一致。未更新其他服务或任何业务数据结构。
+- **配置保留**：原 WSGI/Gunicorn/venv/证书/密钥/CIDR 不改，LaunchAgent 其余参数与环境逐项一致，规划模型仍 `gpt-5.4-mini`。实际允许 `192.168.112.0/24`、`127.0.0.1/32`、`::1/128`；仅 LAN/IPv4/IPv6 回环监听 8444，无新增账号或公网入口。密钥已配置且新进程返回 ai_configured=true，仅记录布尔值，文件 0600、配置目录 0700；检查的页面、资源、响应、ZIP 和服务日志未出现实际密钥，不核验推理额度。
+- **免费业务检查**：实际 HTTPS 恢复全部 14 个旧任务，核对 120 张输入/历史图片、24 个版本及 3 张已 Pass 卡片；case-001 四张原成图可读，原 URL 显示工作台。实验包 78 文件、最终图片包 1 张已 Pass PNG 下载通过，清单哈希及密钥排除通过；所有查看与导出无数据写入。
+- **创建与隔离**：通过正常 HTTPS 上传两张合成 PNG，新建明确命名的免费检查 Quick 任务 `77559585b6744ae5abbb5252eacaec2d`，无 Listing/规划要求，可重新读取两张独立卡片，均 NOT_STARTED、无模型 Run。新增 5 个文件，仅原全局 `prepare-plan/current.json` 按创建操作更新；全部原任务文件、输入、输出、版本、Pass 与 Evidence 未变。检查任务保留，不伪装真实业务样本。
+- **浏览器与访问**：Edge 验证任务中心、case-001 参考/计划/真实成图同页、INPUT 展开/折叠、辅助图上传预览/三用途/移除、双原图 Quick 任务恢复，未点击 AI。原访问配置 7 项免费检查通过；LAN 和 IPv4/IPv6 回环 TLS 200、错误 Host 403，越界 IP/伪造转发头由逻辑模拟覆盖。自签证书仍显示 Not Secure，未自动绕过警告；其他运营设备仍须安全信任证书。
+- **证据位置与校验修正**：服务器 `backups/deploy-20261016T023608Z-c3c76339/` 下保存 code.tar.gz、launchagent.plist、result.json、http-checks.json、final-checks.json；本地副本及浏览器记录在 `.runtime/deployment/i01-i03-20261016/`。HTTP 校验脚本首次将 manifest.path 写为 file 而报 KeyError，修正检查脚本后通过，未修改应用、原 Evidence 或业务记录。这些是部署检查，不写成真实模型实验，不追加实验日志。
+- **回滚与待验**：旧 release 及原 plist 保留。确认无 AI 请求后停本服务、等待原 worker 释放数据锁，再恢复旧源码入口并启动；仅回滚代码/必要兼容配置，不恢复数据备份覆盖运营新增数据。当前无阻断问题；真实 Quick 生成、带图编辑、新版本与商品/文字保持、真实费用及运营工作台接受均待主动人工验收。I01 BUSINESS VALIDATION、I02 REAL EDIT VALIDATION、I03 OPERATOR REVIEW 保持 PENDING；本轮无付费 API、额外 Commit 或 Push。
 
 ## 规划模型升级与增量部署 — 2026-10-15
 
@@ -407,7 +431,7 @@
 2. **I02（IMPLEMENTED / REAL EDIT VALIDATION PENDING）**：本地文字加一张辅助图集成完成，待人工真实编辑验证外观修正、内容保持和费用。
 3. **I03（IMPLEMENTED / OPERATOR REVIEW PENDING）**：本地统一工作台完成，待运营体验与业务效果评价，不自动部署或继续优化。
 
-现有 Mac mini 版本持续试用，暂不建设正式多模式架构。以下保留原有运营验证事项，不用新方向替代未完成的验收，也不自动将其设为 I01/I02 实验的前置门槛。
+Mac mini 已更新至 I01～I03 版本并持续试用，暂不建设正式多模式架构。以下保留原有运营验证事项，不用新方向替代未完成的验收，也不自动将其设为 I01/I02 实验的前置门槛。
 
 ### 现有原型持续核验（保留事项）
 
@@ -421,7 +445,7 @@
 
 ## 工程原则
 
-- 当前项目仍为跨境电商 AI 商品图制作低成本原型；现有部署保持 Prepare & Plan / Generate & Review 两页式流程。本地已按授权整合 Commerce Image Workspace 单页交互，保留任务中心与既有能力；不据界面实现推导业务价值，也不预建正式多模式架构。
+- 当前项目仍为跨境电商 AI 商品图制作低成本原型；Commerce Image Workspace 单页交互已随 I01/I02 增量部署，保留任务中心、旧 URL 和既有能力；不据界面或部署成功推导业务价值，也不预建正式多模式架构。
 - 优先使用成熟模型原生能力，不预先引入 Agent、Skill、RAG 或复杂 Workflow。
 - 商品理解、参考理解、逐图规划属于逻辑能力，不强制拆分成独立模型调用。
 - 开发采用短任务、真实实验、人工评价的方式推进；图片最终接受由运营决定。
@@ -432,7 +456,7 @@
 - 不新增 Agent、Skill、MCP、RAG、LangChain、Harness 平台、Context Engine 平台、数据库、新的 Evidence 平台、复杂 Workflow 或完整后台管理系统。
 - Evidence 与实验 ZIP 继续复用，既有 T04 父版本、编辑输入及审核事件保留；I01 产品模式复用 sessions/Run/审核结构，独立 CLI 及早前实验资产保持，不建立第二套日志或版本平台。
 
-## 本轮执行边界
+## I03 本地实现执行边界（历史）
 
 - PART A 仅提交已核实 I02；提交成功且工作区干净后执行 PART B。I03 仅整合工作台入口、状态读取和前端交互，复用原两模式/模型/审核/版本/导出；只更新必要 README/当前状态，不改 Product Brief、AGENTS 或实验日志，不创建新产品规划文档。
 - 不修改 case-001、现有运营任务/素材、图片、版本、Pass 或既有 Evidence；不伪造测试业务原图。合成图片只用于临时离线测试，不保存为真实样本。
@@ -440,6 +464,12 @@
 - 不连接或部署 Mac mini，不重启服务，不改变现有内部试用或访问配置。
 - 不新增 Agent、Skill、MCP、RAG、LangChain、Workflow/Context Engine、数据库、新 Evidence 平台或业务模式框架，不重构 T01～T04，不开发遮罩编辑或 Photoshop 自动化。
 - 不 Commit I03、不 Push 或处理远程历史；完成本地实现与免费验证后停止，等待人工体验，不自动进入下一阶段。
+
+## 本轮部署边界
+
+- 仅部署已提交 I01～I03 并执行免费检查，不开发功能、不改业务流程、原始资料、历史 Run 或 Evidence；无付费调用或自动重试，不更新其他服务，不新建基础设施，不处理远程历史。
+- 服务器 config/data/venv/证书/密钥保持；新增合成检查任务按正常 API 创建并保留，未覆盖任何原任务。回滚仅针对代码，不覆盖业务数据。
+- 本地仅更新 README 与当前状态，部署检查副本在 Git 忽略的 .runtime；不额外 Commit、不 Push，完成后停止等待运营真实测试。
 
 ## 下一次状态更新请回答
 

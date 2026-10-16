@@ -3,9 +3,10 @@
 > 阶段：低成本原型 / INTERNAL PILOT / BUSINESS VALIDATION
 > 范围：跨境电商商品图包制作（当前参考 TikTok Shop、Temu 的相似制图工作）  
 > 状态：**T01 首图用户 PASS；T02 已有确认计划；T03 已核实四张真实成图，业务验收待完成；T04 与任务中心、等待反馈已本地实现，真实图片修改质量及完整运营闭环待人工验证**。
-> I01：**PRODUCT INTEGRATION IMPLEMENTED / BUSINESS VALIDATION PENDING**。快速重设计已本地接入，Mac mini 本轮未部署；仅一个真实样本获用户正面反馈，不代表普遍商业效果通过。
-> I02：**IMPLEMENTED / REAL EDIT VALIDATION PENDING**。两种模式共用的图片修改已支持文字加一张辅助图；本轮仅免费离线验证，未部署 Mac mini。
-> I03：**IMPLEMENTED / OPERATOR REVIEW PENDING**。本地已统一为可折叠 INPUT + 逐图 OUTPUT 工作台；Mac mini 继续原部署，运营体验与真实模型质量仍待验证。
+> I01：**PRODUCT INTEGRATION IMPLEMENTED / BUSINESS VALIDATION PENDING**。快速重设计已部署到 Mac mini 内部试用；仅一个真实样本获用户正面反馈，不代表普遍商业效果通过。
+> I02：**IMPLEMENTED / REAL EDIT VALIDATION PENDING**。两种模式共用的文字加一张辅助图修改已部署；真实编辑效果仍待运营主动验证。
+> I03：**IMPLEMENTED / OPERATOR REVIEW PENDING**。可折叠 INPUT + 逐图 OUTPUT 工作台已随 I01/I02 部署到 Mac mini 内部试用；2026-10-16 发布记录见第 16 节，真实模型质量与运营接受仍待验证。
+> 本地补充：逐图计划确认与顺序批量生成已实现，使用方法见第 17 节；此次未部署，Mac mini 仍使用第 16 节版本。
 
 ## 1. 我们要解决什么
 
@@ -19,7 +20,7 @@
 
 - **任务模式**：新建时选择「商品图包制作」或「快速重设计」。后者无需 Listing 或 T02 规划，按 N 张原图直接进入共用的生成与审核页；使用方式见第 13 节。历史任务缺少模式字段时仍按商品图包制作处理。
 - **统一工作台（本地 I03）**：共享 INPUT 按需展开；OUTPUT 按图片呈现参考/原图、计划、成图、修改和 Pass。商品图包仍需理解、规划与确认；Quick Redesign 直接按原图制作。详见第 15 节。
-- **历史两页入口**：Prepare & Plan / Generate & Review 的旧 URL 继续可访问并显示相同工作台；Mac mini 暂保留原部署。
+- **历史两页入口**：Prepare & Plan / Generate & Review 的旧 URL 继续可访问并显示相同工作台；Mac mini 已于 2026-10-16 增量更新，原发布记录按各日期保留。
 
 详细边界和首次验收见 [`docs/01_PRODUCT_BRIEF.md`](docs/01_PRODUCT_BRIEF.md)。
 
@@ -102,6 +103,8 @@ python3 -m venv .venv
 
 ## 6. T02 准备与规划页面
 
+以下保留原 T02 操作记录；本地工作台现按第 17 节逐图确认，顶部不再统一确认整套计划。
+
 沿用当前 Python 环境，增加 Flask 和原生 HTML/CSS/JavaScript；无前端构建步骤、数据库或后台任务服务。
 
 ```bash
@@ -141,6 +144,8 @@ python3 -m venv .venv
 当前现存 T02 数据中已有真实理解/规划的保存记录和四张确认计划；用户曾反馈操作体验良好。这不代表所有 T02 验收项自动通过，理解修正、单张计划修改质量及普遍业务效果仍需分别验证。
 
 ## 7. T03 第二页：逐张生成
+
+以下保留原 T03 操作记录；当前本地入口为统一工作台，逐图确认和显式批量操作见第 17 节。
 
 继续启动同一个 Flask 服务，无新增依赖或架构：
 
@@ -416,7 +421,7 @@ ssh -t -o ClearAllForwardings=yes andy_server@192.168.112.37 '/Users/andy_server
 
 ## 15. I03 — Unified Workspace（本地，2026-10-16）
 
-**IMPLEMENTED / OPERATOR REVIEW PENDING**。按本轮授权先提交 I02：`1354a0b80fe01384c57b0377bec715d23a54821f`，`feat: implement I02 image-guided editing`。I02 真实编辑验收仍待完成；第 14 节的未提交/不进入 I03 描述是此前交付节点。本轮 I03 未提交、未部署、未 Push，未执行付费调用。
+**IMPLEMENTED / OPERATOR REVIEW PENDING**。本地实现时先提交 I02：`1354a0b80fe01384c57b0377bec715d23a54821f`，`feat: implement I02 image-guided editing`。I02 真实编辑验收仍待完成；第 14 节的未提交/不进入 I03 描述是此前交付节点。I03 随后提交为 `a69470f5afa9e4cc59639a8b88b8a5a40eae4ae3`，本次部署见第 16 节；未 Push、未执行付费调用。
 
 启动：`.venv/bin/python src/prepare_plan.py --port 8010`，访问 `http://127.0.0.1:8010`。任务中心新建/打开任务进入 `/workspace/new` 或 `/workspace/<task-id>`；原 `/prepare/new`、`/prepare/<task-id>`、`/generate/<task-id>` 继续显示同一工作台。
 
@@ -428,4 +433,42 @@ ssh -t -o ClearAllForwardings=yes andy_server@192.168.112.37 '/Users/andy_server
 
 免费验证：80 项离线测试通过（原 75 + 工作台 5），覆盖旧 URL、N 卡片、计划修改/过期/重新确认、历史成图只读、两模式创建/另存/恢复/隔离，并保留原 I02、版本、Pass、两种 ZIP、SDK 请求及失败检查。Edge 浏览器使用独立临时合成资料和 MockTransport 完成商品图包查看计划 → 修改计划 → 确认 → 同页生成；Quick Redesign 查看原图/成图 → 上传辅助图及选择用途 → 修改 V2 → Pass → 查看 V1 → 刷新，确认导出仍绑定 V2。Mock 交互不等于真实模型或运营验收。
 
-现有 `.runtime/` 301 个文件前后 SHA-256 一致；原始素材、图片、Pass 与 Evidence 未修改。运营仍需评价单页使用成本、真实规划/编辑效果及费用。Mac mini 未更新，发布需另行授权。
+本地实现检查时 `.runtime/` 301 个文件前后 SHA-256 一致；原始素材、图片、Pass 与 Evidence 未修改。运营仍需评价单页使用成本、真实规划/编辑效果及费用。当时 Mac mini 未更新，后续授权部署记录如下。
+
+## 16. I01～I03 增量部署 — 2026-10-16
+
+**INTERNAL PILOT / BUSINESS VALIDATION**。部署源为本地已提交的 `a69470f5afa9e4cc59639a8b88b8a5a40eae4ae3`（I03），包含 I01 `60d98e0`、I02 `1354a0b`。部署前实际版本为 `a2e1123d1d80a3f15194872365340bdaee9b6349`，未发现服务器独立代码修改。部署批次 `20261016T023608Z-c3c76339`（UTC，上海时间 10:36 起）；现用代码在 `releases/a69470f5afa9e4cc59639a8b88b8a5a40eae4ae3/`。访问 **https://192.168.112.37:8444/**，任务中心进入共用工作台；原 URL 继续可用。
+
+只更新实际变化的 **20 个文件（16 个应用/静态文件 + 4 个测试）**：
+
+- `src/`：`experiment_export.py`、`generate_plan_image.py`、`image_review.py`、`prepare_plan.py`、`quick_redesign.py`。
+- `src/static/`：`generate.css`、`generate.js`、`prepare.css`、`prepare.js`、`tasks.js`、`workspace.css`、`workspace.js`。
+- `src/templates/`：`generate.html`、`prepare.html`、`tasks.html`、`workspace.html`。
+- `tests/`：`test_image_guided_editing.py`、`test_quick_redesign.py`、`test_quick_redesign_integration.py`、`test_workspace.py`。
+
+复用 `scripts/deploy_pilot.py` 的服务器端备份、独立 release、离线测试、数据锁、安全重启和失败恢复逻辑，先执行只读同步预览。此次明确限定应用/测试文件，构造部署请求时保留服务器非应用历史文档的原哈希；没有将这些旧文档冒充新提交内容。新 release 的应用/测试/依赖与源提交一致，实际文件哈希记录在 `.pilot-source.json`。依赖未变化，无需安装。未通过 GitHub、未使用 rsync 删除，也未同步 MacBook 的 env、密钥、runtime 或虚拟环境。
+
+**配置与数据**：沿用同一个 `com.song36.commerce-image-pilot` LaunchAgent，仅改变源码 `--chdir` 路径，其余参数/环境不变；保留原 WSGI、Gunicorn、HTTPS 8444、证书、独立 `data/.runtime/`、私有密钥及 CIDR 配置。仍允许 `192.168.112.0/24`、`127.0.0.1/32`、`::1/128`；无账号密码，获准网段可访问全部试用任务。密钥已配置（只核对布尔值），文件 `0600`、配置目录 `0700`；规划模型仍为 `gpt-5.4-mini`。服务及停启方法见第 10 节。
+
+**备份与完整性**：先通过原 `config/backup.py` 保存并核验 `backups/20261016T023530Z-f0d54881.tar.gz`，738 个文件全部字节匹配，归档 SHA-256 `c57004b0121ec5d2642e6d84f4a1ae11193396984285b77c4eb50ca8b3da9742`。确认没有未结束 AI Run 后发布；切换前后全部 738 个业务文件及 `config/` 字节不变。随后通过正常 HTTPS 新建一个“部署检查 I01-I03（合成资料，未调用AI）”双图快速任务 `77559585b6744ae5abbb5252eacaec2d`，新增 5 个文件，仅全局最近任务指针 `prepare-plan/current.json` 按正常创建操作更新；14 个原任务、原图、历史 Run、版本、Pass 和 Evidence 全部保留，不删除检查任务。
+
+**免费验证**：本地和新服务器 release 各 80 项离线测试、依赖检查通过，原访问配置 7 项检查通过。实际 HTTPS 核对 14 个旧任务、120 张输入/历史图片、24 个版本及 3 张已 Pass 卡片；case-001 四张历史成图可读。实验 ZIP 78 个文件可下载，清单哈希匹配；最终 ZIP 仅含已 Pass PNG。API Key 未出现在检查的页面、静态资源、响应、ZIP 和服务日志中。LAN、IPv4/IPv6 回环 TLS 200，错误 Host 403；越界来源/伪造 X-Forwarded-For 拒绝由访问层逻辑测试覆盖。Edge 验证任务中心、计划与成图同页、INPUT 折叠、辅助图预览/用途/移除、双原图快速模式恢复；没有点击 AI。自签证书仍显示 Not Secure，未自动绕过证书警告，不声称已建立系统信任链。
+
+**记录与回滚**：服务器 `backups/deploy-20261016T023608Z-c3c76339/` 保存校验过的 `code.tar.gz`、原 `launchagent.plist`、`result.json`、`http-checks.json`、`final-checks.json`；本地检查副本及浏览器记录在 `.runtime/deployment/i01-i03-20261016/`，不属于真实模型 Evidence。HTTP 清单校验脚本首次误用 `file` 字段，按实际 `path` 字段修正后通过，未修改应用或业务记录。回滚须先确认无 AI 请求，按第 10 节停止本服务并等待原 worker 释放数据锁，再将 LaunchAgent 的 `--chdir` 恢复为 `releases/a2e1123d1d80a3f15194872365340bdaee9b6349/src` 并启动；当前配置仍一致时可恢复上述原 plist。旧 release 一直保留；**只回退代码入口，绝不恢复数据备份覆盖现有或新建任务**。
+
+**人工验证待完成**：运营新建快速重设计任务并主动生成；在已有成图选择版本，上传同 SKU 辅助图并声明用途、填写意见后主动修改，检查新版本保存、商品/文字保持及 Pass/导出；评价统一工作台接受程度、耗时与费用。I01 BUSINESS VALIDATION、I02 REAL EDIT VALIDATION、I03 OPERATOR REVIEW 继续 PENDING，免费检查不能替代。无自动付费重试。本次没有额外 Commit 或 Push。
+
+回滚限制：旧应用不支持 Quick Redesign 和 I02/I03 新交互，新模式任务的数据仍保留，但相关操作需恢复新版本后继续；不要用旧模式保存操作改写新模式任务。当前浏览器首次资料读取曾显示约 10 秒等待，页面已恢复，尚无性能原因结论。原有同机备份、用户登录会话依赖及可信 LAN 内共享全部任务的边界仍适用。
+
+## 17. I03 补充：逐图确认与顺序批量生成（仅本地，2026-10-16）
+
+**IMPLEMENTED / OPERATOR REVIEW PENDING**。启动方式仍为 `.venv/bin/python src/prepare_plan.py --port 8010`。本节取代早前整套确认的操作说明；不改变图像模型、实际 Prompt 或单图生成参数，未部署 Mac mini，未执行付费调用、Commit 或 Push。
+
+- **商品图包**：保留整体理解/重新规划；检查每张卡片后点击「确认本图计划」。顶部只展示已确认 X/N，不批量确认。可以只确认部分图片并单独生成；修改某张计划后仅该图需重新确认。商品理解或参考理解变化时，仍按原 Context 版本使受影响的计划过期，不静默更新旧计划或图片。
+- **确认保存**：`state.json` / `versions/` 增加按图片 ID 保存的 `plan_versions` 和 `plan_confirmations`。确认绑定计划版本、计划 SHA-256、商品/参考理解版本、确认时间和原有确认快照修订号；生成仍写入原 `generations/<确认快照修订号>/<图片 ID>/runs/`。确认其他图不会改变本图生成入口。旧整体 `confirmed=true` 记录在读取时兼容；仅显式修改时补充逐图字段，不批量迁移历史。
+- **批量**：顶部「一键生成已确认图片」显示候选数，点击后再次确认数量与费用。仅选择有效确认且从未尝试的图片，跳过已生成、已 Pass、历史成图和曾失败的图片。Quick Redesign 无需计划确认，按钮为「一键生成尚未生成图片」。正常确定失败的图片可人工检查后通过单张按钮重新尝试，批次不自动付费重试。
+- **执行与恢复**：浏览器顺序调用已有单图接口；服务端再次检查条件、卡片修订号及操作 ID。发出请求前将 operation_id 和确认修订号保存到当前标签页的 sessionStorage，随后通过只读 `/api/sessions/<task-id>/operations/<图片 ID>/<operation_id>?confirmed_revision=<确认修订号>` 查询实际 Run。进度只统计确定成功或失败的 X/N，不模拟百分比。刷新、离开或任务切换后不自动续跑。
+- **不确定状态**：连接中断、服务重启、查不到 Run 或状态查询失败时暂停批次；「查询中断请求状态（不重试）」只读核对，不重新提交。未核定的 API 连接失败不能视为未执行或未计费，需要人工核对 Run 与服务商记录；界面不提供自动清除不确定状态或重发功能。浏览器批次记录不可读时禁用批量。若确认已提交结果，剩余图片仍需重新点击并确认新批次。
+- **历史与 Evidence**：原图、图片版本与 Pass 不覆盖。计划重新确认后的新成图不会静默取代旧 Pass，最终图片包继续保留最近一次明确通过的版本，直到运营另行 Pass；实验包沿用原导出器，包含逐图确认字段及 Run 中的确认绑定记录。
+
+免费验证：92 项 Python 离线测试通过（原 80 + 12 项确认/批量检查，其中一项运行 7 项 Node 批次测试），JavaScript 语法检查通过。Edge 临时合成任务 + MockTransport 验证部分确认、修改后仅本图失效、顺序成功 2/2、Pass/刷新恢复，以及 Quick 第二张连接失败后暂停、第一张保留、第三张未调用；刷新和只读查询未新增模型请求。现有 `.runtime/` 306 个文件字节保持不变。Mock 只验证交互与程序逻辑，真实批量费用、耗时和运营体验待人工验收。

@@ -38,6 +38,13 @@ def read_json(path):
     return json.loads(safe_path(path.parent, path.name).read_text(encoding="utf-8"))
 
 
+def request_uncertain(record, status=None):
+    status = status or record.get('status')
+    code = (record.get('error') or {}).get('status_code')
+    return bool(status in ['RUNNING', 'INTERRUPTED'] or status == 'FAILED' and record.get('api_call_attempted', False)
+                and not (isinstance(code, int) and 400 <= code < 500 and code != 408))
+
+
 def build_prompt(context, order):
     roles = "\n".join(f"图片 {index}：{image['id']}（{image['name']}），{'当前商品外观依据' if image['role']=='product' else '仅本张设计参考'}" for index, image in enumerate(order, 1))
     return f"""根据运营已确认的本张制作计划，生成一张当前 SKU 的实际电商商品图片。
@@ -133,7 +140,30 @@ class GenerationService:
             "card_revision": pointer.get("card_revision", 0), "started_at": record.get("api_started_at", record.get("started_at")),
             "operation": record.get("action", "generate_image"),
             "api_call_attempted": record.get('api_call_attempted', False),
+            "request_uncertain": request_uncertain(record, status),
         }
+
+    def operation(self, state, target, operation_id):
+        """Only query a specific submitted request. A missing record never authorizes a retry."""
+        if not re.fullmatch(r'[0-9a-f]{32}', operation_id):
+            raise ValueError('无效的操作标识。')
+        folder = self.folder(state['id'], state['revision'], target)
+        for path in (folder / 'runs').glob('*/run.json'):
+            record = read_json(safe_path(folder, str(path.relative_to(folder))))
+            if record.get('operation_id') != operation_id:
+                continue
+            if record.get('session_id') != state['id'] or record.get('reference_id') != target or record.get('confirmed_revision') != state['revision']:
+                raise ValueError('操作记录与本任务不一致。')
+            status = record['status']
+            with self.guard:
+                active = (state['id'], state['revision'], target) in self.active
+            if status == 'RUNNING' and not active:
+                status = 'INTERRUPTED'
+            error = record.get('error') or {}
+            return {'operation_id': operation_id, 'run_id': record['run_id'], 'status': status,
+                    'api_call_attempted': record.get('api_call_attempted', False), 'uncertain': request_uncertain(record, status),
+                    'error': safe_text(error.get('message', '')), 'confirmed_revision': state['revision']}
+        return {'operation_id': operation_id, 'status': 'NOT_FOUND', 'uncertain': True}
 
     def generate(self, state, target, parent_run_id=None, feedback="", expected_revision=None, operation_id=None, auxiliary=None):
         if target not in self.targets(state):
@@ -147,8 +177,20 @@ class GenerationService:
             lock = self.locks.setdefault(key, threading.Lock())
         if not lock.acquire(blocking=False):
             raise ValueError("这张图片正在生成，本次没有重复调用模型。")
-        with self.guard:
-            self.active.add(key)
+        if not self.store.lock.acquire(blocking=False):
+            lock.release()
+            raise ValueError('资料或计划正在处理，请稍候；本次未调用模型。')
+        try:
+            fresh = self.store.image_state(self.store.load(state['id']), target)
+            if fresh['revision'] != state['revision']:
+                raise ValueError('本图确认版本已改变，请刷新；本次未调用模型。')
+            with self.guard:
+                self.active.add(key)
+        except BaseException:
+            lock.release()
+            raise
+        finally:
+            self.store.lock.release()
         try:
             task = self.folder(state['id'], state['revision'], target)
             if operation_id:
@@ -205,6 +247,10 @@ class GenerationService:
             "endpoint": "https://api.openai.com/v1/images/edits", "max_retries": 0, "timeout_seconds": TIMEOUT_SECONDS,
             "api_call_attempted": False, "request_id": None, "usage": None, "output": None, "error": None,
         }
+        if not quick:
+            record['plan_version'] = state.get('plan_versions', {}).get(target)
+            record['plan_confirmation'] = copy.deepcopy(state.get('plan_confirmations', {}).get(target))
+            record['plan_confirmation_source'] = (record['plan_confirmation'] or {}).get('source', 'LEGACY_GLOBAL_CONFIRMED')
         if auxiliary:
             record['auxiliary_reference'] = {key: value for key, value in auxiliary.items() if key != 'data'}
             record['auxiliary_reference'].update(session_id=state['id'], image_id=target, parent_run_id=parent_run_id)

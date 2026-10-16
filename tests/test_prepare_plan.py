@@ -225,9 +225,10 @@ class PreparePlanTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             state = response.json["state"]
         self.assertEqual(state["stale_plans"], [])
-        confirmation = self.action(state, "confirm")
-        self.assertEqual(confirmation.status_code, 200)
-        state = confirmation.json["state"]
+        for image_id in web.reference_ids(state):
+            confirmation = self.action(state, "confirm", image_id)
+            self.assertEqual(confirmation.status_code, 200)
+            state = confirmation.json["state"]
         self.assertTrue(state["confirmed"])
         restarted = web.create_app(self.runtime, self.case).test_client().get("/api/current").json["state"]
         self.assertEqual(restarted, state)
