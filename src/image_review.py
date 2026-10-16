@@ -103,7 +103,7 @@ def export_passed(service, state):
     output = io.BytesIO()
     count = 0
     with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as archive:
-        for index, target in enumerate(state['plans'], 1):
+        for index, target in enumerate(service.targets(state), 1):
             path = safe_path(service.folder(state['id'], state['revision'], target), 'current.json')
             pointer = read_json(path) if path.is_file() else {}
             if pointer.get('passed_run'):

@@ -21,9 +21,10 @@ from werkzeug.exceptions import HTTPException
 
 from generate_image import sha256
 from generate_plan_image import GenerationService
-from evidence import clean_record, safe_text
+from evidence import clean_record, safe_text, contains_private
 from experiment_export import export_experiment, ExportError, historical_case_match, safe_path
 import image_review
+from quick_redesign import DEFAULT_REQUIREMENTS, SIZES
 
 ROOT = Path(__file__).resolve().parents[1]
 PRODUCT_FIELDS = ("identity", "claims", "appearance", "uncertainties")
@@ -117,11 +118,24 @@ class Store:
         write_json(folder / "versions" / f"{state['revision']:06}.json", state, exclusive=True)
         write_json(folder / "state.json", state)
 
-    def create(self, text, uploads, title, case_id=None):
-        if not any(role == "product" for role, _, _ in uploads) or not any(role == "reference" for role, _, _ in uploads):
+    def create(self, text, uploads, title, case_id=None, mode="product_pack", output_size="1024x1536"):
+        if mode not in ("product_pack", "quick_redesign"):
+            raise Problem("请选择有效的工作模式。")
+        if mode == "quick_redesign" and output_size not in SIZES:
+            raise Problem("请选择支持的输出比例。")
+        if not any(role == "product" for role, _, _ in uploads):
+            raise Problem("请至少提供一张商品原图。")
+        if mode == "product_pack" and not any(role == "reference" for role, _, _ in uploads):
             raise Problem("请至少提供一张商品原图和一张设计参考图。")
         if any(not isinstance(text.get(key), str) for key in ["listing", "description", "requirements"]):
             raise Problem("资料文本格式不正确。")
+        if mode == "quick_redesign":
+            if not isinstance(text.get("product_facts", ""), str):
+                raise Problem("商品事实说明格式不正确。")
+            if contains_private(text):
+                raise Problem("资料包含疑似认证信息，请移除后重新保存；未发送模型。")
+            text = {**text, "requirements": text["requirements"].strip() or DEFAULT_REQUIREMENTS,
+                    "product_facts": text.get("product_facts", "")}
         checked = []
         for role, name, data in uploads:
             if len(data) > 20 * 1024 * 1024:
@@ -141,6 +155,7 @@ class Store:
         (folder / "inputs").mkdir(parents=True)
         state = {
             "id": session_id, "title": title, "created_at": now(), "revision": 0,
+            "mode": mode, "output_size": output_size,
             "case_id": case_id or "case-" + session_id,
             "inputs": text, "images": [], "product": None, "references": {}, "plans": {},
             "product_version": 0, "reference_versions": {}, "plan_context": {},
@@ -355,6 +370,7 @@ def create_app(runtime_dir=None, case_dir=None):
 
     def public(state):
         result = copy.deepcopy(state)
+        result["mode"] = state.get("mode", "product_pack")
         result["stale_plans"] = stale_ids(state)
         for image in result["images"]:
             image["url"] = f"/api/sessions/{state['id']}/images/{image['id']}"
@@ -385,10 +401,11 @@ def create_app(runtime_dir=None, case_dir=None):
             if not re.fullmatch(r'[0-9a-f]{32}', folder.name):
                 continue
             state = store.load(folder.name)
-            cards = [generation.card(state, target) for target in reference_ids(state)] if state.get('confirmed') and not stale_ids(state) else []
+            quick = state.get('mode') == 'quick_redesign'
+            cards = [generation.card(state, target) for target in generation.targets(state)] if quick or state.get('confirmed') and not stale_ids(state) else []
             generated = sum(bool(card['versions']) for card in cards)
             passed = sum(bool(card['passed_run']) for card in cards)
-            total = len(reference_ids(state))
+            total = len(generation.targets(state))
             if state['id'] in store.planning:
                 status = 'AI 理解或规划正在执行'
             elif cards and any(card['status'] == 'RUNNING' for card in cards):
@@ -398,12 +415,12 @@ def create_app(runtime_dir=None, case_dir=None):
             elif generated:
                 status = '图片待审核'
             elif cards:
-                status = '计划已确认，待生图'
+                status = '资料已保存，待重设计' if quick else '计划已确认，待生图'
             elif state.get('product'):
                 status = '计划待确认'
             else:
                 status = '资料已保存，待规划'
-            tasks.append({'id': state['id'], 'title': state['title'], 'created_at': state['created_at'],
+            tasks.append({'id': state['id'], 'title': state['title'], 'created_at': state['created_at'], 'mode': state.get('mode', 'product_pack'),
                           'status': status, 'generated': generated, 'passed': passed, 'total': total,
                           'url': ('/generate/' if cards else '/prepare/') + state['id']})
         tasks.sort(key=lambda task: task['created_at'], reverse=True)
@@ -411,6 +428,10 @@ def create_app(runtime_dir=None, case_dir=None):
 
     def confirmed_state(session_id):
         state = store.load(session_id)
+        if state.get("mode") == "quick_redesign":
+            if not generation.targets(state) or state.get("output_size") not in SIZES:
+                raise Problem("重设计任务的原图或输出比例无效。", 409)
+            return state
         if not state.get("confirmed") or set(state["plans"]) != set(reference_ids(state)) or stale_ids(state):
             raise Problem("请先在第一页确认采用最新理解的整套计划，再进入图片生成。", 409)
         return state
@@ -441,13 +462,14 @@ def create_app(runtime_dir=None, case_dir=None):
     def generation_state(session_id):
         state = confirmed_state(session_id)
         return jsonify(session_id=session_id, title=state["title"], confirmed_revision=state["revision"],
-                       cards=[generation.card(state, target) for target in reference_ids(state)])
+                       mode=state.get("mode", "product_pack"),
+                       cards=[generation.card(state, target) for target in generation.targets(state)])
 
     @app.post('/api/sessions/<session_id>/review/<target>')
     def review_one(session_id, target):
         state = confirmed_state(session_id)
         body = request.get_json()
-        if target not in reference_ids(state) or not isinstance(body, dict) or body.get('confirmed_revision') != state['revision']:
+        if target not in generation.targets(state) or not isinstance(body, dict) or body.get('confirmed_revision') != state['revision']:
             raise Problem('任务、图片或确认计划已改变，请刷新。', 409)
         try:
             event = image_review.review(generation, state, target, body.get('action'), body.get('run_id'), body.get('card_revision'))
@@ -459,7 +481,7 @@ def create_app(runtime_dir=None, case_dir=None):
     def revise_one(session_id, target):
         state = confirmed_state(session_id)
         body = request.get_json()
-        if target not in reference_ids(state) or not isinstance(body, dict) or body.get('confirmed_revision') != state['revision']:
+        if target not in generation.targets(state) or not isinstance(body, dict) or body.get('confirmed_revision') != state['revision']:
             raise Problem('任务、图片或确认计划已改变，请刷新；未调用模型。', 409)
         feedback = body.get('feedback')
         if not isinstance(feedback, str) or not feedback.strip() or len(feedback) > 12000 or not body.get('parent_run_id') or not body.get('operation_id') or not isinstance(body.get('card_revision'), int):
@@ -496,8 +518,10 @@ def create_app(runtime_dir=None, case_dir=None):
         body = request.get_json()
         if not isinstance(body, dict) or body.get("confirmed_revision") != state["revision"]:
             raise Problem("确认计划的版本已改变，请刷新页面；本次没有调用模型。", 409)
-        if target not in reference_ids(state):
+        if target not in generation.targets(state):
             raise Problem("指定图片计划不存在。", 404)
+        if state.get("mode") == "quick_redesign" and (not isinstance(body.get("card_revision"), int) or not body.get("operation_id")):
+            raise Problem("请刷新图片状态后再提交；本次未调用模型。", 409)
         try:
             record = generation.generate(state, target, expected_revision=body.get('card_revision'), operation_id=body.get('operation_id'))
         except ValueError as error:
@@ -571,11 +595,15 @@ def create_app(runtime_dir=None, case_dir=None):
                         uploads.append((image["role"], image["name"], (store.folder(previous_id) / image["file"]).read_bytes()))
             for role in ["product", "reference"]:
                 uploads.extend((role, file.filename, file.read()) for file in request.files.getlist(role) if file.filename)
-            text = {key: request.form.get(key, "") for key in ["listing", "description", "requirements"]}
+            mode = request.form.get("mode", "product_pack")
+            if previous_id and mode != previous.get("mode", "product_pack"):
+                raise Problem("复制任务不能切换工作模式；请从任务中心新建。")
+            keys = ["listing", "description", "requirements"] + (["product_facts"] if mode == "quick_redesign" else [])
+            text = {key: request.form.get(key, "") for key in keys}
             title = request.form.get('title', '新商品资料').strip()
             if not title or len(title) > 120:
                 raise Problem('请填写任务名称（最多 120 字）。')
-            state = store.create(text, uploads, title)
+            state = store.create(text, uploads, title, mode=mode, output_size=request.form.get("output_size", "1024x1536"))
             return jsonify(state=public(state))
 
     @app.post("/api/sessions/<session_id>/action")
@@ -584,6 +612,8 @@ def create_app(runtime_dir=None, case_dir=None):
             raise Problem("有操作正在处理，请稍候；本次没有重复调用模型。", 409)
         try:
             state = store.load(session_id)
+            if state.get("mode") == "quick_redesign":
+                raise Problem("快速重设计不执行商品理解或规划；请进入图片生成。", 409)
             body = request.get_json()
             if not isinstance(body, dict) or body.get("revision") != state["revision"]:
                 raise Problem("页面内容已过期，请刷新后再操作；本次没有调用模型。", 409)

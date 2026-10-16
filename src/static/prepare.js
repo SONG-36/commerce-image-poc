@@ -9,17 +9,34 @@ const $ = id => document.getElementById(id);
 const productFields = {identity:"商品识别", claims:"Listing 声称 · 待核验", appearance:"实拍外观 · 候选识别", uncertainties:"冲突与待确认"};
 const referenceFields = {style:"视觉风格", composition:"构图方式", layout:"信息布局", expression:"视觉表达", applicable:"可借鉴的方法", risks:"边界与待确认"};
 const planFields = {goal:"表达目标", selling_points:"主要卖点", design:"设计与构图", scene_style:"场景与风格", risks:"风险与待确认"};
+const redesignDefault='提升商业设计质量、排版与信息层级、光影与背景、场景表现及原有卖点的视觉表达。';
+function isQuick(){return $('task-mode').value==='quick_redesign';}
+function renderMode(){
+  const quick=isQuick();
+  for(const id of ['listing-field','description-field','understanding-section','plans-section','understand','load-case'])$(id).hidden=quick;
+  $('redesign-fields').hidden=!quick;
+  $('mode-note').textContent=quick?'每张商品原图独立重设计；设计参考图可选，只提供风格依据。默认追求 Amazon 常见商业信息图、场景图和卖点图风格，不代表平台合规认证。保存、刷新不调用 AI。':'商品原图用于识别外观；参考图用于借鉴设计。加载和保存资料不会调用 AI。';
+  $('input-title').textContent=quick?'待重设计图片与整体要求':'商品资料与参考图';
+  $('product-label').textContent=quick?'待重设计原图':'商品原图';
+  $('reference-label').textContent=quick?'风格参考图（可选）':'设计参考图';
+  document.querySelector('.heading h1').textContent=quick?'准备图片，直接重设计':'准备资料，逐张规划图片';
+  document.querySelector('.heading p:last-child').textContent=quick?'无需 Listing 或 AI 规划，保存后逐张生成、修改与审核。':'先看清商品与参考设计，再把每张图要做什么说明白。';
+  document.querySelector('nav strong').textContent=quick?'01 原图与要求':'01 准备与规划';
+  $('save-inputs').textContent=quick?'保存并进入重设计':'保存资料为新任务';
+  document.querySelector('footer').textContent=quick?'每张原图独立生成，可继续修改、查看历史、Pass 和导出。只有主动点击 AI 按钮才产生费用。':'本页准备与规划，第二页逐张生成、修改、审核与导出。';
+}
 function element(tag, text, className) {const e=document.createElement(tag); if(text!==undefined)e.textContent=text;if(className)e.className=className;return e;}
 function notify(text, error=false) {$('message').textContent=text;$('message').className=error?'error':'';$('message').hidden=false;}
 async function api(url, options={}) {const response=await fetch(url,{...options,headers:{'X-Local-Action':'prepare-plan',...options.headers}});let body;try{body=await response.json();}catch{throw new Error('服务未返回可读结果，请检查本地服务是否仍在运行。');}if(!response.ok)throw new Error(body.error||'操作失败');return body;}
 function updateButtons() {
   const locked=busy||remoteBusy;
-  document.querySelectorAll('button,input,textarea').forEach(e=>e.disabled=locked);
+  document.querySelectorAll('button,input,textarea,select').forEach(e=>e.disabled=locked);
+  $('task-mode').disabled=locked||Boolean(state);
   $('understand').disabled=busy||Boolean(state?.product&&!dirty);
   $('replan').disabled=busy||!state?.product||dirty;
   $('confirm').disabled=busy||!state?.product||dirty||Boolean(state?.stale_plans.length)||state?.confirmed;
   document.querySelectorAll('.ai-mutation').forEach(e=>e.disabled=busy||dirty);
-  const canGenerate=Boolean(state?.confirmed&&!dirty&&!busy&&!remoteBusy);
+  const canGenerate=Boolean((isQuick()?state:state?.confirmed)&&!dirty&&!busy&&!remoteBusy);
   $('enter-generate').hidden=!canGenerate;
   $('generate-nav').setAttribute('aria-disabled',String(!canGenerate));
   for(const id of ['enter-generate','generate-nav']){if(canGenerate)$(id).href='/generate/'+state.id;else $(id).removeAttribute('href');}
@@ -27,7 +44,7 @@ function updateButtons() {
   document.body.classList.toggle('busy',locked);
 }
 async function work(fn) {if(busy||remoteBusy)return;busy=true;operation={name:'读取或保存资料',started_at:new Date().toISOString(),status:'RUNNING'};drawProgress();updateButtons();try{await fn();if(!remoteBusy&&!operation.fromSaved)operation.status='SUCCEEDED';}catch(error){operation.status='FAILED';notify(error.message,true);}finally{busy=false;if(!remoteBusy&&!operation.fromSaved)operation.finished_at=new Date().toISOString();drawProgress();updateButtons();}}
-function markDirty(){dirty=true;$('input-note').textContent='资料有修改。保存为新任务后重新理解与规划，旧任务保留。';updateButtons();}
+function markDirty(){dirty=true;$('input-note').textContent=isQuick()?'资料有修改。保存为新任务后继续重设计，旧任务保留。':'资料有修改。保存为新任务后重新理解与规划，旧任务保留。';updateButtons();}
 function releasePending(){Object.values(pending).flat().forEach(item=>URL.revokeObjectURL(item.url));pending={product:[],reference:[]};}
 function renderImages(){
   for(const role of ['product','reference']){
@@ -50,6 +67,7 @@ function feedbackBox(action,target,label,buttonText){
   const button=element('button',buttonText,'secondary ai-mutation');button.type='button';button.onclick=()=>{if(!input.value.trim()){notify('请先填写修改意见。',true);return;}work(()=>runAction(action,target,input.value));};row.append(input,button);box.append(lab,row,renderHistory(target,action));return box;
 }
 function renderResults(){
+  renderMode();
   const ready=Boolean(state?.product);$('understanding-empty').hidden=ready;$('understanding-content').hidden=!ready;
   const products=$('product-understanding'),refs=$('reference-understandings'),plans=$('plans');products.replaceChildren();refs.replaceChildren();plans.replaceChildren();
   if(ready){
@@ -64,13 +82,15 @@ function renderResults(){
   $('confirmation-note').textContent=state?.confirmed?'本次已保存计划。进入第二页后，可逐张点击生成图片；切换页面不会产生费用。':state?.stale_plans.length?'请先让计划采用修正后的理解，再确认整套计划。':'计划确认后保存在本地，刷新页面可继续查看。';
   updateButtons();
 }
-function applyState(value,activity=null){state=value;dirty=false;window.history.replaceState(null,'','/prepare/'+state.id);$('task-title').value=state.title;releasePending();kept=state.images.map(i=>({...i}));for(const key of ['listing','description','requirements'])$(key).value=state.inputs[key];$('product-files').value='';$('reference-files').value='';$('saved-status').textContent=state.confirmed?'计划已确认':'资料与修改已保存';$('input-note').textContent=state.title+' · 当前任务已保存，刷新后可恢复。';
+function applyState(value,activity=null){state=value;dirty=false;window.history.replaceState(null,'','/prepare/'+state.id);$('task-mode').value=state.mode||'product_pack';$('task-title').value=state.title;releasePending();kept=state.images.map(i=>({...i}));for(const key of ['listing','description','requirements','product_facts'])$(key).value=state.inputs[key]||'';$('output-size').value=state.output_size||'1024x1536';$('product-files').value='';$('reference-files').value='';$('saved-status').textContent=isQuick()?'重设计资料已保存':state.confirmed?'计划已确认':'资料与修改已保存';$('input-note').textContent=state.title+' · 当前任务已保存，刷新后可恢复。';
   remoteBusy=activity?.status==='RUNNING';clearTimeout(progressPoll);
   if(activity){operation={...activity,fromSaved:true,name:actionNames[activity.action]||'AI 操作',status:activity.status==='AI_RESULT_RECEIVED'?'SUCCEEDED':activity.status};drawProgress();}
   if(remoteBusy)progressPoll=setTimeout(async()=>{try{const body=await api('/api/sessions/'+state.id);const active=body.activity;if(active?.status!=='RUNNING'){operation={...active,name:actionNames[active?.action]||'AI 操作',status:active?.status==='AI_RESULT_RECEIVED'?'SUCCEEDED':active?.status||'FAILED'};drawProgress();}applyState(body.state,body.activity);}catch(error){notify('状态读取失败：'+error.message+'；未自动重试模型请求。',true);}},2000);
   renderImages();renderResults();}
 async function saveInputs(){
   const data=new FormData();for(const key of ['listing','description','requirements'])data.append(key,$(key).value);
+  data.append('mode',$('task-mode').value);
+  if(isQuick()){data.append('product_facts',$('product_facts').value);data.append('output_size',$('output-size').value);}
   data.append('title',$('task-title').value);
   if(state){data.append('from_session',state.id);data.append('keep_images',JSON.stringify(kept.map(i=>i.id)));}
   for(const role of ['product','reference'])pending[role].forEach(item=>data.append(role,item.file,item.file.name));
@@ -88,10 +108,11 @@ async function runAction(action,target=null,feedback=''){
   notify(action==='confirm'?'出图计划已保存，可进入图片生成阶段。':action==='plan'?'本张计划已更新，其他计划保持不变。':action==='product'||action==='reference'?'理解已修正。后续规划将使用修正结果，已有计划请显式更新后再确认。':'AI 理解与规划已保存，请检查候选结果。');
 }
 $('load-case').onclick=()=>work(async()=>{const body=await api('/api/case-001',{method:'POST'});applyState(body.state);notify('case-001 已加载为独立资料副本，未调用 AI。');});
-$('input-form').onsubmit=event=>{event.preventDefault();work(async()=>{await saveInputs();notify('资料已保存为新任务，旧任务未覆盖。');});};
+$('input-form').onsubmit=event=>{event.preventDefault();work(async()=>{await saveInputs();if(isQuick())window.location.href='/generate/'+state.id;else notify('资料已保存为新任务，旧任务未覆盖。');});};
 $('understand').onclick=()=>work(async()=>{if(dirty||!state)await saveInputs();await runAction('understand');});
 $('replan').onclick=()=>work(()=>runAction('replan'));
 $('confirm').onclick=()=>work(()=>runAction('confirm'));
-for(const key of ['listing','description','requirements','task-title'])$(key).addEventListener('input',markDirty);
+for(const key of ['listing','description','requirements','task-title','product_facts','output-size'])$(key).addEventListener('input',markDirty);
+$('task-mode').onchange=()=>{if(isQuick()&&!$('requirements').value.trim())$('requirements').value=redesignDefault;renderMode();markDirty();};
 for(const role of ['product','reference'])$(role+'-files').onchange=event=>{for(const file of event.target.files)pending[role].push({file,name:file.name,url:URL.createObjectURL(file),role});event.target.value='';renderImages();markDirty();};
 work(async()=>{const session=document.body.dataset.sessionId;if(session){const body=await api('/api/sessions/'+encodeURIComponent(session));$('config-note').hidden=body.ai_configured;applyState(body.state,body.activity);}else renderResults();});

@@ -19,6 +19,7 @@ from generate_image import MODELS, PARAMETERS, TIMEOUT_SECONDS, make_client, sha
 from evidence import clean_record, safe_text
 from experiment_export import safe_path
 import image_review
+import quick_redesign
 
 
 def now():
@@ -83,8 +84,12 @@ class GenerationService:
         self.locks = {}
         self.active = set()
 
+    def targets(self, state):
+        role = "product" if state.get("mode") == "quick_redesign" else "reference"
+        return [image["id"] for image in state["images"] if image["role"] == role]
+
     def folder(self, session_id, revision, target):
-        if not isinstance(revision, int) or revision < 1 or not re.fullmatch(r"reference_[0-9]+", target or ""):
+        if not isinstance(revision, int) or revision < 1 or not re.fullmatch(r"(?:product|reference)_[0-9]+", target or ""):
             raise ValueError("无效的图片任务。")
         return safe_path(self.store.folder(session_id), f'generations/{revision:06}/{target}')
 
@@ -115,7 +120,11 @@ class GenerationService:
         reference = next(image for image in state["images"] if image["id"] == target)
         error = record.get("error")
         return {
-            "id": target, "plan": state["plans"][target], "confirmed_revision": revision,
+            "id": target, "plan": state["plans"].get(target), "confirmed_revision": revision,
+            "requirements": state["inputs"]["requirements"], "product_facts": state["inputs"].get("product_facts", ""),
+            "output_size": state.get("output_size", PARAMETERS["size"]),
+            "style_references": [{"name": image["name"], "url": f"/api/sessions/{state['id']}/images/{image['id']}"}
+                                 for image in state["images"] if state.get("mode") == "quick_redesign" and image["role"] == "reference"],
             "reference": {"name": reference["name"], "url": f"/api/sessions/{state['id']}/images/{target}"},
             "status": status, "run_id": latest, "image_url": image_url,
             "image_is_latest": bool(successful and successful == latest),
@@ -127,6 +136,8 @@ class GenerationService:
         }
 
     def generate(self, state, target, parent_run_id=None, feedback="", expected_revision=None, operation_id=None):
+        if target not in self.targets(state):
+            raise ValueError("图片不属于当前工作模式的制作任务。")
         key = (state["id"], state["revision"], target)
         with self.guard:
             lock = self.locks.setdefault(key, threading.Lock())
@@ -171,13 +182,18 @@ class GenerationService:
         pointer = {**old_pointer, "latest_run": run_id, "last_successful_run": old_pointer.get("last_successful_run"),
                    "card_revision": old_pointer.get('card_revision', 0) + 1}
         model = os.environ.get("OPENAI_IMAGE_MODEL", MODELS[0])
+        quick = state.get("mode") == "quick_redesign"
+        parameters = dict(PARAMETERS)
+        if quick:
+            parameters["size"] = state.get("output_size", PARAMETERS["size"])
         record = {
             "run_id": run_id, "session_id": state["id"], "reference_id": target, "confirmed_revision": revision,
             "case_id": self.store.case_id(state), "action": "revise_image" if parent_run_id else "generate_image",
             "parent_run_id": parent_run_id, "feedback": feedback, "operation_id": operation_id,
             "version": len(image_review.versions(self, state, target)) + 1,
             "confirmed_version_file": f"versions/{revision:06}.json",
-            "started_at": now(), "status": "RUNNING", "model": model, "parameters": dict(PARAMETERS),
+            "mode": state.get("mode", "product_pack"),
+            "started_at": now(), "status": "RUNNING", "model": model, "parameters": parameters,
             "sdk_version": version("openai"), "source_sha256": sha256(Path(__file__).read_bytes()),
             "t01_source_sha256": sha256(Path(__file__).with_name("generate_image.py").read_bytes()),
             "endpoint": "https://api.openai.com/v1/images/edits", "max_retries": 0, "timeout_seconds": TIMEOUT_SECONDS,
@@ -188,21 +204,36 @@ class GenerationService:
         try:
             if model not in MODELS:
                 raise ValueError("图像模型配置不在 T01 已核实的模型列表内。")
-            context = {
-                "session_id": state["id"], "confirmed_revision": revision, "reference_id": target,
-                "original_inputs": copy.deepcopy(state["inputs"]),
-                "product_understanding": copy.deepcopy(state["product"]),
-                "reference_understanding": copy.deepcopy(state["references"][target]),
-                "confirmed_plan": copy.deepcopy(state["plans"][target]),
-            }
+            if quick and parameters["size"] not in quick_redesign.SIZES:
+                raise ValueError("重设计输出比例无效，未调用模型。")
+            if quick:
+                context = {"session_id": state["id"], "mode": "quick_redesign", "source_image_id": target,
+                           "input_revision": revision, "original_inputs": copy.deepcopy(state["inputs"]),
+                           "output_size": parameters["size"]}
+                record["source_image_id"] = target
+                record["quick_redesign_source_sha256"] = sha256(Path(quick_redesign.__file__).read_bytes())
+            else:
+                context = {
+                    "session_id": state["id"], "confirmed_revision": revision, "reference_id": target,
+                    "original_inputs": copy.deepcopy(state["inputs"]),
+                    "product_understanding": copy.deepcopy(state["product"]),
+                    "reference_understanding": copy.deepcopy(state["references"][target]),
+                    "confirmed_plan": copy.deepcopy(state["plans"][target]),
+                }
             write_json(folder / "plan.json", context)
-            record["plan_sha256"] = sha256(json.dumps(state["plans"][target], ensure_ascii=False, sort_keys=True).encode())
+            record["plan_sha256"] = sha256(json.dumps(context if quick else state["plans"][target], ensure_ascii=False, sort_keys=True).encode())
+            if quick:
+                record["context_sha256"] = record["plan_sha256"]
             for name, text in state["inputs"].items():
-                if name in ["listing", "description", "requirements"]:
+                if name in ["listing", "description", "requirements", "product_facts"]:
                     (folder / "inputs" / f"{name}.md").write_text(safe_text(text), encoding="utf-8")
-            selected = [image for image in state["images"] if image["role"] == "product"]
-            selected += [image for image in state["images"] if image["id"] == target and image["role"] == "reference"]
-            if not selected or selected[-1]["id"] != target or not any(image["role"] == "product" for image in selected):
+            if quick:
+                selected = [image for image in state["images"] if image["id"] == target and image["role"] == "product"]
+                selected += [image for image in state["images"] if image["role"] == "reference"]
+            else:
+                selected = [image for image in state["images"] if image["role"] == "product"]
+                selected += [image for image in state["images"] if image["id"] == target and image["role"] == "reference"]
+            if not selected or (not quick and selected[-1]["id"] != target) or not any(image["role"] == "product" for image in selected):
                 raise ValueError("本张计划缺少对应商品原图或参考图。")
             images, order = [], []
             if parent_run_id:
@@ -226,9 +257,19 @@ class GenerationService:
                 images.append((name, data, image["mime"]))
                 order.append({"slot": len(order) + 1, "id": image["id"], "name": image["name"], "role": image["role"],
                               "mime": image["mime"], "sha256": image["sha256"], "bytes": len(data), "file": f"inputs/{name}"})
-            prompt = build_edit_prompt(context, order, feedback) if parent_run_id else build_prompt(context, order)
+            if quick:
+                record["context_sha256"] = sha256(json.dumps(context, ensure_ascii=False, sort_keys=True).encode())
+                record["plan_sha256"] = record["context_sha256"]
+                for item in order:
+                    if item["role"] != "current_image":
+                        item["role"] = "original" if item["id"] == target else "design_reference"
+                texts = {"requirements": state["inputs"]["requirements"],
+                         "product_facts": state["inputs"].get("product_facts", "") or "未提供额外商品事实说明；不得补充未经确认的宣称。"}
+                prompt = quick_redesign.build_edit_prompt(texts, order, feedback) if parent_run_id else quick_redesign.build_prompt(texts, order)
+            else:
+                prompt = build_edit_prompt(context, order, feedback) if parent_run_id else build_prompt(context, order)
             (folder / "prompt.txt").write_text(safe_text(prompt), encoding="utf-8")
-            write_json(folder / "request.json", {"model": model, "prompt": prompt, **PARAMETERS,
+            write_json(folder / "request.json", {"model": model, "prompt": prompt, **parameters,
                                                 "image_order": order, "plan_sha256": record["plan_sha256"], "confirmed_revision": revision})
             record["inputs"] = order
             record["prompt_sha256"] = sha256(prompt.encode())
@@ -241,7 +282,7 @@ class GenerationService:
                 write_json(folder / "run.json", record)
                 api_started = time.perf_counter()
                 try:
-                    response = client.images.edit(model=model, prompt=prompt, image=images, **PARAMETERS)
+                    response = client.images.edit(model=model, prompt=prompt, image=images, **parameters)
                 finally:
                     record["api_elapsed_seconds"] = round(time.perf_counter() - api_started, 3)
             record["request_id"] = response._request_id
@@ -255,7 +296,7 @@ class GenerationService:
                 stream.write(data)
             record["output"] = {"file": "image.png", "bytes": len(data), "sha256": sha256(data), "validated": False}
             with Image.open(io.BytesIO(data)) as image:
-                if image.format != "PNG" or image.size != tuple(map(int, PARAMETERS["size"].split("x"))):
+                if image.format != "PNG" or image.size != tuple(map(int, parameters["size"].split("x"))):
                     raise ValueError("返回图片的格式或尺寸与请求不符，已保留返回字节。")
                 image.verify()
             with Image.open(io.BytesIO(data)) as image:

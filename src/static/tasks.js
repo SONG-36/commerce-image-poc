@@ -6,7 +6,7 @@ async function loadTasks(){
     if(!body.tasks.length){const empty=document.createElement('p');empty.textContent='尚无任务，请创建新任务；也可在准备页加载 case-001。';list.append(empty);}
     for(const task of body.tasks){
       const row=document.createElement('article');row.className='task-row';const info=document.createElement('div');const name=document.createElement('h2');name.textContent=task.title;
-      const date=document.createElement('p');date.className='muted';date.textContent='创建于 '+new Date(task.created_at).toLocaleString();
+      const date=document.createElement('p');date.className='muted';date.textContent=(task.mode==='quick_redesign'?'快速重设计':'商品图包制作')+' · 创建于 '+new Date(task.created_at).toLocaleString();
       const status=document.createElement('p');status.textContent=`${task.status} · 已生成 ${task.generated} / ${task.total} 张 · 已 Pass ${task.passed} 张`;
       const link=document.createElement('a');link.className='secondary button-link';link.href=task.url;link.textContent='打开 / 继续任务';info.append(name,date,status);row.append(info,link);list.append(row);
     }

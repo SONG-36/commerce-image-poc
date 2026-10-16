@@ -13,12 +13,18 @@ async function api(url,options={}){const response=await fetch(url,{...options,he
 function render(){
   const container=node('generation-cards');container.replaceChildren();
   if(!current)return;
+  const quick=current.mode==='quick_redesign';
+  node('prepare-nav').textContent=quick?'01 原图与要求':'01 准备与规划';
+  node('prepare-link').textContent=quick?'查看原图与要求':'返回准备与规划';
   const completed=current.cards.filter(card=>card.versions.length).length,passed=current.cards.filter(card=>card.passed_run).length;
   node('task-summary').textContent=`${current.title} · 已生成 ${completed} / ${current.cards.length} 张 · 已 Pass ${passed} 张`;
   current.cards.forEach((card,index)=>{
     const article=el('article',undefined,'generation-card');article.dataset.cardId=card.id;
-    const heading=el('div',undefined,'plan-heading');const reference=el('img');reference.src=card.reference.url;reference.alt=`图片 ${index+1} 的设计参考图`;const title=el('div');title.append(el('h3',`图片 ${index+1}`),el('span','对应参考：'+card.reference.name,'muted'));heading.append(reference,title);
-    const details=el('dl',undefined,'details');for(const [key,label] of Object.entries(labels))details.append(el('dt',label),el('dd',card.plan[key]));
+    const heading=el('div',undefined,'plan-heading');const reference=el('img');reference.src=card.reference.url;reference.alt=`图片 ${index+1} 的${quick?'原始图片':'设计参考图'}`;const title=el('div');title.append(el('h3',`图片 ${index+1}${quick?' · 快速重设计':''}`),el('span',(quick?'原图：':'对应参考：')+card.reference.name,'muted'));heading.append(reference,title);
+    const details=el('details',undefined,'history');details.open=!quick;details.append(el('summary',quick?'查看整体要求、商品依据与风格参考':'已确认制作计划'));
+    const definition=el('dl',undefined,'details');
+    if(quick){definition.append(el('dt','整体设计要求'),el('dd',card.requirements),el('dt','商品事实说明'),el('dd',card.product_facts||'未提供，不补充未经确认的宣称'),el('dt','输出尺寸'),el('dd',card.output_size));details.append(definition);for(const style of card.style_references){const img=el('img');img.src=style.url;img.alt='仅设计风格参考：'+style.name;img.width=120;details.append(img);}details.append(el('p','Amazon 风格是视觉偏好，不代表平台合规认证。','muted'));}
+    else{for(const [key,label] of Object.entries(labels))definition.append(el('dt',label),el('dd',card.plan[key]));details.append(definition);}
     const result=el('div',undefined,'image-result');
     const selected=card.versions.find(v=>v.run_id===card.selected_run),accepted=card.versions.find(v=>v.run_id===card.passed_run);
     if(card.image_url){const image=el('img');image.src=card.image_url;image.alt=`图片 ${index+1} 的生成结果`;result.append(image,el('p',`当前查看 V${selected?.version||1} · ${card.passed_run===card.selected_run?'已 Pass':'待审核'}${accepted&&card.passed_run!==card.selected_run?` · 导出仍使用已 Pass 的 V${accepted.version}`:''}`,'image-caption'));}

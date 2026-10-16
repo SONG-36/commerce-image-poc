@@ -3,6 +3,7 @@
 > 阶段：低成本 AI 可行性验证 / 两页式原型探索  
 > 范围：跨境电商商品图包制作（当前参考 TikTok Shop、Temu 的相似制图工作）  
 > 状态：**T01 首图用户 PASS；T02 已有确认计划；T03 已核实四张真实成图，业务验收待完成；T04 与任务中心、等待反馈已本地实现，真实图片修改质量及完整运营闭环待人工验证**。
+> I01：**PRODUCT INTEGRATION IMPLEMENTED / BUSINESS VALIDATION PENDING**。快速重设计已本地接入，Mac mini 本轮未部署；仅一个真实样本获用户正面反馈，不代表普遍商业效果通过。
 
 ## 1. 我们要解决什么
 
@@ -14,6 +15,7 @@
 
 ## 2. 最小产品形态
 
+- **任务模式**：新建时选择「商品图包制作」或「快速重设计」。后者无需 Listing 或 T02 规划，按 N 张原图直接进入共用的生成与审核页；使用方式见第 13 节。历史任务缺少模式字段时仍按商品图包制作处理。
 - **页面一 Prepare & Plan**：上传商品资料、N 张设计参考图和整体要求；AI 辅助理解商品与参考图，形成可编辑的逐图制作计划。
 - **页面二 Generate & Review**：按逐图计划生成真实图片；每图可 `Pass` 或提交修改意见；保留原图与修改版本；导出通过的图片。
 
@@ -319,3 +321,71 @@ ssh -t -o ClearAllForwardings=yes andy_server@192.168.112.37 '/Users/andy_server
 ```
 
 若要回退整份代码，先确认运营空闲，使用上述备份的 `launchagent.plist` 恢复原源码入口再启动；原 T04 release 一直保留，禁止恢复数据备份覆盖当前任务。本轮 README/CURRENT_STATE 的使用记录与原有文档修改保留在工作区，未混入上述源码提交；未 Push 或处理远程历史。
+
+## 12. I01 — Quick Redesign 可行性实验（2026-10-16）
+
+本节保留 **AI FEASIBILITY EXPERIMENT 免费准备阶段**的命令与证据约定，当时状态为 ACTIVE / REAL RUN PENDING；最新本地产品集成见第 13 节。独立入口 `src/quick_redesign.py` 复用 T01 的官方客户端、图像模型允许列表、参数、SHA-256/JSON 写入及既有 Evidence 脱敏与路径检查。初次检查时资料目录不存在，因此保存了缺资料记录；该历史阻断现已解除，不代表当前仍缺样本。
+
+原实验建议准备 2～3 张真实业务原图，每张独立；下列仅为命名示例，并非当前文件清单。最新用户指令基于一个正面样本直接集成，不要求增加实验样本：
+
+```text
+.runtime/inputs/i01-quick-redesign/
+  sample_01.jpg            # 第一轮只明确选择这一张
+  sample_02.jpg            # 第一张评价后再决定是否测试
+  requirements.md         # 可选：运营设计要求，UTF-8
+  product_facts.md         # 可选：必要商品依据/约束，UTF-8
+  design_reference.webp   # 可选：仅用于设计方法的参考图
+```
+
+支持 JPG、PNG、WebP，单张小于 50 MB；只读取显式选择的文件。第一张输入始终为本次原图，可另选一张设计参考置于第二位；不扫描并批量发送目录里的其他样本。文字会进入 Prompt；拒绝含疑似密钥的文本，API Key 只从当前进程环境读取，不加载 `.env` 或 `.env.example`。模型默认 `gpt-image-2.5-sunburst`，可通过现有 `OPENAI_IMAGE_MODEL` 或显式 `--model` 选择 T01 允许的模型。沿用 `n=1`、`quality=low`、`size=1024x1536`、PNG、180 秒超时、零自动重试；首轮低成本配置不等于已验证模型的最高商业设计质量。
+
+资料准备后，先执行免费检查（用实际文件名替换示例；可选文件未提供时不加对应参数）：
+
+```bash
+.venv/bin/python src/quick_redesign.py --image sample_01.jpg
+# 如有运营提供的要求、商品依据和设计参考，可显式选择：
+.venv/bin/python src/quick_redesign.py --image sample_01.jpg \
+  --requirements requirements.md --facts product_facts.md --reference design_reference.webp
+.venv/bin/python -m unittest discover -s tests -q
+```
+
+默认不创建 API 客户端、不调用模型。缺少资料保存 `LOCAL_CHECK_FAILED`，`request_ready=false`；没有实际输入时不会伪造完整请求或 Prompt。有有效样本后才保存输入副本、`context.json`、`prompt.txt` 与 `request.json`，状态为 `LOCAL_CHECK_ONLY`；没有提供运营要求时采用明确标记 `experiment_default` 的通用重设计目标，不冒充运营提交的要求。
+
+**以下命令本轮未执行。只有用户确认所选业务资料、画幅/低成本参数及一次付费调用后，才在已安全设置环境密钥的终端执行：**
+
+```bash
+.venv/bin/python src/quick_redesign.py --image sample_01.jpg \
+  --model gpt-image-2.5-sunburst --run-paid
+```
+
+如运营提供自定义要求，先用相同 `--requirements` / `--facts` / `--reference` 参数执行免费检查，确认后在相同命令末尾加 `--run-paid`。每次命令最多一次 `images.edit`，不自动批量、不重试或切换模型；失败仍可能在服务端执行或计费，应先核对 Evidence，等待评价，不进入自动 Prompt 调试循环。原图是主要依据；允许重新排版、改善层级、光影、背景和场景，尽可能保留外观、关键文字及卖点基本含义，不新增未经确认的功能、参数、附件或承诺。Amazon 风格仅是设计偏好，不是白底主图模式或发布合规声明。[官方 Images API 编辑能力](https://developers.openai.com/api/docs/guides/image-generation#edit-images)与既有调用方式一致；账户真实可用性及效果仍待验证。
+
+每次运行独立保存：
+
+- `.runtime/evidence/i01-quick-redesign/<run-id>/`：`run.json` 保存 I01/Run ID、所选路径、实际输入标识、模型/参数、源码哈希、时间/耗时、可获取的 request ID/usage、错误和输出关联；有效输入另保存 `inputs/` 原字节副本、`context.json`、`prompt.txt`、含图片顺序/MIME/SHA-256 的 `request.json`。真实响应保存 `response.json`，失败保存 `error.json`，不记录密钥或内部思考。
+- `.runtime/outputs/i01-quick-redesign/<run-id>/image.png`：保留实际返回字节；PNG、尺寸、解码检查失败也不丢弃已返回图片，但不标为技术成功。旧 Run 和原图不覆盖。
+- 技术成功仅为 `API_IMAGE_SAVED_AWAITING_REVIEW`；此时新建 `review.json` 的空白人工评价记录，decision 尚未填写，允许 `PASS / MODIFY / REJECT`，填写简短原因及 Product Fidelity、Information Fidelity、Visual Quality、Hallucination、Revision Effort、Cost & Latency。实际费用缺失时为 null，不用 usage 编造金额；不改写请求/响应来代替人工评价。
+
+免费准备阶段 56 项离线测试通过（原有 47 + I01 9），SDK 请求只经过 MockTransport，合成图片不充当业务原图或真实模型证据。首次资料检查 `20261016T012440Z-f41214714e514459b9c64e83f5b8717d` 因目录缺失而停止，该 Run 没有有效请求或输出。随后已有真实成功 Run `20261016T013618Z-c0952e3ddfff430189e350a8bbb27c00`，耗时 21.445 秒，保存图片及 API usage；用户本轮反馈正面评价。其原始 `review.json` 尚未填写，实际账单费用仍为 null，原记录保持不变。一个样本不能推导普遍结论；本轮集成没有新增真实调用。
+
+## 13. I01 — 快速重设计模式（本地集成，2026-10-16）
+
+**PRODUCT INTEGRATION IMPLEMENTED / BUSINESS VALIDATION PENDING**。复用原任务中心、第二页、图像客户端与审核/导出，无新增依赖；Mac mini 继续运行原部署，本轮未同步。
+
+启动或在空闲时重启本地服务：
+
+```bash
+.venv/bin/python src/prepare_plan.py --port 8010
+```
+
+打开 `http://127.0.0.1:8010` →「创建新任务」→ 工作模式选择「快速重设计」→ 填写名称、上传 N 张待重设计原图、修改整体要求，可选填商品事实说明或上传风格参考 →「保存并进入重设计」。支持 JPG/PNG/WebP，单图 20 MB、保存总请求 80 MB；不固定图片数量。Listing/商品理解/参考理解/逐图规划均非前置条件。整体要求有可编辑默认值；风格参考仅提供设计方法，原图信息和商品说明仍需运营核实。Amazon 信息图/场景图/卖点图是视觉偏好，不是平台合规承诺。
+
+每张原图对应一张卡片，单独点击「生成图片」才调用模型。默认仍为 `gpt-image-2.5-sunburst`，遵循 `OPENAI_IMAGE_MODEL` 和 T01 允许列表；`images.edit`，n=1、low、PNG、180 秒、零自动重试。可选竖图 1024×1536、方图 1024×1024、横图 1536×1024，采用[官方支持的输出尺寸](https://developers.openai.com/api/docs/guides/image-generation#customize-image-output)，原商品图包模式参数不变。
+
+- **生成输入**：本张原图在第一位，随后为当前任务可选风格参考；Prompt 使用整体要求和可选商品约束。不会发送其他待重设计原图或修改历史，不执行 T02。
+- **修改输入**：当前选中成图 → 本张原图 → 已保存风格参考，结合整体要求、商品约束、本次自然语言意见。直接复用「修改图片」、V1/V2/V3、历史选择及父 Run 关联；不支持本轮新增辅助图片（I02），不承诺所有未修改区域保持不变。
+- **审核与导出**：Pass 绑定指定版本，新生成/修改/选择不会静默替换已 Pass 版本。「导出通过的图片」仅含当前任务已通过的 PNG；「导出实验包」包含当前任务输入、生成/修改/审核证据及 SHA-256 清单，二者继续共用 T04 实现。
+- **持久化**：`.runtime/prepare-plan/sessions/<task-id>/` 保持原结构。`state.json` 保存 `mode=quick_redesign`、输出尺寸和文本，原图及风格图仍在 `inputs/` 按 product/reference 分类；`generations/<输入修订号>/product_NNN/runs/<run-id>/` 保存实际输入副本、Prompt、请求参数/顺序/hash、图片、响应、usage、耗时和错误。复用的 `plan.json` 在此模式保存本次有效输入 Context，不冒充 AI 制作计划；历史字段 `confirmed_revision` 对应已保存输入版本。选择/Pass 仍写原 `current.json` 与 `reviews/`，不另建版本系统。
+- **恢复与费用**：从任务中心打开已有任务或刷新恢复；模式缺失的旧任务默认商品图包制作，不迁移/回写旧数据。改资料仍保存为新任务，不覆盖原任务。单卡锁、操作 ID、卡片修订号和禁用按钮防重复；失败保留已有结果与错误，不自动重试。连接中断时仍需核对服务端执行/费用，不保证人工新请求不会重复计费。
+
+本轮 65 项免费离线测试通过（含原有 56 项与 9 项集成检查），依赖和 JavaScript 语法检查通过；接口测试覆盖多图上传/保存、两模式兼容、实际 SDK 序列化、尺寸、隔离、失败保留、去重、修改/选择/Pass/重启恢复、两种 ZIP 与哈希。浏览器检查模式切换、卡片展示及临时 Mock 图片 Pass；浏览器原生上传对话框未完成自动化验证，上传/保存由接口测试覆盖。未执行付费调用，真实多图重设计效果、商品/文字保持、修改稳定性及费用仍待运营评价。I02、I03 保持 PENDING，本轮停止，不自动开发或部署。

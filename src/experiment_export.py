@@ -66,6 +66,8 @@ def read_json(root, relative):
 
 def historical_case_match(state, session, case):
     """Historical linkage is inferred, only after matching original input hashes."""
+    if state.get("mode") == "quick_redesign":
+        return False
     if state.get("case_id", state.get("title")) != "case-001":
         return False
     try:
@@ -98,6 +100,7 @@ def export_experiment(store, session_id):
     prefix = case_id + "-experiment/"
     exported_at = datetime.now(timezone.utc)
     manifest = {"case_id": case_id, "session_id": session_id, "exported_at": exported_at.isoformat(),
+                "mode": state.get("mode", "product_pack"),
                 "confirmed_revision": state["revision"] if state.get("confirmed") else None,
                 "case_link": {"status": "ACTUAL" if state.get("case_id") else "RECONSTRUCTED",
                               "basis": "saved case_id" if state.get("case_id") else "original inputs hash/text match" if linked else "session identifier"},
@@ -162,7 +165,9 @@ def export_experiment(store, session_id):
 
         add(session, "state.json", "planning/state.json", required=True)
         add(session, "inputs/texts.json", "inputs/texts.json", required=True)
-        for name in ("listing", "description", "requirements"):
+        for name in ("listing", "description", "requirements", "product_facts"):
+            if name not in state["inputs"]:
+                continue
             data = state["inputs"][name].encode("utf-8")
             if contains_private(state["inputs"][name]):
                 raise ExportError("导出已停止：商品文本含认证信息。")
@@ -194,8 +199,8 @@ def export_experiment(store, session_id):
                 for name in ("image_order.json", "result.json", "applied.json"):
                     if not safe_path(root, relative + "/" + name).is_file() and (name == "image_order.json" or record.get("status") == "AI_RESULT_RECEIVED"):
                         missing(run_id, name, "Original planning evidence was not saved or is unavailable.")
-            if stage == "T03" and not safe_path(root, relative + "/plan.json").is_file():
-                missing(run_id, "plan.json", "No saved confirmed plan context; not reconstructed from current state.")
+            if stage in ("T03", "T04", "I01") and not safe_path(root, relative + "/plan.json").is_file():
+                missing(run_id, "plan.json", "No saved image context; not reconstructed from current state.")
             if record.get("usage") is None:
                 missing(run_id, "usage", "No usage was saved/returned; no token estimate substituted.")
             if record.get("api_call_attempted"):
@@ -223,7 +228,7 @@ def export_experiment(store, session_id):
                 missing(call.name, "parent_revision_in_run", "Absent in legacy run; existing versions/events/applied record retained without rewriting.")
 
         for revision in children(session, "generations", r"[0-9]{6}"):
-            for target in children(session, str(revision.relative_to(session)), r"reference_[0-9]+"):
+            for target in children(session, str(revision.relative_to(session)), r"(?:product|reference)_[0-9]+"):
                 task = str(target.relative_to(session))
                 add(session, task + "/current.json", "generations/" + revision.name + "/" + target.name + "/current.json")
                 for event in children(session, task + '/reviews', r'[0-9a-f]{32}\.json'):
@@ -232,7 +237,9 @@ def export_experiment(store, session_id):
                     relative = str(run.relative_to(session))
                     destination = "generations/runs/" + run.name
                     recorded = read_json(session, relative + '/run.json')
-                    record, entry = gather_run(session, relative, destination, "T04" if recorded.get('action') == 'revise_image' else "T03", run.name, ("plan.json",))
+                    stage = "T04" if recorded.get('action') == 'revise_image' else "I01" if recorded.get('mode') == 'quick_redesign' else "T03"
+                    record, entry = gather_run(session, relative, destination, stage, run.name, ("plan.json",))
+                    entry['mode'] = record.get('mode', 'product_pack')
                     entry.update(parent_run_id=record.get('parent_run_id'), version=record.get('version'), feedback=record.get('feedback'))
                     entry.update(confirmed_revision=record.get("confirmed_revision"), reference_id=record.get("reference_id"))
                     for image in record.get("inputs", []):
@@ -240,7 +247,7 @@ def export_experiment(store, session_id):
                             raise ExportError("导出已停止：生图输入路径不在白名单。")
                         exported = add(session, relative + "/" + image["file"], destination + "/" + image["file"], image["sha256"], run.name, True)
                         entry["inputs"].append({"slot": image["slot"], "id": image["id"], "sha256": image["sha256"], "file": exported})
-                    for name in ("listing.md", "description.md", "requirements.md"):
+                    for name in ("listing.md", "description.md", "requirements.md", "product_facts.md"):
                         add(session, relative + "/inputs/" + name, destination + "/inputs/" + name, run_id=run.name)
                     output = record.get("output")
                     if output:

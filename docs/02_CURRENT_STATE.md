@@ -5,7 +5,10 @@
 
 ## 现状
 
-- 2026-10-16 产品方向：记录本次运营试用反馈，新增 **Commerce Image Workspace** 候选方向与 I01～I03 安排；优先验证 Quick Redesign 和 Image-guided Editing，再依据结果决定单页工作台纳入的能力。本轮仅更新两份文档，不新增实验结论，不启动 Coding 或付费调用。
+- 2026-10-16 I01 最新本地状态：**PRODUCT INTEGRATION IMPLEMENTED / BUSINESS VALIDATION PENDING**。任务中心新建支持「商品图包制作 / 快速重设计」；快速模式以 N 张原图独立生成，跳过 T02，复用 T04 修改、版本、Pass 及两种导出。65 项离线测试通过；本轮无付费调用、部署或 Git 提交，不进入 I02/I03。
+- I01 初步真实证据：已存在成功 Run `20261016T013618Z-c0952e3ddfff430189e350a8bbb27c00`，图片已保存并校验，耗时 21.445 秒、usage total_tokens=2329。用户本轮陈述一个样本获正面评价；原始 `review.json` decision 仍为空，实际费用未记录。只允许据此进入内部试用，不推导充分商业验证。
+- I01 免费准备历史：先前增加独立 CLI 与 9 项检查，当时 56 项离线测试通过；首次 Run `20261016T012440Z-f41214714e514459b9c64e83f5b8717d` 因缺资料而停止，未调用模型。该缺资料状态现已解除；CLI 和已有真实输入/输出/Evidence 全部保留，未补写或覆盖历史。
+- 2026-10-16 早前文档节点：记录运营试用反馈，新增 **Commerce Image Workspace** 候选方向与 I01～I03 安排；当时仅更新两份文档，未启动 Coding 或付费调用。后续 I01 实验及本地集成见最新记录，I02/I03 仍待后续指令。
 - 当前部署继续供运营使用：沿用 2026-10-15 已记录的 Mac mini release `a2e1123d1d80a3f15194872365340bdaee9b6349`、HTTPS 8444、现有 LAN 访问限制和独立数据目录。本轮未连接服务器复核、部署、重启或修改运行数据；下方历史检查不写成本日新验证。
 - Git（2026-10-16 本轮只读检查）：分支 `main`，修改前工作区干净，HEAD 为 `1b0fb3c`（`merge: reconcile remote baseline with local development`）。此前“远程历史尚未恢复”和“文档尚未提交”保留为各日期的历史记录；本轮不推断远程当前同步状态，不 Commit 或 Push。
 - 2026-10-15 规划模型升级：本地 Commit `a2e1123d1d80a3f15194872365340bdaee9b6349`，`chore: update planning model configuration`。T02 默认与服务器实际配置改为 `gpt-5.4-mini` / reasoning low，保留显式 4.1 mini 回退；Mac mini 安全增量部署及免费检查完成，真实新模型调用/质量仍 PENDING。未 Push；原有 README 修改和本文件已暂存内容均未混入源码提交，文档使用记录另保留在工作区。
@@ -237,7 +240,7 @@
 
 ## Operator Feedback — 2026-10-16
 
-以下记录来源于用户本次汇总的运营试用反馈；保留 2026-10-14 的 OF-01～OF-03、T01～T04 工程记录及原有实验结论，不用新需求推定既有验收通过。
+以下保留本日早前汇总的运营反馈快照；其中“尚未实现”和实验安排按当时理解，I01 最新授权及本地集成见下一节。保留 2026-10-14 的 OF-01～OF-03、T01～T04 工程记录及原有实验结论，不用新需求推定既有验收通过。
 
 | 证据等级 | 记录 |
 |---|---|
@@ -254,15 +257,15 @@
 
 ## 下一轮改进任务
 
-以下是后续验证安排，不构成当前 Coding、部署或付费模型调用授权；当前内部试用继续，原有任务和 Evidence 不迁移、不清理。
+以下记录改进任务。I01 本轮已单独获用户授权进行本地产品集成；I02/I03 仍待后续指令，部署与付费调用未授权。当前 Mac mini 内部试用继续，原有任务和 Evidence 不迁移、不清理。
 
-### I01 — Quick Redesign Feasibility
+### I01 — Quick Redesign Integration
 
-**状态**：NEXT
+**状态**：PRODUCT INTEGRATION IMPLEMENTED / BUSINESS VALIDATION PENDING
 
 **目标**：验证成熟图像模型能否将现有商品图片改造成运营认可的高质量电商信息图。
 
-**实验建议**：使用 2～3 张真实业务图片，先直接验证现有模型能力。输入包括原始待重设计图片、目标设计要求、必要的商品事实约束；不提前开发新的业务模式页面，不强制先执行完整商品理解与创意规划。
+**初步实验安排（历史）**：原建议使用 2～3 张真实业务图片，直接验证模型能力，再考虑页面；输入包括待重设计原图、目标设计要求、商品事实约束。最新用户指令基于一个正面评价样本直接进入内部试用集成，不再增加独立可行性样本，不强制执行 T02 完整规划。
 
 **评价**：
 
@@ -273,7 +276,34 @@
 5. 运营是否接受。
 6. 生成耗时与修改成本。
 
-**记录与后续决策**：记录成功、失败、耗时、修改成本和实际费用；可获取的 API usage 与实际账单费用分别记录，缺失的费用保留待核实，不编造。根据真实结果决定是否正式实现 Quick Redesign 工作模式。NEXT 仅表示下一项优先验证任务，本轮不执行实验或启动 I01 Coding。
+**记录与当前产品决策**：可获取的 API usage 与实际账单费用分别记录，缺失费用保留待核实。已核实一个真实成功样本及用户正面反馈，因此按最新授权完成本地产品集成；仍需运营评价外观/信息保持、商业质量、错误宣称、修改成本和费用，不标业务 PASS 或 COMPLETE。本轮不新增付费模型调用。
+
+**免费准备节点（历史）— 2026-10-16**：
+
+- 新增 `src/quick_redesign.py`，不修改 `generate_image.py`、`generate_plan_image.py` 或 T02/T04 业务逻辑。直接复用 T01 的 `make_client`、MODELS/PARAMETERS/TIMEOUT_SECONDS、SHA-256/JSON 写入，复用现有 `evidence.py` 的脱敏和 `safe_path` 路径检查，无新依赖、前端、数据库或日志平台。
+- 默认图像模型 `gpt-image-2.5-sunburst`；本机 `OPENAI_IMAGE_MODEL` 未覆盖。沿用 `images.edit`、`n=1`、low、1024×1536、PNG、180 秒、零自动重试。只处理显式选择的一张原图，可另选一张仅设计参考；不批量扫描其他样本，不调用完整 T02 规划。CLI 只有 `--run-paid` 才可能调用模型，本轮未使用该标志执行真实调用。
+- 请求由原图、运营要求、可选商品依据/设计参考、来源边界及视觉重设计目标构成；无要求文件时明确标为实验通用默认值。尽可能保留外观、重要信息及原始卖点含义，不增加虚假功能/参数/附件/承诺；不承诺 Amazon 发布合规，也不预先保证商业设计效果。
+- 新增 `tests/test_quick_redesign.py` 9 项离线测试；原有 47 项与新增测试共 56 项通过，pip check 通过。覆盖 SDK 单图/双图序列化、输入顺序、默认不创建客户端、无密钥/缺资料/越界路径拒绝、失败不重试及脱敏、原图/历史保留、无效返回字节保留和人工评价待填。Mock 结果不是真实实验，不添加实验日志结论。
+- 当时资料检查：目录不存在，免费 Run `20261016T012440Z-f41214714e514459b9c64e83f5b8717d` 为 `LOCAL_CHECK_FAILED`，`request_ready=false`、`api_call_attempted=false`。记录在 `.runtime/evidence/i01-quick-redesign/<run-id>/`；该 Run 没有有效 Prompt/请求、响应、usage 或图片。此记录保留，不代表后续没有成功运行。
+- 后续有效样本运行将在 `.runtime/evidence/i01-quick-redesign/<run-id>/` 保存原图/文本副本、实际 Prompt、图片输入顺序/哈希、模型/参数、响应、耗时、可获取 usage/错误，图片另存 `.runtime/outputs/i01-quick-redesign/<run-id>/image.png`。独立 Run 不覆盖历史；成功返回后 `review.json` 仍待人工填写 PASS/MODIFY/REJECT、简短原因及六项评价维度，费用缺失为 null。首图评价后再决定第二/第三张，不自动 Prompt 调试或付费重试。
+
+**已核实的初步样本与用户反馈**：
+
+- **已完成实验（只读核对）**：Run `20261016T013618Z-c0952e3ddfff430189e350a8bbb27c00` 为 `API_IMAGE_SAVED_AWAITING_REVIEW`，使用 `gpt-image-2.5-sunburst` / low / 1024×1536 / n=1 / PNG。`response.json` 存在，实际耗时 21.445 秒，usage 输入 2171、输出 158、合计 2329 token；输出 SHA-256 为 `bdd3135bc4a60b51854d52f096783ccaac94749437b5d486bac2dcc982eb5985`，已校验图片保存成功。
+- **运营陈述**：用户本轮明确报告仅一个真实样本获得正面评价，允许进入内部试用。其原 `review.json` decision 仍为空，`operator_review=PENDING`，不改写为 Evidence 中已有 Pass。
+- **待核验**：六项业务评价、实际账单费用、多样本普遍效果、连续修改稳定性。一个样本不证明所有商业场景通过；本轮只做产品集成与免费检查。
+
+**本地产品集成节点 — 2026-10-16**：
+
+- **新建/恢复**：原任务中心统一入口，新建时选择 `product_pack`（商品图包制作）或 `quick_redesign`（快速重设计）。旧任务缺少 mode 时默认 product_pack，不迁移或回写。任务模式保存后不切换；改输入仍存为独立新任务，旧图/Run/Pass 保留。
+- **快速输入**：N 张原始商品图片、可编辑整体要求、可选商品事实说明及风格参考；Listing 非必填，不执行理解或逐图规划。每张 product_NNN 对应独立卡片，风格图只作为方法参考。支持现有三种输出尺寸（竖图 1024×1536、方图 1024×1024、横图 1536×1024），不做复杂图像处理。
+- **模型请求**：复用 quick_redesign 的直接重设计 Prompt、T01 官方 images.edit 客户端/允许列表及 T03 Run 保存流程。生成仅发本张原图 → 可选风格图，结合整体要求和商品约束；修改为当前选中成图 → 本张原图 → 风格图，加本次意见，不发其他原图或历史意见，不重跑 T02。默认 gpt-image-2.5-sunburst、n=1、low、PNG、180 秒、零自动重试。
+- **版本/审核/导出**：共用原 T04 V1/V2/V3、父 Run、历史选择、指定版本 Pass。新图不替换旧 Pass；最终图片 ZIP 只含当前任务已 Pass 的 PNG，实验 ZIP 保留当前任务全部有效证据及文件哈希，不关联其他任务或历史 case-001 实验。
+- **保存与追溯**：仍在 `.runtime/prepare-plan/sessions/<id>/`，mode、尺寸、文本在 state.json/versions，原图与风格图在 inputs。逐图 Run 位于 `generations/<输入修订号>/product_NNN/runs/<run-id>/`；保存实际输入副本/顺序/hash、Prompt、模型参数、响应、图片、耗时/usage/错误，复用 plan.json 保存有效输入 Context，不伪造 AI 制作计划。旧字段 confirmed_revision 在快速模式指已保存输入版本；选择和 Pass 继续写原 current.json/reviews，不另建系统。
+- **状态/费用**：加载/刷新/切换/保存/Pass/导出均不调用模型；运营单张主动触发。沿用同卡非阻塞锁、卡片修订号、操作 ID 和等待秒数，运行中禁用重复操作，失败保留已有成功结果。中断后的服务端执行和费用可能未知，不自动重试，也不承诺人工新请求不会重复计费。
+- **免费验证**：65 项离线测试通过（原有 56 + 集成 9），pip check、JavaScript 语法及 diff 检查通过。覆盖新建 N 图/可选资料/复制保存、旧模式与无 mode 历史兼容、SDK 请求及尺寸、单图与多任务隔离、错误保留/去重、修改分支/版本/Pass/重启恢复、两种 ZIP/哈希及密钥排除。浏览器核对模式切换、卡片与临时 Mock 图 Pass；原生上传对话框未完成自动化验证，上传保存由接口测试覆盖。Mock 与合成图不是真实 AI 业务验收。
+- **边界**：保留现有未提交实验 CLI/测试，未改 generate_image.py、evidence.py、Product Brief、实验日志或原始业务数据；本轮无付费模型调用、新可行性样本、Mac mini 部署、Commit/Push。I02 辅助图上传和 I03 单页工作台未实现，保持 PENDING。
+- **保全核对**：本轮前后 `.runtime/` 全部 301 个文件 SHA-256 一致，无新增、缺失或修改；T01～T04 与 OF-01～OF-03 历史段落、2026-10-14/15 部署记录逐字节不变。离线/浏览器检查使用独立临时目录，未将合成图保存为真实业务样本。
 
 ### I02 — Image-guided Editing Feasibility
 
@@ -315,11 +345,11 @@
 
 ## Current Task
 
-**Current Task**：同步 2026-10-16 运营试用反馈，更新 Commerce Image Workspace 产品方向与 I01～I03 安排（仅文档）。当前阶段保持 INTERNAL PILOT / BUSINESS VALIDATION，现有部署继续供运营使用。
+**Current Task**：I01 — Quick Redesign Integration，本地 **PRODUCT INTEGRATION IMPLEMENTED / BUSINESS VALIDATION PENDING**。Mac mini 继续原 INTERNAL PILOT / BUSINESS VALIDATION 部署，本轮未更新服务器。
 
-**Next Action**：I01 为 NEXT，I02、I03 为 PENDING。等待用户明确授权下一轮实验范围、真实素材使用与费用后，优先验证 I01，再验证 I02；根据结果决定 I03 纳入哪些能力。本轮不自动整理运行资料、不启动 I01 Coding 或付费调用。已有 T03 失败/费用核验、T04 真实编辑及运营验收继续保留，不因本次反馈而标记通过。
+**Next Action**：停止并交用户体验本地快速重设计模式，操作见 README 第 13 节；真实调用只由运营明确点击，不以离线测试替代业务验收。下一开发方向为 I02，但需新指令，不自动启动；I03 仍 PENDING。现有 T03/T04 未完成验收保留，Mac mini 发布另行授权。
 
-**T01～T04 已完成工程记录、原有运营反馈、2026-10-14/15 部署与检查历史均保留。以下部署记录按原日期理解，不代表本轮重新验证；本轮不修改代码、部署配置、运行数据或实验记录。**
+**T01～T04 已完成工程记录、原有运营反馈、2026-10-14/15 部署与检查历史均保留。以下部署记录按原日期理解，不代表本轮重新验证；本轮只在原有任务/生图/审核/导出入口做必要的模式分支，不改变既有模式流程、部署配置、运营数据或原始真实实验记录。**
 
 ## 规划模型升级与增量部署 — 2026-10-15
 
@@ -349,7 +379,7 @@
 
 ### 下一轮产品改进优先级
 
-1. **I01（NEXT）**：先验证 Quick Redesign 模型可行性，不预开发新模式页面。
+1. **I01（PRODUCT INTEGRATION IMPLEMENTED / BUSINESS VALIDATION PENDING）**：本地模式集成与免费检查完成，待运营真实使用与评价，不自动付费或部署。
 2. **I02（PENDING）**：验证图片辅助修改的外观修正与内容保持能力。
 3. **I03（PENDING）**：待上述实验结果明确，再决定单页工作台的具体能力与必要交互调整。
 
@@ -376,16 +406,16 @@
 - 付费模型调用和自动重试须经用户明确授权，不自动反复重试付费请求。
 - 保留最小必要的真实输入、输出、失败与人工反馈；原始资料和证据保存在 `.runtime/`，不纳入 Git，记录不得包含 API 密钥。
 - 不新增 Agent、Skill、MCP、RAG、LangChain、Harness 平台、Context Engine 平台、数据库、新的 Evidence 平台、复杂 Workflow 或完整后台管理系统。
-- Evidence 与实验 ZIP 继续复用，既有 T04 父版本、编辑输入及审核事件保留；本轮不新增实验结论或运行记录，不建立第二套日志或版本平台。
+- Evidence 与实验 ZIP 继续复用，既有 T04 父版本、编辑输入及审核事件保留；I01 产品模式复用 sessions/Run/审核结构，独立 CLI 及早前实验资产保持，不建立第二套日志或版本平台。
 
 ## 本轮执行边界
 
-- 只修改 `docs/01_PRODUCT_BRIEF.md`、`docs/02_CURRENT_STATE.md`，记录 2026-10-16 反馈、候选产品方向和任务安排；不创建新文档，不修改 README、AGENTS、源码或实验日志。
-- 不修改商品原始资料、运行数据、既有图片、版本、Pass 或 Evidence；不覆盖已有反馈和实验结论，不新增尚未发生的实验结果。
-- 不调用 AI API（含免费模型元数据查询），不重新生图，不执行模型实验或测试程序；不将文档更新当作能力实现或验收通过。
-- 不连接或部署服务器，不重启服务，不改变 Mac mini 当前内部试用、访问配置或其他服务。
-- 不新增 Agent、Skill、MCP、RAG、LangChain、Harness 平台、数据库、新的 Evidence 平台或复杂 Workflow，不预建正式多模式架构。
-- 不 Commit、Push 或处理远程历史；文档检查完成后停止，不自动启动 I01 Coding、后续开发或付费实验。
+- 仅集成 I01 快速重设计到原任务中心、图片卡片和共用审核/导出，保留未提交的 CLI 与实验测试；只更新必要 README/当前状态，不改 Product Brief、AGENTS 或实验日志，不创建新产品规划文档。
+- 不修改 case-001、现有运营任务/素材、图片、版本、Pass 或既有 Evidence；不伪造测试业务原图。合成图片只用于临时离线测试，不保存为真实样本。
+- 本轮只执行免费离线测试，不执行付费模型调用、自动批量、自动重试或长时间 Prompt 调试，不增加独立可行性样本。不追加实验日志，不写 COMPLETE 或业务 PASS。
+- 不连接或部署 Mac mini，不重启服务，不改变现有内部试用或访问配置。
+- 不新增 Agent、Skill、MCP、RAG、LangChain、Workflow/Context Engine、数据库、新 Evidence 平台或业务模式框架，不重构 T01～T04，不开发 I02 辅助图上传或 I03 单页工作台。
+- 不 Commit、Push 或处理远程历史；完成本地实现与免费验证后停止，等待人工体验，不自动进入 I02。
 
 ## 下一次状态更新请回答
 
