@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>商品图工作台</title>
+  <link rel="stylesheet" href="/static/prepare.css"><link rel="stylesheet" href="/static/generate.css"><link rel="stylesheet" href="/static/workspace.css">
+  <script src="/static/prepare.js" defer></script><script src="/static/generate.js" defer></script><script src="/static/workspace.js" defer></script>
+</head>
+<body data-session-id="{{ session_id }}" data-workspace="true">
+  <header class="topbar"><a class="brand" href="/">图 · 商品图制作</a><nav><a href="/">任务中心</a><strong>统一工作台</strong></nav></header>
+  <main>
+    <div class="heading"><div><p class="eyebrow">COMMERCE IMAGE WORKSPACE</p><h1 id="workspace-title">商品图工作台</h1><p id="task-summary">准备资料，在每张图片卡片完成制作与审核。</p></div><span id="saved-status" class="pill">新建任务</span></div>
+    <div id="message" role="status" aria-live="polite" hidden></div><div id="operation-progress" role="status" aria-live="polite" hidden></div><div id="generation-message" role="status" aria-live="polite" hidden></div>
+    <div id="config-note" class="notice" hidden>AI 服务尚未配置。可以保存资料、查看版本和导出；AI 操作需由运行人员安全配置。</div>
+    <details id="input-panel" class="panel" {% if not session_id %}open{% endif %}>
+      <summary><span class="eyebrow">INPUT</span><strong id="input-summary">共享资料与商品理解</strong><span class="muted">按需展开 · 修改后保存为新任务</span></summary>
+      <div class="input-content"><div class="section-head"><h2 id="input-title">商品资料与参考图</h2><button id="load-case" class="secondary">加载 case-001 示例资料</button></div><p id="mode-note" class="muted"></p>
+      <form id="input-form">
+        <label>工作模式<select id="task-mode"><option value="product_pack">商品图包制作</option><option value="quick_redesign">快速重设计</option></select></label>
+        <label class="task-name">任务名称<input id="task-title" type="text" maxlength="120" required placeholder="例如：日本站螺丝刀商品图"></label>
+        <div class="columns">
+          <div><h3><span id="product-label">商品原图</span> <span id="product-count" class="count">0 张</span></h3><div id="product-images" class="image-grid"></div><label class="upload">＋ 添加商品图片<input id="product-files" type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label="上传商品原始图片"></label></div>
+          <div><h3><span id="reference-label">设计参考图</span> <span id="reference-count" class="count">0 张</span></h3><div id="reference-images" class="image-grid"></div><label class="upload">＋ 添加设计参考图<input id="reference-files" type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label="上传设计参考图"></label></div>
+        </div>
+        <div class="columns text-inputs"><label id="listing-field">Listing<textarea id="listing" rows="6" placeholder="粘贴当前商品的 Listing。宣传参数将保留为待核验信息。"></textarea></label><div class="stack"><label id="description-field">产品描述与卖点<textarea id="description" rows="3" placeholder="补充商品描述、卖点或需要特别说明的事项"></textarea></label><label>整体运营要求<textarea id="requirements" rows="3" placeholder="例如：杂志风，白色与浅粉色，面向日本消费者"></textarea></label></div></div>
+        <div id="redesign-fields" hidden><label>商品事实说明（可选，未经核实的宣称仍需确认）<textarea id="product_facts" rows="3" placeholder="仅填写有依据的商品外观、结构、功能约束；无需 Listing。"></textarea></label><label>输出比例<select id="output-size"><option value="1024x1536">竖图 2:3 · 1024×1536</option><option value="1024x1024">方图 1:1 · 1024×1024</option><option value="1536x1024">横图 3:2 · 1536×1024</option></select></label></div>
+        <div class="actions"><span id="input-note" class="muted">可加载现有资料，也可上传新商品。</span><button type="submit" id="save-inputs" class="primary">保存资料为新任务</button></div>
+        <p class="fine">AI 按钮会将当前资料发送给 AI 服务并产生调用费用；页面加载与刷新不会触发调用。修改原始资料后保存为新任务，旧任务保留。</p>
+      </form>
+      <section id="understanding-section"><h3>商品理解 · 候选信息</h3><p class="notice compact">实拍可见特征、Listing 声称和未知信息分别呈现；运营修正也不自动成为已验证事实。</p><div id="understanding-empty" class="muted">保存资料后，可在下方点击 AI 理解与规划。</div><article id="product-understanding" class="understanding-card" hidden></article></section>
+      </div>
+    </details>
+    <section id="output" aria-labelledby="output-title">
+      <div class="section-head output-heading"><div><span class="eyebrow">OUTPUT</span><h2 id="output-title">逐图制作与审核</h2></div><div class="heading-actions"><button id="export-passed" class="secondary" disabled>导出通过的图片</button><button id="export-experiment" class="secondary" disabled>导出实验包</button></div></div>
+      <div id="planning-controls" class="panel"><div class="actions"><button id="understand" class="primary">AI 理解与规划</button><button id="replan" class="secondary" disabled>按当前理解重新规划全部</button><button id="confirm" class="primary" disabled>确认计划</button><a id="enter-generate" href="#output" hidden>定位图片卡片</a></div><strong id="confirmation-title">先保存商品资料</strong><p id="confirmation-note" class="muted"></p></div>
+      <p id="workspace-note" class="notice">只有主动点击 AI 理解、计划修正、生成或修改才产生调用费用；不会自动重试。选择版本、Pass、刷新和导出不调用模型。</p>
+      <div id="generation-cards" class="generation-grid"><p class="empty">保存资料后，这里按实际图片数量展示独立卡片。</p></div>
+    </section>
+    <footer>参考、计划、成图、修改与 Pass 在同一张卡片。原始图片和历史版本保留，模型内容仍需人工审核。</footer>
+  </main>
+</body>
+</html>

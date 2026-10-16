@@ -5,16 +5,17 @@
 
 ## 现状
 
-- 2026-10-16 I02 最新本地状态：**I02 IMPLEMENTED / REAL EDIT VALIDATION PENDING**。商品图包与 Quick Redesign 共用的修改区域支持文字加最多一张辅助图、预览及三种用途；实际传入 images.edit，并复用原 Run、版本、Pass 和实验包。75 项离线测试通过，临时 Mock 浏览器完成带图修改与刷新恢复；本轮无真实付费调用、部署或 Git 提交，不启动 I03。
-- Git（I02 Preflight）：分支 main，开始时工作区干净，HEAD `60d98e0da944287e0df9f9add99c4eff686d01ea`，已确认 I01 本地检查点 `feat: integrate I01 quick redesign workflow`。本轮 I02 修改不自动提交或推送，不推断远程同步状态。
+- 2026-10-16 I03 最新本地状态：**IMPLEMENTED / OPERATOR REVIEW PENDING**。任务中心进入统一工作台，共享 INPUT 可折叠，OUTPUT 每卡集中参考/原图、计划、成图、版本、文字/辅助图修改及 Pass；两种模式沿用既有 API、模型 Context、资料与 Evidence 格式。80 项离线测试通过，Edge 临时 Mock 交互验证完成；本轮无付费调用、服务器部署或 I03 Commit，运营体验仍待评价。
+- 2026-10-16 I02 交付状态保留：**I02 IMPLEMENTED / REAL EDIT VALIDATION PENDING**。商品图包与 Quick Redesign 共用的修改区域支持文字加最多一张辅助图、预览及三种用途；实际传入 images.edit，并复用原 Run、版本、Pass 和实验包。交付时 75 项离线测试通过，临时 Mock 浏览器完成带图修改与刷新恢复；当时未提交，后按本轮 PART A 授权先行提交后再开发 I03，未进行真实编辑验收。
+- Git（I02 检查点 / I03 Preflight）：分支 main，I02 的 9 个修改文件及 1 个新增文件经范围、密钥排除与 staged 检查后提交为 `1354a0b80fe01384c57b0377bec715d23a54821f`，`feat: implement I02 image-guided editing`，前一 HEAD 为 I01 `60d98e0da944287e0df9f9add99c4eff686d01ea`。提交后工作区干净，再开始 I03；本轮不提交 I03、不 Push、不处理远程历史。
 - 2026-10-16 I01 最新本地状态：**PRODUCT INTEGRATION IMPLEMENTED / BUSINESS VALIDATION PENDING**。任务中心新建支持「商品图包制作 / 快速重设计」；快速模式以 N 张原图独立生成，跳过 T02，复用 T04 修改、版本、Pass 及两种导出。65 项离线测试通过；本轮无付费调用、部署或 Git 提交，不进入 I02/I03。
 - I01 初步真实证据：已存在成功 Run `20261016T013618Z-c0952e3ddfff430189e350a8bbb27c00`，图片已保存并校验，耗时 21.445 秒、usage total_tokens=2329。用户本轮陈述一个样本获正面评价；原始 `review.json` decision 仍为空，实际费用未记录。只允许据此进入内部试用，不推导充分商业验证。
 - I01 免费准备历史：先前增加独立 CLI 与 9 项检查，当时 56 项离线测试通过；首次 Run `20261016T012440Z-f41214714e514459b9c64e83f5b8717d` 因缺资料而停止，未调用模型。该缺资料状态现已解除；CLI 和已有真实输入/输出/Evidence 全部保留，未补写或覆盖历史。
-- 2026-10-16 早前文档节点：记录运营试用反馈，新增 **Commerce Image Workspace** 候选方向与 I01～I03 安排；当时仅更新两份文档，未启动 Coding 或付费调用。后续 I01 实验及本地集成见最新记录，I02/I03 仍待后续指令。
+- 2026-10-16 早前文档节点：记录运营试用反馈，新增 **Commerce Image Workspace** 候选方向与 I01～I03 安排；当时仅更新两份文档，未启动 Coding 或付费调用。后续 I01 实验、I01/I02/I03 本地集成见最新记录，不将后续实现写成当时已完成。
 - 当前部署继续供运营使用：沿用 2026-10-15 已记录的 Mac mini release `a2e1123d1d80a3f15194872365340bdaee9b6349`、HTTPS 8444、现有 LAN 访问限制和独立数据目录。本轮未连接服务器复核、部署、重启或修改运行数据；下方历史检查不写成本日新验证。
 - Git（2026-10-16 本轮只读检查）：分支 `main`，修改前工作区干净，HEAD 为 `1b0fb3c`（`merge: reconcile remote baseline with local development`）。此前“远程历史尚未恢复”和“文档尚未提交”保留为各日期的历史记录；本轮不推断远程当前同步状态，不 Commit 或 Push。
 - 2026-10-15 规划模型升级：本地 Commit `a2e1123d1d80a3f15194872365340bdaee9b6349`，`chore: update planning model configuration`。T02 默认与服务器实际配置改为 `gpt-5.4-mini` / reasoning low，保留显式 4.1 mini 回退；Mac mini 安全增量部署及免费检查完成，真实新模型调用/质量仍 PENDING。未 Push；原有 README 修改和本文件已暂存内容均未混入源码提交，文档使用记录另保留在工作区。
-- 业务 / 产品：现有部署保持“跨境电商商品图包提效”的两页式 POC；最新方向为面向运营的 **Commerce Image Workspace**，详见 `01_PRODUCT_BRIEF.md` 第 7 节的初始候选记录。当前本地 I01/I02 已集成、业务效果待验证，I03 单页工作台未开发；不能据本地实现推断服务器已上线或业务价值通过。
+- 业务 / 产品：现有部署保持“跨境电商商品图包提效”的两页式 POC；最新方向为面向运营的 **Commerce Image Workspace**，详见 `01_PRODUCT_BRIEF.md` 第 7 节的初始候选记录。当前本地 I01/I02/I03 已集成，分别保留商业效果、真实编辑和运营体验待验证；不能据本地实现推断服务器已上线或业务价值通过。
 - Git（2026-10-14 T04 记录）：实际检查 `main`，T01～T03 本地 Commit 保留（`3cb9f4b`、`696994d`、`ede6f6a`）。19 个明确属于 T04/OF 及既有状态记录的未提交文件经范围、密钥、忽略规则及 45 项免费测试检查后，已按当轮授权提交：`7a692f30d73b69b26cfbd74cb9e4d6aec456e25b`，`feat: implement T04 review revision and task management`。部署后 README/本文件的运行记录更新尚未提交；未 Push，远程历史仍未恢复或处理。
 - 密钥保护：发现现有 `.env.example` 含疑似真实 API Key，已移除 `.gitignore` 对该文件的放行规则；文件内容未修改，密钥未输出或用于调用。
 - 代码：`src/generate_image.py` 为 T01 最小运行入口；Python 3.12.13、OpenAI 官方 SDK 2.54.0、Pillow 12.3.0、httpx 0.28.1（含 SOCKS 支持）；依赖见 `requirements.txt`，运行命令见 `README.md`。
@@ -259,7 +260,7 @@
 
 ## 下一轮改进任务
 
-以下记录改进任务。I01 已有本地产品集成与提交，本轮仅获授权集成 I02；I03 仍待后续指令，部署与付费调用未授权。当前 Mac mini 内部试用继续，原有任务和 Evidence 不迁移、不清理。
+以下记录改进任务。I01、I02 已有独立本地提交；本轮严格先提交 I02，再按授权整合 I03 界面，未改变真实模型验收结论。部署与付费调用未授权。当前 Mac mini 内部试用继续，原有任务和 Evidence 不迁移、不清理。
 
 ### I01 — Quick Redesign Integration
 
@@ -340,7 +341,7 @@
 
 ### I03 — Unified Workspace
 
-**状态**：PENDING
+**状态**：IMPLEMENTED / OPERATOR REVIEW PENDING
 
 **目标**：将当前两页式原型调整为单页工作台，降低运营查看资料、计划、生成结果和修改审核时的切换成本。
 
@@ -354,15 +355,25 @@
 6. 不无故重写 T01～T04。
 7. 不引入新的工作流引擎。
 
-**前置决策**：在 I01、I02 的实验结果明确后，决定哪些新能力进入界面。仅调整必要的交互结构，避免大规模技术重构；本次不定义详细前端技术架构，也不建设正式多模式架构。
+**决策与验证边界**：早前候选安排要求根据 I01/I02 结果确定界面；本轮用户明确授权直接整合已实现能力，I01 仍只有一个正面反馈样本，I02 真实编辑待验。界面完成不改变这些证据边界，不建设正式多模式架构。
+
+**本轮实现与免费证据（2026-10-16）**：
+
+- **界面**：保留任务中心；新建 `/workspace/new`，打开 `/workspace/<task-id>`。原 prepare/generate URL 通过共用模板继续可用。已有任务 INPUT 默认折叠，原资料编辑仍另存新任务；商品理解放在 INPUT，逐图计划/参考理解及修正集中到对应 OUTPUT 卡片，历史按需展开。
+- **兼容**：商品图包保留理解、规划、局部修正、确认和过期计划保护；Quick Redesign 不显示理解/计划。两模式共用现有生成、I02 纯文字/带图编辑、用途、V1/V2、版本选择、Pass 和两种导出。修改一张图片不改其他图片，也不改已 Pass 版本。
+- **最小后端**：只新增入口与只读 `/api/sessions/<task-id>/workspace` 汇总。该接口读取当前计划、状态和原 Run；未确认时可只读查看本任务旧确认版本成图，重新确认后按新确认版本生成，旧图保留供查看。原 API 的确认修订号、卡片修订号、父版本及去重保护不变，不绕过确认。
+- **状态与费用**：未保存共享输入时阻止模型操作；保留真实等待时间、独立卡片运行锁、成功/失败和 X/N，失败保留原结果。新增 GET、页面打开/刷新、选择/Pass 和导出不调用模型；无自动付费重试。
+- **测试**：80 项离线测试通过（原 75 + 工作台 5），新增入口/旧 URL 兼容、只读无副作用、N 卡片、计划修改/过期/重新确认、跨任务历史拒绝、Quick 创建/另存/恢复/隔离。原 I02 SDK multipart/Context、版本、Pass、ZIP 和失败检查继续通过。
+- **浏览器**：Edge + 独立临时合成任务 + MockTransport。商品图包完成查看计划 → 修改指定计划 → 旧图只读显示 → 确认 → 同页生成；Quick 完成查看原图/成图 → 上传辅助图/外观修正用途 → 修改 V2 → Pass → 选择 V1 → 刷新，Pass 仍为 V2。临时 Evidence 核对辅助图原字节、输入顺序及父 Run，不冒充真实模型验收。
+- **资产与边界**：现有 `.runtime/` 301 个文件前后 SHA-256 一致；核心生成/编辑/导出/Evidence 源码、Product Brief、AGENTS 和实验日志未变，T01～T04/早前运营反馈与部署历史保留。I03 未提交、未部署；真实模型质量、运营操作成本和界面接受度待人工验证。
 
 ## Current Task
 
-**Current Task**：I02 — Image-guided Editing Integration，本地 **I02 IMPLEMENTED / REAL EDIT VALIDATION PENDING**。I01 本地检查点已保留；Mac mini 继续原 INTERNAL PILOT / BUSINESS VALIDATION 部署，本轮未更新服务器。
+**Current Task**：I03 — Unified Workspace，本地 **IMPLEMENTED / OPERATOR REVIEW PENDING**。I02 检查点 `1354a0b80fe01384c57b0377bec715d23a54821f` 已先行提交；I02 真实编辑验收仍 PENDING。Mac mini 继续原 INTERNAL PILOT / BUSINESS VALIDATION 部署，本轮未更新服务器。
 
-**Next Action**：停止并交用户体验本地图片辅助修改，操作见 README 第 14 节；确认发送业务资料及费用后由运营明确点击。真实质量和费用待评价，不以离线测试替代。I03 仍 PENDING，不自动启动；Mac mini 发布及 Git 提交另行授权，既有 T03/T04 未完成验收继续保留。
+**Next Action**：停止并交用户体验本地统一工作台，操作见 README 第 15 节；真实规划/生成/文字及辅助图编辑仍由运营确认资料和费用后主动触发，评价质量、耗时、保持能力与操作成本。I03 Commit、Mac mini 发布另行授权；不自动进入下一阶段，既有 T03/T04 未完成验收继续保留。
 
-**T01～T04 已完成工程记录、原有运营反馈、2026-10-14/15 部署与检查历史均保留。以下部署记录按原日期理解，不代表本轮重新验证；本轮只在原有任务/生图/审核/导出入口做必要的模式分支，不改变既有模式流程、部署配置、运营数据或原始真实实验记录。**
+**T01～T04 已完成工程记录、原有运营反馈、2026-10-14/15 部署与检查历史均保留。以下部署记录按原日期理解，不代表本轮重新验证；本轮只整合工作台入口、只读状态与前端交互，不改变模型调用、数据/Evidence 格式、部署配置、运营数据或原始真实实验记录。**
 
 ## 规划模型升级与增量部署 — 2026-10-15
 
@@ -394,7 +405,7 @@
 
 1. **I01（PRODUCT INTEGRATION IMPLEMENTED / BUSINESS VALIDATION PENDING）**：本地模式集成与免费检查完成，待运营真实使用与评价，不自动付费或部署。
 2. **I02（IMPLEMENTED / REAL EDIT VALIDATION PENDING）**：本地文字加一张辅助图集成完成，待人工真实编辑验证外观修正、内容保持和费用。
-3. **I03（PENDING）**：待上述实验结果明确，再决定单页工作台的具体能力与必要交互调整。
+3. **I03（IMPLEMENTED / OPERATOR REVIEW PENDING）**：本地统一工作台完成，待运营体验与业务效果评价，不自动部署或继续优化。
 
 现有 Mac mini 版本持续试用，暂不建设正式多模式架构。以下保留原有运营验证事项，不用新方向替代未完成的验收，也不自动将其设为 I01/I02 实验的前置门槛。
 
@@ -410,7 +421,7 @@
 
 ## 工程原则
 
-- 当前项目仍为跨境电商 AI 商品图制作低成本原型；现有部署保持 Prepare & Plan / Generate & Review 两页式流程，任务中心保留。Commerce Image Workspace 是下一轮候选产品方向，单页工作台在实验结果明确后再决定交互，不无故重写现有能力或预建正式多模式架构。
+- 当前项目仍为跨境电商 AI 商品图制作低成本原型；现有部署保持 Prepare & Plan / Generate & Review 两页式流程。本地已按授权整合 Commerce Image Workspace 单页交互，保留任务中心与既有能力；不据界面实现推导业务价值，也不预建正式多模式架构。
 - 优先使用成熟模型原生能力，不预先引入 Agent、Skill、RAG 或复杂 Workflow。
 - 商品理解、参考理解、逐图规划属于逻辑能力，不强制拆分成独立模型调用。
 - 开发采用短任务、真实实验、人工评价的方式推进；图片最终接受由运营决定。
@@ -423,12 +434,12 @@
 
 ## 本轮执行边界
 
-- 仅在共用修改链路集成 I02 文字加单张辅助图，复用两种模式和原审核/版本/导出；只更新必要 README/当前状态，不改 Product Brief、AGENTS 或实验日志，不创建新产品规划文档。
+- PART A 仅提交已核实 I02；提交成功且工作区干净后执行 PART B。I03 仅整合工作台入口、状态读取和前端交互，复用原两模式/模型/审核/版本/导出；只更新必要 README/当前状态，不改 Product Brief、AGENTS 或实验日志，不创建新产品规划文档。
 - 不修改 case-001、现有运营任务/素材、图片、版本、Pass 或既有 Evidence；不伪造测试业务原图。合成图片只用于临时离线测试，不保存为真实样本。
 - 本轮只执行免费离线测试，不执行付费模型调用、自动批量、自动重试或长时间 Prompt 调试，不增加独立可行性样本。不追加实验日志，不写 COMPLETE 或业务 PASS。
 - 不连接或部署 Mac mini，不重启服务，不改变现有内部试用或访问配置。
-- 不新增 Agent、Skill、MCP、RAG、LangChain、Workflow/Context Engine、数据库、新 Evidence 平台或业务模式框架，不重构 T01～T04，不开发遮罩编辑、Photoshop 自动化或 I03 单页工作台。
-- 不 Commit、Push 或处理远程历史；完成本地实现与免费验证后停止，等待人工体验，不自动进入 I03。
+- 不新增 Agent、Skill、MCP、RAG、LangChain、Workflow/Context Engine、数据库、新 Evidence 平台或业务模式框架，不重构 T01～T04，不开发遮罩编辑或 Photoshop 自动化。
+- 不 Commit I03、不 Push 或处理远程历史；完成本地实现与免费验证后停止，等待人工体验，不自动进入下一阶段。
 
 ## 下一次状态更新请回答
 

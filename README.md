@@ -1,10 +1,11 @@
 # Commerce Image POC
 
-> 阶段：低成本 AI 可行性验证 / 两页式原型探索  
+> 阶段：低成本原型 / INTERNAL PILOT / BUSINESS VALIDATION
 > 范围：跨境电商商品图包制作（当前参考 TikTok Shop、Temu 的相似制图工作）  
 > 状态：**T01 首图用户 PASS；T02 已有确认计划；T03 已核实四张真实成图，业务验收待完成；T04 与任务中心、等待反馈已本地实现，真实图片修改质量及完整运营闭环待人工验证**。
 > I01：**PRODUCT INTEGRATION IMPLEMENTED / BUSINESS VALIDATION PENDING**。快速重设计已本地接入，Mac mini 本轮未部署；仅一个真实样本获用户正面反馈，不代表普遍商业效果通过。
 > I02：**IMPLEMENTED / REAL EDIT VALIDATION PENDING**。两种模式共用的图片修改已支持文字加一张辅助图；本轮仅免费离线验证，未部署 Mac mini。
+> I03：**IMPLEMENTED / OPERATOR REVIEW PENDING**。本地已统一为可折叠 INPUT + 逐图 OUTPUT 工作台；Mac mini 继续原部署，运营体验与真实模型质量仍待验证。
 
 ## 1. 我们要解决什么
 
@@ -12,13 +13,13 @@
 
 现有工作方式中，运营反馈过**多图前后不一致、长对话上下文混乱及修改难控制**。这些是业务痛点陈述，发生频率、成因和改善幅度还需要实际任务验证。
 
-本项目的目标不是搭建通用 AI 平台，而是验证一个简单的两页式工具能否降低商品图包制作的返工和操作成本。**即使最终只需改进现成工具的使用流程，也属于有效结论。**
+本项目的目标是验证轻量商品图工具能否降低制作的返工和操作成本。最初两页式能力已在本地整合为统一工作台，模型调用和资料结构沿用原实现。**即使最终只需改进现成工具的使用流程，也属于有效结论。**
 
 ## 2. 最小产品形态
 
 - **任务模式**：新建时选择「商品图包制作」或「快速重设计」。后者无需 Listing 或 T02 规划，按 N 张原图直接进入共用的生成与审核页；使用方式见第 13 节。历史任务缺少模式字段时仍按商品图包制作处理。
-- **页面一 Prepare & Plan**：上传商品资料、N 张设计参考图和整体要求；AI 辅助理解商品与参考图，形成可编辑的逐图制作计划。
-- **页面二 Generate & Review**：按逐图计划生成真实图片；每图可 `Pass` 或提交修改意见；保留原图与修改版本；导出通过的图片。
+- **统一工作台（本地 I03）**：共享 INPUT 按需展开；OUTPUT 按图片呈现参考/原图、计划、成图、修改和 Pass。商品图包仍需理解、规划与确认；Quick Redesign 直接按原图制作。详见第 15 节。
+- **历史两页入口**：Prepare & Plan / Generate & Review 的旧 URL 继续可访问并显示相同工作台；Mac mini 暂保留原部署。
 
 详细边界和首次验收见 [`docs/01_PRODUCT_BRIEF.md`](docs/01_PRODUCT_BRIEF.md)。
 
@@ -38,8 +39,9 @@ commerce-image-poc/
 ├── src/generate_image.py     # 默认本地检查，显式开启后才付费生图
 ├── src/prepare_plan.py       # T02 本地准备与规划页面
 ├── src/generate_plan_image.py # T03 逐图生成，复用 T01 客户端
-├── src/templates/prepare.html # 中文页面
-├── src/templates/generate.html # 已确认计划的第二页
+├── src/templates/workspace.html # 共用中文工作台
+├── src/templates/prepare.html # 原准备页的兼容入口
+├── src/templates/generate.html # 原生成页的兼容入口
 ├── src/static/               # 原生 JavaScript 与样式
 ├── tests/test_generate_image.py # 离线安全检查
 ├── tests/test_prepare_plan.py # 规划、修改与保存的离线检查
@@ -393,7 +395,7 @@ ssh -t -o ClearAllForwardings=yes andy_server@192.168.112.37 '/Users/andy_server
 
 ## 14. I02 — 图片辅助修改（本地集成，2026-10-16）
 
-**I02 IMPLEMENTED / REAL EDIT VALIDATION PENDING**。第 13 节末尾的 I02 PENDING 是 I01 交付时的历史状态。本轮在现有编辑链路做最小扩展，没有新增页面、依赖、版本系统或 Evidence 平台；I03 单页工作台仍 PENDING，Mac mini 未部署本轮代码。
+**I02 IMPLEMENTED / REAL EDIT VALIDATION PENDING**。第 13 节末尾的 I02 PENDING 是 I01 交付时的历史状态。I02 在现有编辑链路做最小扩展，没有新增页面、依赖、版本系统或 Evidence 平台；其后 I03 交互集成见第 15 节，Mac mini 未部署本轮代码。
 
 启动或在空闲时重启本地服务 `.venv/bin/python src/prepare_plan.py --port 8010`，打开 `http://127.0.0.1:8010` 并进入任一模式已有成图的第二页：
 
@@ -411,3 +413,19 @@ ssh -t -o ClearAllForwardings=yes andy_server@192.168.112.37 '/Users/andy_server
 免费验证：**75 项离线测试通过（原有 65 + I02 10）**，覆盖两种模式、三种用途、真实 SDK multipart 字节/顺序、格式/大小/数量与归属检查、去重/并发拒绝、版本/Pass/重启恢复、失败保留、辅助图实验包/哈希、纯文字后续修改不自动带入旧辅助图或意见；pip check、JavaScript 语法、diff 检查通过。浏览器在独立临时目录用 MockTransport 完成上传/预览/用途/文字加图修改得到 V2，并刷新恢复；不是真实 AI 验收。
 
 人工真实验证仍需运营主动点击，确认商品外观修正、原布局/风格/日文保持、错误商品信息、连续修改稳定性、耗时和费用。正确传递图片不保证未修改区域 100% 不变，连接失败也不证明服务端未执行或未计费。本轮没有真实付费调用、Commit、Push 或部署，完成后停止，不自动进入 I03。
+
+## 15. I03 — Unified Workspace（本地，2026-10-16）
+
+**IMPLEMENTED / OPERATOR REVIEW PENDING**。按本轮授权先提交 I02：`1354a0b80fe01384c57b0377bec715d23a54821f`，`feat: implement I02 image-guided editing`。I02 真实编辑验收仍待完成；第 14 节的未提交/不进入 I03 描述是此前交付节点。本轮 I03 未提交、未部署、未 Push，未执行付费调用。
+
+启动：`.venv/bin/python src/prepare_plan.py --port 8010`，访问 `http://127.0.0.1:8010`。任务中心新建/打开任务进入 `/workspace/new` 或 `/workspace/<task-id>`；原 `/prepare/new`、`/prepare/<task-id>`、`/generate/<task-id>` 继续显示同一工作台。
+
+- **INPUT**：新任务默认展开，已有任务默认折叠。保留模式、商品/原图、设计参考、Listing、描述、整体要求及商品候选理解的编辑/修正。修改原始输入仍另存为新任务，旧任务不覆盖。
+- **OUTPUT**：动态 N 张卡片，每卡呈现参考图或待重设计原图、按需展开的计划/参考理解、成图、版本选择、修改意见、I02 辅助图上传/用途和 Pass。修改记录按需展开；两种导出继续使用原接口。
+- **商品图包**：主动理解与规划 → 检查/修改本张计划 → 确认整套计划 → 本页逐图生成。商品/参考理解改变后的过期检查仍有效。修改计划撤销确认；旧确认版本的成图仅供查看，不能用于绕过新计划确认。重新确认后新图片仍按新确认版本保存，旧图保留。
+- **Quick Redesign**：隐藏理解与计划区，原图 → 生成 → 修改 → Pass；与商品图包共用图片编辑/版本/审核/导出，不要求虚构计划。
+- **复用与费用**：模型客户端、生成/编辑 Context、持久化和 Evidence 格式均未改变。只增加工作台入口及只读状态汇总接口；原保存、规划、生成、带图编辑、审核和导出 API 契约不变。未保存输入时阻止模型操作，同卡运行时禁用重复提交，保留实际等待时间、失败提示和已有结果；页面加载/刷新不调用模型。
+
+免费验证：80 项离线测试通过（原 75 + 工作台 5），覆盖旧 URL、N 卡片、计划修改/过期/重新确认、历史成图只读、两模式创建/另存/恢复/隔离，并保留原 I02、版本、Pass、两种 ZIP、SDK 请求及失败检查。Edge 浏览器使用独立临时合成资料和 MockTransport 完成商品图包查看计划 → 修改计划 → 确认 → 同页生成；Quick Redesign 查看原图/成图 → 上传辅助图及选择用途 → 修改 V2 → Pass → 查看 V1 → 刷新，确认导出仍绑定 V2。Mock 交互不等于真实模型或运营验收。
+
+现有 `.runtime/` 301 个文件前后 SHA-256 一致；原始素材、图片、Pass 与 Evidence 未修改。运营仍需评价单页使用成本、真实规划/编辑效果及费用。Mac mini 未更新，发布需另行授权。

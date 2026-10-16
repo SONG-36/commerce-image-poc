@@ -384,10 +384,12 @@ def create_app(runtime_dir=None, case_dir=None):
             return redirect('/prepare/' + legacy)
         return render_template('tasks.html')
 
+    @app.get('/workspace/new')
     @app.get('/prepare/new')
     def new_task_page():
         return render_template('prepare.html', session_id='')
 
+    @app.get('/workspace/<session_id>')
     @app.get('/prepare/<session_id>')
     def prepare_page(session_id):
         store.load(session_id)
@@ -422,7 +424,7 @@ def create_app(runtime_dir=None, case_dir=None):
                 status = '资料已保存，待规划'
             tasks.append({'id': state['id'], 'title': state['title'], 'created_at': state['created_at'], 'mode': state.get('mode', 'product_pack'),
                           'status': status, 'generated': generated, 'passed': passed, 'total': total,
-                          'url': ('/generate/' if cards else '/prepare/') + state['id']})
+                          'url': '/workspace/' + state['id']})
         tasks.sort(key=lambda task: task['created_at'], reverse=True)
         return jsonify(tasks=tasks)
 
@@ -440,6 +442,48 @@ def create_app(runtime_dir=None, case_dir=None):
     def generate_page(session_id):
         store.load(session_id)
         return render_template("generate.html", session_id=session_id)
+
+    @app.get('/api/sessions/<session_id>/workspace')
+    def workspace_state(session_id):
+        """Read current planning plus scoped image history; never mutate or call AI."""
+        state = store.load(session_id)
+        quick = state.get('mode') == 'quick_redesign'
+        ready = quick or bool(state.get('confirmed') and set(state['plans']) == set(reference_ids(state)) and not stale_ids(state))
+        cards = [generation.card(state, target) for target in generation.targets(state)]
+        previous = None
+        if not quick and (not ready or any(not card['versions'] for card in cards)):
+            history = safe_path(store.folder(session_id), 'generations')
+            for directory in sorted(history.iterdir(), reverse=True) if history.is_dir() else []:
+                if not re.fullmatch(r'[0-9]{6}', directory.name) or int(directory.name) >= state['revision']:
+                    continue
+                path = safe_path(store.folder(session_id), f'versions/{directory.name}.json')
+                if not path.is_file():
+                    continue
+                saved = read_json(path)
+                if saved.get('id') != session_id or saved.get('revision') != int(directory.name):
+                    raise Problem('历史计划记录与本任务不一致，已停止读取。', 409)
+                if not saved.get('confirmed') or stale_ids(saved):
+                    continue
+                old_cards = [generation.card(saved, target) for target in generation.targets(saved)]
+                if any(card['versions'] for card in old_cards):
+                    previous = {'revision': saved['revision'], 'cards': old_cards}
+                    break
+        historical = bool(not ready and previous)
+        if historical:
+            old_by_id = {card['id']: card for card in previous['cards']}
+            cards = [old_by_id.get(card['id'], card) for card in cards]
+        elif previous:
+            old_by_id = {card['id']: card for card in previous['cards']}
+            for card in cards:
+                old = old_by_id.get(card['id'])
+                if not card['versions'] and old and old['image_url']:
+                    card['previous_result'] = {'revision': previous['revision'], 'image_url': old['image_url']}
+        return jsonify(state=public(state), activity=activity(state), ai_configured=bool(os.environ.get('OPENAI_API_KEY', '')),
+                       generation_allowed=ready, historical_generation=historical,
+                       generation={'session_id': session_id, 'title': state['title'], 'mode': state.get('mode', 'product_pack'),
+                                   'confirmed_revision': previous['revision'] if historical else state['revision'],
+                                   'auxiliary_purposes': image_review.AUXILIARY_PURPOSES,
+                                   'auxiliary_max_bytes': image_review.MAX_AUXILIARY_BYTES, 'cards': cards})
 
     @app.post("/api/sessions/<session_id>/export-experiment")
     def export_case(session_id):

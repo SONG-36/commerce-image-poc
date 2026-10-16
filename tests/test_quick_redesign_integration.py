@@ -84,7 +84,7 @@ class QuickRedesignIntegrationTests(unittest.TestCase):
         self.assertEqual(len(self.cards(client=client)), 3)
         tasks = client.get("/api/tasks").json["tasks"]
         self.assertEqual({task["mode"] for task in tasks}, {"product_pack", "quick_redesign"})
-        self.assertTrue(next(t for t in tasks if t["id"] == self.state["id"])["url"].startswith("/generate/"))
+        self.assertEqual(next(t for t in tasks if t["id"] == self.state["id"])["url"], "/workspace/" + self.state["id"])
         for file, data in before.items():
             self.assertEqual(file.read_bytes(), data)
 
