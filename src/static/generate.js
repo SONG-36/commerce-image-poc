@@ -85,7 +85,7 @@ function renderChoices(){
   const grid=node('generation-cards');grid.replaceChildren();
   current.cards.forEach((card,index)=>{
     const button=el('button',undefined,'image-choice'+(card.id===selectedTarget?' selected':''));
-    button.type='button';button.dataset.cardId=card.id;button.setAttribute('aria-pressed',String(card.id===selectedTarget));
+    button.type='button';button.dataset.cardId=card.id;button.dataset.passed=String(card.has_passed_history);button.dataset.status=displayStatus(card);button.setAttribute('aria-pressed',String(card.id===selectedTarget));
     button.setAttribute('aria-label','选择图片 #'+String(index+1).padStart(2,'0'));
     const image=el('img');image.src=card.image_url||card.reference.url;image.alt=card.image_url?'已保存的生成图缩略图':'尚未生成，显示参考或原图';
     const badge=card.has_passed_history?'已有 Pass':'待审核';

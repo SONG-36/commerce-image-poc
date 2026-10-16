@@ -5,6 +5,7 @@
 
 ## 现状
 
+- 2026-10-16 D01/D02：**VISUAL PROTOTYPE IMPLEMENTED / USER VISUAL REVIEW PENDING**。仅任务中心与工作台外壳/OUTPUT 加入深黑、石墨灰及少量冰蓝视觉样本；INPUT 表单保留。93 项离线回归通过，Edge 完成两模式、大图、Mock 等待/失败及桌面/小屏检查；实际截图见 `.runtime/ui-review/d01-d02-20261016/`。无真实模型调用、部署或提交，原部署记录保留。
 - 2026-10-16 I03 Follow-up 本地实现：**IMPLEMENTED / OPERATOR REVIEW PENDING**。INPUT 保持不变，OUTPUT 为 N 图选择、当前图详情和一个共享 AI 交互区；完成冻结对象、草稿/附件隔离、异步归属、版本/Pass 及已有操作记录。93 项 Python 离线测试通过（运行新增 10 项前端交互测试及既有批次测试），Edge Mock A～D 验证完成；334 个现有 runtime 文件及 INPUT 字节未变。仅前端/测试及本文件更新，未部署、付费调用或 Commit/Push；Mac mini 的既有版本记录不变。
 - 2026-10-16 I03 本地补充：**逐图计划确认与顺序批量生成 IMPLEMENTED / OPERATOR REVIEW PENDING**。每卡独立确认当前计划，支持部分确认；顶部显示候选数，人工确认费用后顺序生成，连接/Run 状态不确定即暂停且不重发。92 项免费离线测试及临时 Mock 浏览器验证完成；本轮未调用付费 API、部署、Commit 或 Push，Mac mini 保持下述已部署版本。
 - 2026-10-16 最新部署：I01～I03 已从本地 Commit `a69470f5afa9e4cc59639a8b88b8a5a40eae4ae3` 增量部署到 Mac mini，替换实际旧应用版本 `a2e1123d1d80a3f15194872365340bdaee9b6349`；HTTPS 8444 与原服务/访问配置保留。新 release 80 项离线测试及实际 HTTPS/浏览器免费检查通过；没有付费调用，I01 BUSINESS VALIDATION、I02 REAL EDIT VALIDATION、I03 OPERATOR REVIEW 仍 PENDING。详见下方本次部署记录。
@@ -416,11 +417,22 @@
 - **浏览器 A～D**：Edge + 外部临时合成资料 + 官方 SDK MockTransport。A：#02 文字/附件/用途切到 #03 不串用，切回恢复；B：#02 修改运行 20 秒期间查看并填写 #03 草稿，返回仅 #02 新增 V2，仍停留 #03；C：#01 计划修改后确认 3/3→2/3，#02/#03 计划不变，重新确认/单图生成保留旧 Pass；D：Quick 共享纯文字修改保存 V2，无计划要求。另完成 #02 Pass V2→查看 V1→刷新，Pass 仍 V2，以及大图查看。临时 Run 核对父图/辅助图原始字节、用途和顺序，实验 ZIP 74 文件含该辅助图；原图/版本未覆盖。共 9 次图片 Mock（含 6 次临时种子图）及 1 次规划 Mock，零真实模型调用；临时服务已停止。
 - **完整性与边界**：现有 `.runtime/` 334 文件 SHA-256 前后一致；README 既有部署修改、Product Brief、AGENTS、实验日志、全部后端、模型请求与证据代码未变。原规划及历史部署内容保留，HEAD 仍 `e709435`；本轮不部署、不提交、不 Push。操作记录可见范围仍受现有 API 限制；真实编辑质量、商品/文字保持、实际费用和运营体验继续 PENDING，不以 Mock 作为业务验收。
 
+### D01/D02 — Futuristic UI Visual Design Prototype（2026-10-16）
+
+**状态：VISUAL PROTOTYPE IMPLEMENTED / USER VISUAL REVIEW PENDING**。工程基线为 main / `13266b1bd1a3f0dde176f9a868d3ddecc5e46d11`，I03 Follow-up 已提交；README 与本文件已有的独立部署记录保留。本轮未连接或更新 Mac mini。
+
+- **方向与范围**：借鉴极简、精密、冷峻的工业视觉语言，不使用 SpaceX 标识或素材。深黑/石墨灰底、浅色文字、少量冰蓝、细边框和清晰选中态；只影响任务中心、工作台外壳与 OUTPUT，不全面改造 INPUT 或旧页面。
+- **实现**：两份模板加载独立 `visual.css`，保留原 DOM ID、API 与事件绑定；任务中心突出创建入口和真实任务列表。OUTPUT 缩略图、当前大图、共享输入框分层，操作权重区分；新增两个只读展示属性着色已有 Pass/失败状态。中性灰预览底，图片无滤镜或透明度变化；键盘焦点、窄屏回流及 `prefers-reduced-motion` 样式保留/补齐。不改模型、Context、版本、Evidence、任务结构或后端。
+- **免费检查**：93 项 Python 回归通过（包含既有 Node 交互与批次测试）；展示属性加入后，10 项 Node 交互检查、JS 语法与 diff 检查通过。模板原有 ID、INPUT HTML 字节一致；正文/辅助文字/主要按钮的选取配色对比度均高于 4.5:1，不代表完成全站无障碍认证。
+- **浏览器**：Edge 实际运行页面，使用仓库外临时数据、case-001 只读副本与 SDK MockTransport。检查任务中心、商品图包/Quick、选图及刷新恢复、INPUT 展开/折叠、大图、辅助图预览/用途/提交、新版本/Pass；Mock 等待实际计时 12 秒，模拟失败保留 V2/Pass 并阻止未知状态重发。桌面、1280×800 与 390×844 未见明显遮挡/横向溢出。4 次图片 Mock（含 2 次种子图）、0 次规划、0 次真实模型调用；不据此宣称真实编辑质量通过。
+- **截图**：`.runtime/ui-review/d01-d02-20261016/task-home.png`、`output-workspace.png` 为主要评价素材；同目录含 `large-image.png`、`quick-waiting.png`、`quick-error.png`、`quick-1280x800.png`、`quick-mobile.png`。均为实际浏览器窗口截图，含浏览器边框；响应式截图含开发工具，未使用生成 UI 示意图。
+- **完整性与待评价**：334 个原有 runtime 文件 SHA-256 未变，仅新增授权的 UI 截图；README 原部署修改未变，AGENTS、Product Brief、实验日志及业务源码保留。INPUT 仍为原浅色表单；深浅区域衔接、长时间办公舒适度、信息密度与主操作强调程度待用户视觉评价。未部署、Commit/Push，不自动进入 D03。
+
 ## Current Task
 
-**Current Task**：I03 Follow-up — Unified Image Interaction，**IMPLEMENTED / OPERATOR REVIEW PENDING**。Step A / Step B 本地实现与免费验证完成，后端/模型链路、INPUT 和现有业务数据不变；本地 HEAD 仍 `e7094352a0bb728f28517f1b519899dafba6f9b0`，本轮修改未提交、未部署。Mac mini 既有部署记录见下方历史，本轮未连接或更新服务器；I01/I02/I03 的业务与真实模型待验结论不变。
+**Current Task**：D01/D02 任务中心与 OUTPUT 视觉样本，**VISUAL PROTOTYPE IMPLEMENTED / USER VISUAL REVIEW PENDING**。本地 HEAD 为 `13266b1bd1a3f0dde176f9a868d3ddecc5e46d11`，I03 Follow-up 已提交；本轮视觉修改未提交、未部署。INPUT 与既有业务逻辑保留，Mac mini 部署历史及 I01/I02/I03 的待验结论不变。
 
-**Next Action**：停止，等待人工体验本地共享交互。按原方式运行/重启本地服务（`.venv/bin/python src/prepare_plan.py --port 8010`）并刷新，选择图片后明确操作类型再修改；真实 API 须由用户主动确认费用并执行。本轮不自动继续开发、付费调用、部署、Commit 或 Push；原有完整业务验收继续保留。
+**Next Action**：停止，等待用户查看上述真实截图并体验本地页面；原本地服务如缓存旧模板，按原方式重启后刷新。先评价深色视觉、图片展示与编辑区可读性，再决定是否继续；不自动扩大到 INPUT 全面改造或 D03，不付费调用、部署、Commit/Push。真实模型与完整运营验收仍须独立执行。
 
 **T01～T04 已完成工程记录、原有运营反馈、2026-10-14/15 部署与检查历史均保留。I03 本地实现只整合工作台入口、只读状态与前端交互；本次服务器增量部署另记如下，不改变模型调用、数据/Evidence 格式或原始真实实验结论。早前部署记录按原日期理解。**
 

@@ -1,11 +1,13 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>任务中心 · 商品图制作</title><link rel="stylesheet" href="/static/prepare.css"><script src="/static/tasks.js" defer></script></head>
-<body>
-  <header class="topbar"><a class="brand" href="/">图 · 商品图制作</a><nav>任务中心</nav></header>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>任务中心 · 商品图制作</title><link rel="stylesheet" href="/static/prepare.css"><link rel="stylesheet" href="/static/visual.css"><script src="/static/tasks.js" defer></script></head>
+<body class="visual-prototype task-home">
+  <header class="topbar"><a class="brand" href="/"><span class="workspace-mark" aria-hidden="true">图</span>商品图工作台</a><nav><strong>任务中心</strong><span>内部试用</span></nav></header>
   <main>
-    <div class="heading"><div><p class="eyebrow">TASK HOME</p><h1>商品图制作任务</h1><p>每个商品任务独立保存，随时继续制作。</p></div><a class="primary button-link" href="/workspace/new">创建新任务</a></div>
-    <div id="message" role="status" hidden></div><div id="tasks" class="task-list"><p>正在读取已有任务…</p></div>
+    <div class="heading task-hero"><div><p class="eyebrow">COMMERCE IMAGE WORKSPACE</p><h1>让商品图片，进入下一版。</h1><p>从商品图包到快速重设计，在独立任务中完成制作、修改与审核。</p></div><a class="primary button-link" href="/workspace/new"><span aria-hidden="true">＋</span> 创建新任务</a></div>
+    <section aria-labelledby="task-list-title"><div class="task-list-heading"><h2 id="task-list-title">制作任务</h2><p>打开已有任务，继续上一次的工作。</p></div>
+    <div id="message" role="status" hidden></div><div id="tasks" class="task-list"><p>正在读取已有任务…</p></div></section>
+    <footer>商品图包制作 / 快速重设计 · 每个任务独立保存</footer>
   </main>
 </body>
 </html>
