@@ -463,6 +463,7 @@ def create_app(runtime_dir=None, case_dir=None):
         state = confirmed_state(session_id)
         return jsonify(session_id=session_id, title=state["title"], confirmed_revision=state["revision"],
                        mode=state.get("mode", "product_pack"),
+                       auxiliary_purposes=image_review.AUXILIARY_PURPOSES, auxiliary_max_bytes=image_review.MAX_AUXILIARY_BYTES,
                        cards=[generation.card(state, target) for target in generation.targets(state)])
 
     @app.post('/api/sessions/<session_id>/review/<target>')
@@ -480,14 +481,36 @@ def create_app(runtime_dir=None, case_dir=None):
     @app.post('/api/sessions/<session_id>/revise/<target>')
     def revise_one(session_id, target):
         state = confirmed_state(session_id)
-        body = request.get_json()
+        multipart = request.mimetype == 'multipart/form-data'
+        body = request.form.to_dict() if multipart else request.get_json()
+        if multipart:
+            try:
+                for key in ('confirmed_revision', 'card_revision'):
+                    body[key] = int(body[key])
+            except (KeyError, ValueError) as error:
+                raise Problem('图片版本信息无效，请刷新后重新修改。') from error
+        elif isinstance(body, dict) and any(key in body for key in ('auxiliary', 'auxiliary_reference', 'auxiliary_path', 'auxiliary_purpose')):
+            raise Problem('辅助图片必须随本次修改上传实际文件，不能使用路径或其他任务的图片标识。')
         if target not in generation.targets(state) or not isinstance(body, dict) or body.get('confirmed_revision') != state['revision']:
             raise Problem('任务、图片或确认计划已改变，请刷新；未调用模型。', 409)
         feedback = body.get('feedback')
         if not isinstance(feedback, str) or not feedback.strip() or len(feedback) > 12000 or not body.get('parent_run_id') or not body.get('operation_id') or not isinstance(body.get('card_revision'), int):
             raise Problem('请选择当前版本并填写修改意见（最多 12000 字）。')
+        auxiliary = None
+        if multipart:
+            uploads = [(name, file) for name in request.files for file in request.files.getlist(name)]
+            if len(uploads) > 1 or any(name != 'auxiliary' for name, _ in uploads):
+                raise Problem('每次修改最多新增一张辅助参考图片。')
+            if uploads:
+                file = uploads[0][1]
+                try:
+                    auxiliary = image_review.prepare_auxiliary(file.filename, file.read(image_review.MAX_AUXILIARY_BYTES + 1), body.get('auxiliary_purpose'))
+                except ValueError as error:
+                    raise Problem(str(error)) from error
+            elif body.get('auxiliary_purpose'):
+                raise Problem('请选择本次辅助图片，或清除辅助图片用途后仅用文字修改。')
         try:
-            record = generation.generate(state, target, body['parent_run_id'], feedback, body['card_revision'], body['operation_id'])
+            record = generation.generate(state, target, body['parent_run_id'], feedback, body['card_revision'], body['operation_id'], auxiliary=auxiliary)
         except ValueError as error:
             raise Problem(str(error), 409) from error
         return generation_result(record)

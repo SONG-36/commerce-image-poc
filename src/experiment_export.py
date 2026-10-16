@@ -243,10 +243,12 @@ def export_experiment(store, session_id):
                     entry.update(parent_run_id=record.get('parent_run_id'), version=record.get('version'), feedback=record.get('feedback'))
                     entry.update(confirmed_revision=record.get("confirmed_revision"), reference_id=record.get("reference_id"))
                     for image in record.get("inputs", []):
-                        if not re.fullmatch("inputs/(?:" + IMAGE_NAME + r"|current_image\.png)", image["file"]):
+                        if not re.fullmatch("inputs/(?:" + IMAGE_NAME + r"|current_image\.png|auxiliary_reference\.(?:jpg|png|webp))", image["file"]):
                             raise ExportError("导出已停止：生图输入路径不在白名单。")
                         exported = add(session, relative + "/" + image["file"], destination + "/" + image["file"], image["sha256"], run.name, True)
                         entry["inputs"].append({"slot": image["slot"], "id": image["id"], "sha256": image["sha256"], "file": exported})
+                        if image.get('role') == 'auxiliary_reference':
+                            entry['inputs'][-1].update(role=image['role'], purpose=image['purpose'], purpose_label=image['purpose_label'])
                     for name in ("listing.md", "description.md", "requirements.md", "product_facts.md"):
                         add(session, relative + "/inputs/" + name, destination + "/inputs/" + name, run_id=run.name)
                     output = record.get("output")

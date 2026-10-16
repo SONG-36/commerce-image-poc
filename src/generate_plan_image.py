@@ -135,9 +135,13 @@ class GenerationService:
             "api_call_attempted": record.get('api_call_attempted', False),
         }
 
-    def generate(self, state, target, parent_run_id=None, feedback="", expected_revision=None, operation_id=None):
+    def generate(self, state, target, parent_run_id=None, feedback="", expected_revision=None, operation_id=None, auxiliary=None):
         if target not in self.targets(state):
             raise ValueError("图片不属于当前工作模式的制作任务。")
+        if auxiliary is not None:
+            if not parent_run_id:
+                raise ValueError("辅助参考图片只用于修改已生成的当前版本。")
+            auxiliary = image_review.prepare_auxiliary(auxiliary['name'], auxiliary['data'], auxiliary['purpose'])
         key = (state["id"], state["revision"], target)
         with self.guard:
             lock = self.locks.setdefault(key, threading.Lock())
@@ -153,7 +157,9 @@ class GenerationService:
                 for path in (task / 'runs').glob('*/run.json'):
                     previous = read_json(safe_path(task, str(path.relative_to(task))))
                     if previous.get('operation_id') == operation_id:
-                        if previous.get('parent_run_id') != parent_run_id or previous.get('feedback', '') != feedback:
+                        old_auxiliary = previous.get('auxiliary_reference')
+                        same_auxiliary = ((old_auxiliary or {}).get('sha256'), (old_auxiliary or {}).get('purpose')) == ((auxiliary or {}).get('sha256'), (auxiliary or {}).get('purpose'))
+                        if previous.get('parent_run_id') != parent_run_id or previous.get('feedback', '') != feedback or not same_auxiliary:
                             raise ValueError('操作标识已用于不同请求，请刷新后再操作。')
                         if previous['status'] not in ['SUCCEEDED', 'FAILED']:
                             raise ValueError('该请求的执行状态待确认，未重复调用模型；费用状态未知。')
@@ -165,13 +171,13 @@ class GenerationService:
                 if parent_run_id != pointer.get('selected_run', pointer.get('last_successful_run')):
                     raise ValueError('当前选中版本已改变，请刷新后再修改。')
                 image_review.image_bytes(self, state, target, parent_run_id)
-            return self._generate(state, target, parent_run_id, feedback, operation_id)
+            return self._generate(state, target, parent_run_id, feedback, operation_id, auxiliary)
         finally:
             with self.guard:
                 self.active.discard(key)
             lock.release()
 
-    def _generate(self, state, target, parent_run_id=None, feedback="", operation_id=None):
+    def _generate(self, state, target, parent_run_id=None, feedback="", operation_id=None, auxiliary=None):
         started = time.perf_counter()
         revision = state["revision"]
         task_folder = self.folder(state["id"], revision, target)
@@ -199,9 +205,15 @@ class GenerationService:
             "endpoint": "https://api.openai.com/v1/images/edits", "max_retries": 0, "timeout_seconds": TIMEOUT_SECONDS,
             "api_call_attempted": False, "request_id": None, "usage": None, "output": None, "error": None,
         }
+        if auxiliary:
+            record['auxiliary_reference'] = {key: value for key, value in auxiliary.items() if key != 'data'}
+            record['auxiliary_reference'].update(session_id=state['id'], image_id=target, parent_run_id=parent_run_id)
         write_json(folder / "run.json", record)
         write_json(task_folder / "current.json", pointer)
         try:
+            if auxiliary:
+                with safe_path(folder, auxiliary['file']).open('xb') as stream:
+                    stream.write(auxiliary['data'])
             if model not in MODELS:
                 raise ValueError("图像模型配置不在 T01 已核实的模型列表内。")
             if quick and parameters["size"] not in quick_redesign.SIZES:
@@ -243,7 +255,8 @@ class GenerationService:
                 images.append(('current_image.png', data, 'image/png'))
                 order.append({'slot': 1, 'id': 'current_image', 'name': '当前选中成图', 'role': 'current_image',
                               'mime': 'image/png', 'sha256': sha256(data), 'bytes': len(data), 'file': 'inputs/current_image.png'})
-                context['parent_image'] = {**parent, 'sha256': sha256(data)}
+                context['parent_image'] = {key: parent[key] for key in ('run_id', 'version', 'created_at', 'confirmed_revision', 'url')}
+                context['parent_image']['sha256'] = sha256(data)
                 context['operator_feedback'] = feedback
                 write_json(folder / 'plan.json', context)
                 record['parent_version'] = parent['version']
@@ -258,19 +271,31 @@ class GenerationService:
                 order.append({"slot": len(order) + 1, "id": image["id"], "name": image["name"], "role": image["role"],
                               "mime": image["mime"], "sha256": image["sha256"], "bytes": len(data), "file": f"inputs/{name}"})
             if quick:
-                record["context_sha256"] = sha256(json.dumps(context, ensure_ascii=False, sort_keys=True).encode())
-                record["plan_sha256"] = record["context_sha256"]
                 for item in order:
                     if item["role"] != "current_image":
                         item["role"] = "original" if item["id"] == target else "design_reference"
+            if auxiliary:
+                metadata = record['auxiliary_reference']
+                images.append((Path(auxiliary['file']).name, auxiliary['data'], auxiliary['mime']))
+                order.append({**metadata, 'id': 'auxiliary_reference', 'slot': len(order) + 1})
+                context['auxiliary_reference'] = metadata
+                write_json(folder / 'plan.json', context)
+            record["context_sha256"] = sha256(json.dumps(context, ensure_ascii=False, sort_keys=True).encode())
+            if quick:
+                record["plan_sha256"] = record["context_sha256"]
                 texts = {"requirements": state["inputs"]["requirements"],
                          "product_facts": state["inputs"].get("product_facts", "") or "未提供额外商品事实说明；不得补充未经确认的宣称。"}
                 prompt = quick_redesign.build_edit_prompt(texts, order, feedback) if parent_run_id else quick_redesign.build_prompt(texts, order)
             else:
                 prompt = build_edit_prompt(context, order, feedback) if parent_run_id else build_prompt(context, order)
+            if auxiliary:
+                prompt += image_review.auxiliary_prompt(auxiliary, len(order))
+                if len(images) > 16:
+                    raise ValueError("本次编辑超过 16 张实际输入图片，请减少原始商品图或风格参考；未调用模型。")
             (folder / "prompt.txt").write_text(safe_text(prompt), encoding="utf-8")
             write_json(folder / "request.json", {"model": model, "prompt": prompt, **parameters,
-                                                "image_order": order, "plan_sha256": record["plan_sha256"], "confirmed_revision": revision})
+                                                "image_order": order, "plan_sha256": record["plan_sha256"],
+                                                "context_sha256": record["context_sha256"], "confirmed_revision": revision})
             record["inputs"] = order
             record["prompt_sha256"] = sha256(prompt.encode())
             api_key = os.environ.get("OPENAI_API_KEY", "")

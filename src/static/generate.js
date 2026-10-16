@@ -3,12 +3,27 @@ const sessionId=document.body.dataset.sessionId;
 const node=id=>document.getElementById(id);
 const running=new Set();
 const drafts=new Map();
+const auxiliaryDrafts=new Map();
 const jobs=new Map();
 let current=null,poll=null,available=true;
 const labels={goal:'表达目标',selling_points:'主要卖点',design:'设计与构图',scene_style:'场景与风格',risks:'风险与待确认'};
 const statuses={NOT_STARTED:'尚未生成',RUNNING:'正在生成',SUCCEEDED:'图片已生成',FAILED:'本次生成失败',INTERRUPTED:'执行状态待确认'};
 function el(tag,text,className){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(className)e.className=className;return e;}
 function message(text,error=false){node('generation-message').hidden=false;node('generation-message').textContent=text;node('generation-message').className=error?'error':'';}
+function clearAuxiliary(target){const draft=auxiliaryDrafts.get(target);if(draft?.url)URL.revokeObjectURL(draft.url);auxiliaryDrafts.delete(target);}
+window.addEventListener('pagehide',()=>{for(const target of auxiliaryDrafts.keys())clearAuxiliary(target);});
+window.addEventListener('pageshow',event=>{if(event.persisted)render();});
+function auxiliaryControls(card,index,disabled){
+  const draft=auxiliaryDrafts.get(card.id),box=el('div',undefined,'auxiliary-controls');
+  const label=el('label','辅助参考图片（可选，每次最多一张）');const input=el('input');input.type='file';input.accept='image/jpeg,image/png,image/webp';input.setAttribute('aria-label',`图片 ${index+1} 的辅助参考图片`);input.disabled=disabled;label.append(input);box.append(label);
+  input.onchange=()=>{const file=input.files[0];if(!file)return;if(input.files.length>1||file.size>current.auxiliary_max_bytes||file.type&&!['image/jpeg','image/png','image/webp'].includes(file.type)){message('每次只可上传一张 JPG、PNG 或 WebP，且不超过 20 MB。',true);input.value='';return;}clearAuxiliary(card.id);auxiliaryDrafts.set(card.id,{file,url:URL.createObjectURL(file),purpose:''});render();};
+  const purposeLabel=el('label','图片用途');const purpose=el('select');purpose.setAttribute('aria-label',`图片 ${index+1} 的辅助图片用途`);const empty=el('option','请选择本次图片用途');empty.value='';purpose.append(empty);
+  for(const [value,name] of Object.entries(current.auxiliary_purposes)){const option=el('option',name);option.value=value;purpose.append(option);}
+  purpose.value=draft?.purpose||'';purpose.disabled=disabled||!draft?.file;purpose.onchange=()=>{draft.purpose=purpose.value;};purposeLabel.append(purpose);box.append(purposeLabel);
+  if(draft?.file){const preview=el('div',undefined,'auxiliary-preview');const image=el('img');image.src=draft.url;image.alt='本次辅助参考图片预览';const remove=el('button','移除辅助图','secondary');remove.type='button';remove.disabled=disabled;remove.onclick=()=>{clearAuxiliary(card.id);render();};preview.append(image,el('span',draft.file.name),remove);box.append(preview);}
+  box.append(el('p','仅用于当前图片的本次修改；外观修正请提供同一 SKU 的照片。上传和用途不代表商品事实已核验；辅助图不自动加入全局资料或以后修改。','muted'));
+  return box;
+}
 async function api(url,options={}){const response=await fetch(url,{...options,headers:{'X-Local-Action':'prepare-plan',...options.headers}});let body;try{body=await response.json();}catch{throw new Error('服务未返回可读结果，请检查本地服务。');}if(!response.ok)throw new Error(body.error||'操作失败');return body;}
 function render(){
   const container=node('generation-cards');container.replaceChildren();
@@ -42,9 +57,10 @@ function render(){
     const pass=el('button','Pass · 接受当前版本','secondary');pass.disabled=select.disabled||card.passed_run===card.selected_run;pass.onclick=()=>reviewOne(card.id,'pass',card.selected_run);
     history.append(select,pass);article.append(history);
     if(selected?.feedback)article.append(el('p','本版修改意见：'+selected.feedback,'muted'));
+    if(selected?.auxiliary_reference)article.append(el('p',`本版辅助图：${selected.auxiliary_reference.purpose_label} · ${selected.auxiliary_reference.name}`,'muted'));
     const feedback=el('textarea');feedback.placeholder='描述要修改的内容，例如保留布局，将背景改为更浅的粉色…';feedback.setAttribute('aria-label',`图片 ${index+1} 的修改意见`);feedback.value=drafts.get(card.id)||'';feedback.oninput=()=>drafts.set(card.id,feedback.value);feedback.disabled=running.has(card.id)||status==='RUNNING';
     const revise=el('button','修改图片','primary');revise.disabled=select.disabled;revise.onclick=()=>generateOne(card.id,true);
-    const revision=el('div',undefined,'revision-controls');revision.append(feedback,revise);article.append(revision);
+    const revision=el('div',undefined,'revision-controls');revision.append(auxiliaryControls(card,index,select.disabled),feedback,revise);article.append(revision);
     if(status==='RUNNING'){const job=jobs.get(card.id);const wait=el('p',`${job?.name||'AI 操作'}正在执行 · 已等待 0 秒`,'waiting');wait.dataset.started=job?.started_at||card.started_at||new Date().toISOString();wait.dataset.operation=job?.name||(card.operation==='revise_image'?'图片修改':'图片生成');article.append(wait);}
   });
 }
@@ -57,12 +73,17 @@ async function generateOne(target,revise=false){
   if(running.has(target)||!current)return;
   const card=current.cards.find(card=>card.id===target),feedback=drafts.get(target)||'';
   if(revise&&!feedback.trim()){message('请先填写本次修改意见。',true);return;}
+  const auxiliary=revise?auxiliaryDrafts.get(target):null;
+  if(auxiliary?.file&&!current.auxiliary_purposes[auxiliary.purpose]){message('请选择本次辅助图片的用途。',true);return;}
   const revision=current.confirmed_revision;
   running.add(target);jobs.set(target,{started_at:new Date().toISOString(),name:revise?'图片修改':'图片生成'});render();
   try{
     const operation_id=crypto.randomUUID().replaceAll('-','');
-    const result=await api(`/api/sessions/${sessionId}/${revise?'revise':'generate'}/${target}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed_revision:revision,card_revision:card.card_revision,operation_id,...(revise?{parent_run_id:card.selected_run,feedback}:{})})});
-    if(revise)drafts.delete(target);
+    const payload={confirmed_revision:revision,card_revision:card.card_revision,operation_id,...(revise?{parent_run_id:card.selected_run,feedback}:{})};
+    let options={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)};
+    if(auxiliary?.file){const data=new FormData();for(const [key,value] of Object.entries(payload))data.append(key,String(value));data.append('auxiliary_purpose',auxiliary.purpose);data.append('auxiliary',auxiliary.file,auxiliary.file.name);options={method:'POST',body:data};}
+    const result=await api(`/api/sessions/${sessionId}/${revise?'revise':'generate'}/${target}`,options);
+    if(revise){drafts.delete(target);clearAuxiliary(target);}
     message(revise?'本张图片的新版本已保存，等待人工审核；原图及已 Pass 版本保留。':'本张图片已生成并保存；其他图片未改动。');
     if(result.confirmed_revision!==revision)message('计划版本已改变，结果保留在原版本中。',true);
   }catch(error){message(error.message+' 若请求已发出，服务端执行与费用需核对；本页不会自动重试。',true);}
