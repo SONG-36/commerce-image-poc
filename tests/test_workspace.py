@@ -3,6 +3,8 @@
 import hashlib
 import io
 import json
+from pathlib import Path
+import subprocess
 import unittest
 from uuid import uuid4
 
@@ -11,6 +13,11 @@ import test_prepare_plan as planning
 
 
 class WorkspaceTests(unittest.TestCase):
+    def test_shared_interaction_browser_logic_offline(self):
+        result = subprocess.run(['node', '--test', str(Path(__file__).with_name('unified_interaction.test.cjs'))],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def setUp(self):
         self.fx = fixtures.GenerationPageTests()
         self.fx.setUp()

@@ -35,9 +35,30 @@
       <div id="planning-controls" class="panel"><div class="actions"><button id="understand" class="primary">AI 理解与规划</button><button id="replan" class="secondary" disabled>按当前理解重新规划全部</button><a id="enter-generate" href="#output" hidden>定位图片卡片</a></div><strong id="confirmation-title">先保存商品资料</strong><p id="confirmation-note" class="muted"></p></div>
       <div class="panel batch-controls"><button id="batch-generate" class="primary" disabled>一键生成已确认图片（0 张）</button><span id="batch-count" class="muted">仅选择已确认且从未尝试生成的图片。</span><p id="batch-progress" role="status" aria-live="polite" hidden></p><button id="check-batch" class="secondary" hidden>查询中断请求状态（不重试）</button></div>
       <p id="workspace-note" class="notice">只有主动点击 AI 理解、计划修正、生成或修改才产生调用费用；不会自动重试。选择版本、Pass、刷新和导出不调用模型。</p>
-      <div id="generation-cards" class="generation-grid"><p class="empty">保存资料后，这里按实际图片数量展示独立卡片。</p></div>
+      <div id="generation-cards" class="generation-grid image-choices" role="group" aria-label="选择要操作的图片"><p class="empty">保存资料后，这里展示可选择的图片。</p></div>
+      <p id="image-operation" role="status" aria-live="polite" hidden></p>
+      <p id="select-image-note" class="empty">请选择一张图片，查看详情并进行修改。</p>
+      <div id="image-workspace" class="image-workspace" hidden>
+        <section class="panel image-detail" aria-labelledby="selected-image-title"><h3 id="selected-image-title">当前图片</h3><div id="selected-image-detail"></div></section>
+        <section class="panel image-interaction" aria-labelledby="interaction-title">
+          <h3 id="interaction-title">统一 AI 交互</h3>
+          <p id="edit-target" class="edit-target"></p>
+          <label>操作类型<select id="edit-action" aria-label="当前图片的操作类型"></select></label>
+          <div id="edit-auxiliary">
+            <label>辅助参考图片（可选，每次最多一张）<input id="edit-file" type="file" accept="image/jpeg,image/png,image/webp" aria-label="当前图片的辅助参考图片"></label>
+            <label>图片用途<select id="edit-purpose" aria-label="当前图片的辅助图片用途"></select></label>
+            <div id="edit-preview" class="auxiliary-preview" hidden><img id="edit-preview-image" alt="本次辅助参考图片预览"><span id="edit-filename"></span><button id="remove-edit-file" type="button" class="secondary">移除辅助图</button></div>
+            <p class="muted">附件仅用于当前图片的本次修改，外观修正请提供同一 SKU。未发送的附件只保留在当前页面，刷新后需重新选择。</p>
+          </div>
+          <label>修改意见<textarea id="edit-feedback" rows="4" maxlength="12000" placeholder="描述本次要修改的内容…" aria-label="当前图片的修改意见"></textarea></label>
+          <p id="draft-note" class="muted"></p><button id="rebase-draft" type="button" class="secondary" hidden>将草稿用于当前版本</button>
+          <button id="send-edit" type="button" class="primary" disabled>发送修改意见</button>
+          <details id="interaction-history" class="history"><summary>本图已有操作记录</summary><p class="muted">显示可获取的成功图片版本、计划修订及当前审核/错误状态，并非完整聊天记录；完整运行证据见实验包。</p><div id="interaction-records"></div></details>
+        </section>
+      </div>
+      <dialog id="image-viewer"><button id="close-image-viewer" type="button" class="secondary">关闭大图</button><img id="viewer-image" alt="当前查看的大图"></dialog>
     </section>
-    <footer>参考、计划、成图、修改与 Pass 在同一张卡片。原始图片和历史版本保留，模型内容仍需人工审核。</footer>
+    <footer>选择图片，在详情与共享交互区查看计划、修改或 Pass。原始图片和历史版本保留，模型内容仍需人工审核。</footer>
   </main>
 </body>
 </html>

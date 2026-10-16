@@ -39,7 +39,7 @@ function updateButtons() {
   document.body.classList.toggle('busy',locked);
   window.Workspace?.planningChanged();
 }
-async function work(fn) {if(busy||remoteBusy||imageBusy)return;busy=true;operation={name:'读取或保存资料',started_at:new Date().toISOString(),status:'RUNNING'};drawProgress();updateButtons();try{await fn();if(!remoteBusy&&!operation.fromSaved)operation.status='SUCCEEDED';}catch(error){operation.status='FAILED';notify(error.message,true);}finally{busy=false;if(!remoteBusy&&!operation.fromSaved)operation.finished_at=new Date().toISOString();drawProgress();updateButtons();}}
+async function work(fn,propagate=false) {if(busy||remoteBusy||imageBusy){if(propagate)throw new Error('已有操作正在执行，请稍候。');return;}busy=true;operation={name:'读取或保存资料',started_at:new Date().toISOString(),status:'RUNNING'};drawProgress();updateButtons();try{const result=await fn();if(!remoteBusy&&!operation.fromSaved)operation.status='SUCCEEDED';return result;}catch(error){operation.status='FAILED';notify(error.message,true);if(propagate)throw error;}finally{busy=false;if(!remoteBusy&&!operation.fromSaved)operation.finished_at=new Date().toISOString();drawProgress();updateButtons();}}
 function markDirty(){dirty=true;$('input-note').textContent=isQuick()?'资料有修改。保存为新任务后继续重设计，旧任务保留。':'资料有修改。保存为新任务后重新理解与规划，旧任务保留。';updateButtons();}
 function releasePending(){Object.values(pending).flat().forEach(item=>URL.revokeObjectURL(item.url));pending={product:[],reference:[]};}
 function renderImages(){
@@ -62,13 +62,13 @@ function feedbackBox(action,target,label,buttonText){
   const lab=element('label',label);lab.htmlFor=id;const row=element('div',undefined,'row');const input=element('textarea');input.id=id;input.value=feedbackDrafts.get(id)||'';input.oninput=()=>feedbackDrafts.set(id,input.value);input.disabled=busy||remoteBusy||imageBusy||dirty;input.rows=2;input.maxLength=12000;input.placeholder=action==='plan'?'例如：不要展示配件，采用浅粉色背景。':action==='product'?'例如：这不是冲击电钻，不要强调冲击功能。':'例如：只参考信息排版，不参考产品使用场景。';
   const button=element('button',buttonText,'secondary ai-mutation');button.type='button';button.disabled=busy||remoteBusy||imageBusy||dirty;button.onclick=()=>{if(!input.value.trim()){notify('请先填写修改意见。',true);return;}work(()=>runAction(action,target,input.value));};row.append(input,button);box.append(lab,row,renderHistory(target,action));return box;
 }
-function renderCardPlan(image){
+function renderCardPlan(image,editable=true){
   const details=element('details',undefined,'card-plan');const plan=state?.plans[image.id];
   const status=state?.plan_status[image.id],stale=state?.stale_plans.includes(image.id);details.open=Boolean(plan&&!status?.confirmed);
   details.append(element('summary',plan?(stale?'当前计划 · 理解已改变，待更新':`当前计划 V${status.plan_version} · ${status.confirmed?'已确认':'待确认'}`):'制作计划 · 尚未规划'));
-  if(plan)details.append(describe(plan,planFields),feedbackBox('plan',image.id,'本张计划的修改意见','根据意见修改计划'));
+  if(plan){details.append(describe(plan,planFields));if(editable)details.append(feedbackBox('plan',image.id,'本张计划的修改意见','根据意见修改计划'));}
   else details.append(element('p','先保存资料并主动点击 AI 理解与规划。','muted'));
-  if(state?.references[image.id]){const understanding=element('details',undefined,'history');understanding.append(element('summary','参考图理解与修正'),describe(state.references[image.id],referenceFields),feedbackBox('reference',image.id,'修正这张参考图的理解','根据意见修正理解'));details.append(understanding);}
+  if(state?.references[image.id]){const understanding=element('details',undefined,'history');understanding.append(element('summary','参考图理解与修正'),describe(state.references[image.id],referenceFields));if(editable)understanding.append(feedbackBox('reference',image.id,'修正这张参考图的理解','根据意见修正理解'));details.append(understanding);}
   return details;
 }
 function renderResults(){
@@ -94,14 +94,19 @@ async function saveInputs(){
   for(const role of ['product','reference'])pending[role].forEach(item=>data.append(role,item.file,item.file.name));
   const body=await api('/api/sessions',{method:'POST',body:data});applyState(body.state);
 }
-async function runAction(action,target=null,feedback=''){
+async function runAction(action,target=null,feedback='',expected=null){
   if(dirty)throw new Error('资料有修改，请先保存为新任务，再进行 AI 理解与规划。');
   if(!state)throw new Error('请先加载或保存商品资料。');
+  if(expected&&(state.id!==expected.taskId||state.revision!==expected.stateRevision))throw new Error('任务或计划版本已改变，请刷新后重新提交；未调用模型。');
+  const taskId=state.id,revision=state.revision;
   operation.name=actionNames[action];drawProgress();notify(action==='confirm'?'正在保存确认计划。':'AI 正在处理，请稍候。不会自动重试；连接失败时服务端执行与费用需核对。');
-  const body=await api(`/api/sessions/${state.id}/action`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,target,feedback,revision:state.revision,...(action==='confirm'?{plan_version:state.plan_status[target].plan_version}:{})})});
-  feedbackDrafts.delete('feedback-'+action+'-'+(target||'product'));
-  applyState(body.state);
-  notify(action==='confirm'?'本图当前计划已确认，其他图片的确认和成图未改变。':action==='plan'?'本张计划已更新，请重新确认本图；其他计划保持不变。':action==='product'||action==='reference'?'理解已修正。后续规划将使用修正结果，受影响的已有计划请显式更新后再确认。':'AI 理解与规划已保存，请逐图检查并确认候选计划。');
+  const body=await api(`/api/sessions/${taskId}/action`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,target,feedback,revision,...(action==='confirm'?{plan_version:state.plan_status[target].plan_version}:{})})});
+  if(state.id===taskId){
+    feedbackDrafts.delete('feedback-'+action+'-'+(target||'product'));
+    if(state.revision===revision)applyState(body.state);
+    notify(action==='confirm'?'本图当前计划已确认，其他图片的确认和成图未改变。':action==='plan'?'本张计划已更新，请重新确认本图；其他计划保持不变。':action==='product'||action==='reference'?'理解已修正。后续规划将使用修正结果，受影响的已有计划请显式更新后再确认。':'AI 理解与规划已保存，请逐图检查并确认候选计划。');
+  }
+  return body;
 }
 $('load-case').onclick=()=>work(async()=>{const body=await api('/api/case-001',{method:'POST'});applyState(body.state);notify('case-001 已加载为独立资料副本，未调用 AI。');});
 $('input-form').onsubmit=event=>{event.preventDefault();work(async()=>{await saveInputs();$('input-panel').open=false;notify('资料已保存为新任务，旧任务未覆盖；可在下方卡片继续。');});};
@@ -113,6 +118,7 @@ for(const role of ['product','reference'])$(role+'-files').onchange=event=>{for(
 work(async()=>{const session=document.body.dataset.sessionId;if(session){const body=await api('/api/sessions/'+encodeURIComponent(session));$('config-note').hidden=body.ai_configured;applyState(body.state,body.activity);}else renderResults();});
 
 window.PreparePlan={getState:()=>state,getStatus:()=>({dirty,busy:busy||remoteBusy}),api,applyState,renderCardPlan,
+  modifyTarget(action,target,feedback,expected){if(!['plan','reference'].includes(action))throw new Error('无效的计划操作。');return work(()=>runAction(action,target,feedback,expected),true);},
   confirmPlan(target){return work(()=>runAction('confirm',target));},
   setImageBusy(value){if(imageBusy!==value){imageBusy=value;updateButtons();}}};
 })();

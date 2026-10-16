@@ -5,6 +5,7 @@
 
 ## 现状
 
+- 2026-10-16 I03 Follow-up 本地实现：**IMPLEMENTED / OPERATOR REVIEW PENDING**。INPUT 保持不变，OUTPUT 为 N 图选择、当前图详情和一个共享 AI 交互区；完成冻结对象、草稿/附件隔离、异步归属、版本/Pass 及已有操作记录。93 项 Python 离线测试通过（运行新增 10 项前端交互测试及既有批次测试），Edge Mock A～D 验证完成；334 个现有 runtime 文件及 INPUT 字节未变。仅前端/测试及本文件更新，未部署、付费调用或 Commit/Push；Mac mini 的既有版本记录不变。
 - 2026-10-16 I03 本地补充：**逐图计划确认与顺序批量生成 IMPLEMENTED / OPERATOR REVIEW PENDING**。每卡独立确认当前计划，支持部分确认；顶部显示候选数，人工确认费用后顺序生成，连接/Run 状态不确定即暂停且不重发。92 项免费离线测试及临时 Mock 浏览器验证完成；本轮未调用付费 API、部署、Commit 或 Push，Mac mini 保持下述已部署版本。
 - 2026-10-16 最新部署：I01～I03 已从本地 Commit `a69470f5afa9e4cc59639a8b88b8a5a40eae4ae3` 增量部署到 Mac mini，替换实际旧应用版本 `a2e1123d1d80a3f15194872365340bdaee9b6349`；HTTPS 8444 与原服务/访问配置保留。新 release 80 项离线测试及实际 HTTPS/浏览器免费检查通过；没有付费调用，I01 BUSINESS VALIDATION、I02 REAL EDIT VALIDATION、I03 OPERATOR REVIEW 仍 PENDING。详见下方本次部署记录。
 - 2026-10-16 I03 本地实现节点：**IMPLEMENTED / OPERATOR REVIEW PENDING**。任务中心进入统一工作台，共享 INPUT 可折叠，OUTPUT 每卡集中参考/原图、计划、成图、版本、文字/辅助图修改及 Pass；两种模式沿用既有 API、模型 Context、资料与 Evidence 格式。80 项离线测试通过，Edge 临时 Mock 交互验证完成；当时未执行付费调用、部署或 I03 Commit。随后已授权提交 I03 并增量部署，运营体验仍待评价。
@@ -378,11 +379,48 @@
 - **免费验证**：92 项 Python 测试通过（原 80 + 12；其中包含 7 项 Node 批次测试），覆盖部分确认、绑定版本、单张修改隔离、旧整体确认只读兼容、单图/批量、跨任务隔离、Pass/历史跳过、确定失败继续、未知状态停止、重启/刷新不重发及确认信息进入原实验包。Edge 临时合成任务和 MockTransport 验证逐图确认/修改失效、成功 2/2、Pass/刷新恢复；Quick 第二张模拟断线后暂停，第一张保留，第三张未调用，刷新和只读查询未新增请求。
 - **未完成验收与边界**：真实批量费用、耗时和运营操作体验仍待人工验证；未知服务端执行/计费仍需人工核对。没有改变图像模型、生成/编辑 Prompt、T02 模型请求、原资料或 Evidence；现有 `.runtime/` 306 个文件前后 SHA-256 一致，Product Brief、AGENTS、实验日志与部署历史保留。开始时 README/本文件已有部署记录修改，本轮保留；不部署、不 Commit/Push。
 
+### I03 Follow-up — Unified Image Interaction
+
+**当前状态：IMPLEMENTED / OPERATOR REVIEW PENDING**。本轮已按后续 Coding 授权完成 Step A / Step B，仅本地实现；下方保留原规划，实际交付与验证见本节末尾。
+
+**前序规划状态（历史）：PLANNED / NOT IMPLEMENTED**。当时仅仓库检查与最小 UX 规划，等待 Coding 授权；以下反馈、源码基线和方案按该节点理解。
+
+- **反馈/假设**：用户本轮提出保留 INPUT、简化 OUTPUT、集中逐图修改；代码确认每卡重复出现文本/附件/用途控件。“共享交互降低操作成本”仍待运营验证，无新增模型实验或量化结论。
+- **工程基线**：main / `e709435`；I01～I03、逐图确认与批量已提交。README/本文件原有部署修改保留；本地 `per-image-batch-20261016/{result,http-checks,final-checks}.json` 支持此前部署至 e709435 的快照，本轮不连接服务器，不据此断言当前在线状态。
+- **源码事实**：`generate.js:50` 按 `current.cards` 渲染 N 卡，`card.id` 绑定图片；没有工作台选图状态或专用大图操作。`generateOne():99` 提交修改，`auxiliaryControls():38` 预览 File/用途并随 FormData 上传，`reviewOne():125` 选版本/Pass；`workspace.js:15` 刷新汇总，`ImageGeneration.present():177` 恢复卡片、轮询运行状态。
+- **绑定/历史**：Task=session ID，Image=`card.id`，图片版本用 `selected_run/parent_run_id`，不能只用 V1/V2；请求另带确认/卡片修订号及 operation_id。`image_review.py:66` 提供本确认修订号下成功版本、父 Run、意见和辅助图元数据；`prepare.js:54` 读取计划/参考修正 events，当前卡片只显示选中版本意见。
+
+**目标 OUTPUT（INPUT 表单及商品理解修正不变）**：
+
+1. 图片区：N 张编号缩略图、当前版本/状态/Pass，明显高亮选中图；无成图标明参考/原图占位，可用原 URL 查看大图。
+2. 当前图信息：参考/原图、版本/状态，计划/参考理解按需展开；保留本图确认、生成、版本和 Pass。Quick 不要求计划，顶部保留批量及导出。
+3. 共享交互区：OUTPUT 一个意见框，明确显示 Task ID / Image ID / Image Version；显式选择修改图片、修改计划或修正参考理解，Quick 仅图片修改。图片编辑可附一张图并选原有用途；其他动作不发送附件，也不静默丢弃图片编辑草稿。
+
+**最小 Coding 方案（前序规划记录）**：
+
+- **Step A — 选择与安全提交**：拟改 `workspace.html`、`workspace.css`、`generate.js`、`prepare.js`；在已有控制器维护选图，移走卡片重复输入，为原私有 `runAction()/work()` 提供受控前端入口。草稿按 Task+Image+确认修订号+基础图片 Run/计划版本+动作隔离。提交前冻结对象、意见、File/用途、修订号及 operation_id；切图只查看，不引入并发付费。晚返回只更新原对象，不切换当前选图或清除后来草稿。对象冻结与隔离必须在 A 完成。
+- **Step B — 历史与体验**：将已有版本/父 Run、计划事件、当前 Pass/最新错误组织为当前图片操作记录；完善版本/Pass、大图、切图草稿恢复、实际等待/错误提示。沿用旧确认版本只读/过期保护，刷新不提交，未提交附件不承诺跨刷新恢复。记录只用于展示，不将界面历史自动发送模型、不伪造 AI 回复。后续补现有工作台/交互测试；`workspace.js` 刷新与 `batch_generate.js` 优先不改。
+- **API 结论**：核心方案无需改后端。复用 `GET /api/sessions/<task>/workspace`；同前缀 `POST action` 的 plan/reference/confirm、`revise/<image>` 的 JSON/multipart（auxiliary/auxiliary_purpose）、`review/<image>` 的 select/pass，以及 generate、operations 状态查询和两种导出。`generate_plan_image.py:209` 已校验父版本/卡片状态，`:297`、`:323` 将父图/本次辅助图实际传入请求，不改变模型、Prompt 或 Evidence。
+- **已知限制**：成功版本列表仅限对应确认修订号；旧确认图沿用既有只读预览。完整失败流水、历次 Pass 事件虽保存于 Run/reviews/实验包，当前无全量列表 API，不称完整聊天回放。若要求全量审计展示，须另行确认最小只读汇总扩展，不预建 Chat Runtime 或消息库。
+
+**后续验收**：OUTPUT 单输入区、N 图独立选择/对象与大图清楚；修改 #02 不影响 #01，切图/切版本/晚返回不串文字、附件或结果；辅助图实际参与编辑；计划修改需本图重新确认，历史版本/明确版本 Pass、两模式及逐图/批量/导出保持；刷新不收费、未知请求暂停不重发；原任务/素材/Evidence 不变。浏览器走通两模式选择→修改→版本→Pass，免费测试覆盖隔离边界；真实编辑质量/费用由运营主动验证，Mock 不代替业务验收。
+
+**前序规划轮边界（历史）**：只更新本文件，保留工程/部署历史；不改源码/README/运行数据，不调用模型/部署，不建新文档或框架，不 Commit/Push。
+
+**本次实现与免费验证（2026-10-16）**：
+
+- **Step A / 界面**：只改 `workspace.html`、`workspace.css`、`generate.js`、`prepare.js`。OUTPUT 显示 N 张编号/版本/执行/Pass 缩略图，点击高亮；当前图详情展示成图、参考、按需计划、版本/确认/生成/Pass 和原 URL 大图。共享意见框、单辅助图及用途仅各一套；商品图包显式选择计划或图片修改，保留既有参考理解修正入口，Quick 仅图片修改。INPUT HTML 字节与原功能保留，`workspace.js` / `batch_generate.js` 未改。
+- **对象与草稿**：选图按 Task 保存，刷新只恢复选中 ID 和服务端状态。草稿按 Task+Image+动作隔离，另保存其基础确认修订号/Run 或计划/理解版本；附件仅当前页面内存。每次提交冻结 Task/Image、操作类型、基础 Run、计划/卡片修订号、operation_id、文字及 File/用途；发送期间可切图、继续写草稿，禁止并行付费提交。成功仅清理序号未改变的原草稿，晚返回不改当前选择/其他 Task；新草稿基于旧版本时保留并阻止发送，需选回原版本或明确“将草稿用于当前版本”。
+- **Step B / 复用**：历史展示已有成功 Run、父版本、修改意见/辅助图元数据、计划/参考修订事件及当前 Pass/最新错误，不冒充完整聊天或全量失败/审核流水，不向模型注入界面历史。保留纯文字/带图编辑、历史版本选择、明确 Run 的 Pass、旧 Pass 导出保护、逐图确认/单图与顺序批量及两种 ZIP。沿用原 API、模型/Prompt/Context、数据结构与 Evidence；后端及服务器配置全部未改。
+- **测试**：93 项 Python 离线测试通过，其中工作台测试运行新增 10 项 Node 交互测试，既有 7 项批次测试继续通过；JS 语法、依赖和 diff 检查通过。新增验证实际前端请求的任务/父 Run/修订号、multipart 文件/用途、切图和跨 Task 晚返回、发送期间新草稿保留/显式改绑、计划修正隔离、Pass、Quick、批量顺序/恢复及免费导出。旧导出测试移除对 URL 字符串拼接形式的脆弱断言，改由真实前端处理器调用测试覆盖。
+- **浏览器 A～D**：Edge + 外部临时合成资料 + 官方 SDK MockTransport。A：#02 文字/附件/用途切到 #03 不串用，切回恢复；B：#02 修改运行 20 秒期间查看并填写 #03 草稿，返回仅 #02 新增 V2，仍停留 #03；C：#01 计划修改后确认 3/3→2/3，#02/#03 计划不变，重新确认/单图生成保留旧 Pass；D：Quick 共享纯文字修改保存 V2，无计划要求。另完成 #02 Pass V2→查看 V1→刷新，Pass 仍 V2，以及大图查看。临时 Run 核对父图/辅助图原始字节、用途和顺序，实验 ZIP 74 文件含该辅助图；原图/版本未覆盖。共 9 次图片 Mock（含 6 次临时种子图）及 1 次规划 Mock，零真实模型调用；临时服务已停止。
+- **完整性与边界**：现有 `.runtime/` 334 文件 SHA-256 前后一致；README 既有部署修改、Product Brief、AGENTS、实验日志、全部后端、模型请求与证据代码未变。原规划及历史部署内容保留，HEAD 仍 `e709435`；本轮不部署、不提交、不 Push。操作记录可见范围仍受现有 API 限制；真实编辑质量、商品/文字保持、实际费用和运营体验继续 PENDING，不以 Mock 作为业务验收。
+
 ## Current Task
 
-**Current Task**：I03 本地逐图确认与一键顺序生成补充已实现，**IMPLEMENTED / OPERATOR REVIEW PENDING**。本地 HEAD 仍为 `a69470f5afa9e4cc59639a8b88b8a5a40eae4ae3`，本轮代码及文档未提交、未部署；Mac mini 继续使用该已提交 release（不含本轮补充）。I01 `60d98e0`、I02 `1354a0b`、I03 `a69470f` 历史保留，阶段仍为 INTERNAL PILOT / BUSINESS VALIDATION；I01 商业验证、I02 真实编辑与 I03 运营评价继续 PENDING。
+**Current Task**：I03 Follow-up — Unified Image Interaction，**IMPLEMENTED / OPERATOR REVIEW PENDING**。Step A / Step B 本地实现与免费验证完成，后端/模型链路、INPUT 和现有业务数据不变；本地 HEAD 仍 `e7094352a0bb728f28517f1b519899dafba6f9b0`，本轮修改未提交、未部署。Mac mini 既有部署记录见下方历史，本轮未连接或更新服务器；I01/I02/I03 的业务与真实模型待验结论不变。
 
-**Next Action**：停止，等待人工体验本地补充功能，使用方式见 README 第 17 节；真实批量请求仍须运营主动确认费用。Mac mini 已有试用继续按第 16 节进行，后续部署需另行授权。Quick 真实生成、辅助图编辑、商品/文字保持及 Pass/导出等原待验事项继续保留，不把本轮 Mock 测试写为真实业务 PASS。
+**Next Action**：停止，等待人工体验本地共享交互。按原方式运行/重启本地服务（`.venv/bin/python src/prepare_plan.py --port 8010`）并刷新，选择图片后明确操作类型再修改；真实 API 须由用户主动确认费用并执行。本轮不自动继续开发、付费调用、部署、Commit 或 Push；原有完整业务验收继续保留。
 
 **T01～T04 已完成工程记录、原有运营反馈、2026-10-14/15 部署与检查历史均保留。I03 本地实现只整合工作台入口、只读状态与前端交互；本次服务器增量部署另记如下，不改变模型调用、数据/Evidence 格式或原始真实实验结论。早前部署记录按原日期理解。**
 
