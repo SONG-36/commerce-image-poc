@@ -1,5 +1,6 @@
 """T03: independent image runs from a confirmed T02 plan; reuses the T01 client."""
 
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from importlib.metadata import version
 import os
@@ -117,6 +118,27 @@ class GenerationService:
                     'api_call_attempted': record.get('api_call_attempted', False), 'uncertain': request_uncertain(record, status),
                     'error': safe_text(error.get('message', '')), 'confirmed_revision': state['revision']}
         return {'operation_id': operation_id, 'status': 'NOT_FOUND', 'uncertain': True}
+
+    @contextmanager
+    def review_operation(self, state, target):
+        """Coordinate human review with the existing image lock/activity scope.
+
+        Review receives no lock or active-set ownership; generation, planning
+        exclusion and export keep observing the same in-process state.
+        """
+        key = (state['id'], state['revision'], target)
+        with self.guard:
+            lock = self.locks.setdefault(key, threading.Lock())
+        if not lock.acquire(blocking=False):
+            raise ValueError('本张图片正在处理，请完成后再选择或审核。')
+        with self.guard:
+            self.active.add(key)
+        try:
+            yield
+        finally:
+            with self.guard:
+                self.active.discard(key)
+            lock.release()
 
     def generate(self, state, target, parent_run_id=None, feedback="", expected_revision=None, operation_id=None, auxiliary=None):
         if target not in self.targets(state):
