@@ -1,42 +1,87 @@
 # Current State — 唯一工程状态入口
 
-> 更新：2026-10-16
-> 阶段：**INTERNAL PILOT / BUSINESS VALIDATION**。T01 COMPLETE；T02 已有确认计划；T03 已核实四张真实成图、业务验收与失败计费核验仍待完成；T04 ACTIVE / REAL EDIT PENDING，已实现并部署到 Mac mini 内部试用，真实编辑与运营闭环待人工验收。
+> 核查：2026-10-21（Asia/Shanghai）；范围为本地源码、Git、离线测试与已有 Evidence。本轮不 SSH、不访问生产、不调用模型。
+> 阶段：**INTERNAL PILOT / BUSINESS VALIDATION**。工程实现、软件测试、真实 AI 效果和运营验收分别记录；当前服务器运行版本 **UNVERIFIED**。
 
-## 现状
+## 当前核查结论 — 2026-10-21
 
-- 2026-10-16 D01/D02：**VISUAL PROTOTYPE IMPLEMENTED / USER VISUAL REVIEW PENDING**。仅任务中心与工作台外壳/OUTPUT 加入深黑、石墨灰及少量冰蓝视觉样本；INPUT 表单保留。93 项离线回归通过，Edge 完成两模式、大图、Mock 等待/失败及桌面/小屏检查；实际截图见 `.runtime/ui-review/d01-d02-20261016/`。无真实模型调用、部署或提交，原部署记录保留。
-- 2026-10-16 I03 Follow-up 本地实现：**IMPLEMENTED / OPERATOR REVIEW PENDING**。INPUT 保持不变，OUTPUT 为 N 图选择、当前图详情和一个共享 AI 交互区；完成冻结对象、草稿/附件隔离、异步归属、版本/Pass 及已有操作记录。93 项 Python 离线测试通过（运行新增 10 项前端交互测试及既有批次测试），Edge Mock A～D 验证完成；334 个现有 runtime 文件及 INPUT 字节未变。仅前端/测试及本文件更新，未部署、付费调用或 Commit/Push；Mac mini 的既有版本记录不变。
-- 2026-10-16 I03 本地补充：**逐图计划确认与顺序批量生成 IMPLEMENTED / OPERATOR REVIEW PENDING**。每卡独立确认当前计划，支持部分确认；顶部显示候选数，人工确认费用后顺序生成，连接/Run 状态不确定即暂停且不重发。92 项免费离线测试及临时 Mock 浏览器验证完成；本轮未调用付费 API、部署、Commit 或 Push，Mac mini 保持下述已部署版本。
-- 2026-10-16 最新部署：I01～I03 已从本地 Commit `a69470f5afa9e4cc59639a8b88b8a5a40eae4ae3` 增量部署到 Mac mini，替换实际旧应用版本 `a2e1123d1d80a3f15194872365340bdaee9b6349`；HTTPS 8444 与原服务/访问配置保留。新 release 80 项离线测试及实际 HTTPS/浏览器免费检查通过；没有付费调用，I01 BUSINESS VALIDATION、I02 REAL EDIT VALIDATION、I03 OPERATOR REVIEW 仍 PENDING。详见下方本次部署记录。
-- 2026-10-16 I03 本地实现节点：**IMPLEMENTED / OPERATOR REVIEW PENDING**。任务中心进入统一工作台，共享 INPUT 可折叠，OUTPUT 每卡集中参考/原图、计划、成图、版本、文字/辅助图修改及 Pass；两种模式沿用既有 API、模型 Context、资料与 Evidence 格式。80 项离线测试通过，Edge 临时 Mock 交互验证完成；当时未执行付费调用、部署或 I03 Commit。随后已授权提交 I03 并增量部署，运营体验仍待评价。
-- 2026-10-16 I02 交付状态保留：**I02 IMPLEMENTED / REAL EDIT VALIDATION PENDING**。商品图包与 Quick Redesign 共用的修改区域支持文字加最多一张辅助图、预览及三种用途；实际传入 images.edit，并复用原 Run、版本、Pass 和实验包。交付时 75 项离线测试通过，临时 Mock 浏览器完成带图修改与刷新恢复；当时未提交，后按本轮 PART A 授权先行提交后再开发 I03，未进行真实编辑验收。
-- Git（I02 检查点 / I03 Preflight）：分支 main，I02 的 9 个修改文件及 1 个新增文件经范围、密钥排除与 staged 检查后提交为 `1354a0b80fe01384c57b0377bec715d23a54821f`，`feat: implement I02 image-guided editing`，前一 HEAD 为 I01 `60d98e0da944287e0df9f9add99c4eff686d01ea`。提交后工作区干净，再开始 I03；本轮不提交 I03、不 Push、不处理远程历史。
-- 2026-10-16 I01 最新本地状态：**PRODUCT INTEGRATION IMPLEMENTED / BUSINESS VALIDATION PENDING**。任务中心新建支持「商品图包制作 / 快速重设计」；快速模式以 N 张原图独立生成，跳过 T02，复用 T04 修改、版本、Pass 及两种导出。65 项离线测试通过；本轮无付费调用、部署或 Git 提交，不进入 I02/I03。
-- I01 初步真实证据：已存在成功 Run `20261016T013618Z-c0952e3ddfff430189e350a8bbb27c00`，图片已保存并校验，耗时 21.445 秒、usage total_tokens=2329。用户本轮陈述一个样本获正面评价；原始 `review.json` decision 仍为空，实际费用未记录。只允许据此进入内部试用，不推导充分商业验证。
-- I01 免费准备历史：先前增加独立 CLI 与 9 项检查，当时 56 项离线测试通过；首次 Run `20261016T012440Z-f41214714e514459b9c64e83f5b8717d` 因缺资料而停止，未调用模型。该缺资料状态现已解除；CLI 和已有真实输入/输出/Evidence 全部保留，未补写或覆盖历史。
-- 2026-10-16 早前文档节点：记录运营试用反馈，新增 **Commerce Image Workspace** 候选方向与 I01～I03 安排；当时仅更新两份文档，未启动 Coding 或付费调用。后续 I01 实验、I01/I02/I03 本地集成见最新记录，不将后续实现写成当时已完成。
-- 部署历史：2026-10-15 release `a2e1123d1d80a3f15194872365340bdaee9b6349` 已于本次由 I03 release 替换，旧目录保留可回滚；HTTPS 8444、LAN 访问限制和独立数据目录未变。下方各历史检查按原日期理解，最新复核仅见本次部署记录。
-- Git（2026-10-16 本轮只读检查）：分支 `main`，修改前工作区干净，HEAD 为 `1b0fb3c`（`merge: reconcile remote baseline with local development`）。此前“远程历史尚未恢复”和“文档尚未提交”保留为各日期的历史记录；本轮不推断远程当前同步状态，不 Commit 或 Push。
-- 2026-10-15 规划模型升级：本地 Commit `a2e1123d1d80a3f15194872365340bdaee9b6349`，`chore: update planning model configuration`。T02 默认与服务器实际配置改为 `gpt-5.4-mini` / reasoning low，保留显式 4.1 mini 回退；Mac mini 安全增量部署及免费检查完成，真实新模型调用/质量仍 PENDING。未 Push；原有 README 修改和本文件已暂存内容均未混入源码提交，文档使用记录另保留在工作区。
-- 业务 / 产品：Mac mini 试用应用已由原两页式 POC 增量更新为 **Commerce Image Workspace**，保留任务中心和两种模式；详见 `01_PRODUCT_BRIEF.md` 第 7 节的初始候选记录与本次部署记录。I01/I02/I03 分别保留商业效果、真实编辑和运营体验待验证；部署成功不等于业务价值通过。
-- Git（2026-10-14 T04 记录）：实际检查 `main`，T01～T03 本地 Commit 保留（`3cb9f4b`、`696994d`、`ede6f6a`）。19 个明确属于 T04/OF 及既有状态记录的未提交文件经范围、密钥、忽略规则及 45 项免费测试检查后，已按当轮授权提交：`7a692f30d73b69b26cfbd74cb9e4d6aec456e25b`，`feat: implement T04 review revision and task management`。部署后 README/本文件的运行记录更新尚未提交；未 Push，远程历史仍未恢复或处理。
-- 密钥保护：发现现有 `.env.example` 含疑似真实 API Key，已移除 `.gitignore` 对该文件的放行规则；文件内容未修改，密钥未输出或用于调用。
-- 代码：`src/generate_image.py` 为 T01 最小运行入口；Python 3.12.13、OpenAI 官方 SDK 2.54.0、Pillow 12.3.0、httpx 0.28.1（含 SOCKS 支持）；依赖见 `requirements.txt`，运行命令见 `README.md`。
-- T02：`src/prepare_plan.py` + 原生 HTML/CSS/JavaScript；Flask 3.1.3、本地 JSON 文件保存，无数据库。当前默认规划模型 `gpt-5.4-mini`，reasoning low；官方确认支持图片输入与 Responses API。`OPENAI_PLANNING_MODEL` 可显式回退 `gpt-4.1-mini` 或原快照，4.1 请求不传 reasoning，不自动回退或付费重试。
-- 真实实验：T01 已有 1 次真实生图、1 张实际图片，用户已明确评价 PASS。现存 T02 记录已有一次实际 AI 理解/规划调用及四张确认计划；用户已试用并反馈体验良好，不据此自动宣称 T02 全部验收通过。T03 已实际运行，既有 Evidence 核实四张真实成图及一次连接失败；本轮仅只读核验，无新模型调用。首图 PASS 或技术生图成功不代表多图一致性、修改稳定性或普遍业务效果已验证。
-- 本地检查：case-001 九个文件可读取，七张图片可解码；7 项离线安全检查及 `pip check` 通过。Mock transport 仅用于验证程序，不是真实模型实验。
-- 本地检查证据：`.runtime/evidence/case-001/20261014T031528Z-b06a35dc459f40cd9edca8bb961cc502/`，状态 `LOCAL_CHECK_ONLY`；包含输入 SHA-256、拟发送指令和参数，无真实模型返回。
-- T01 真实 Run：`20261014T052541Z-786016c60ae94a7c9168d74c55d4a36b`；证据见 `.runtime/evidence/case-001/<run-id>/`，图片见 `.runtime/outputs/case-001/<run-id>/image.png`；资产包 `.runtime/exports/case-001-run-001.zip`。具体实验及此前追加的人工评价见 `03_EXPERIMENT_LOG.md`；原始证据未改写。
-- case-001 输入资料：已完成读取检查，详见下节；商品信息尚未验证。
-- T03 代码：`src/generate_plan_image.py`、`src/templates/generate.html`、`src/static/generate.js` / `generate.css`，挂接现有 Flask 服务；复用 T01 客户端和图像参数，T01 源码不变，不新增依赖或数据库。
-- T03 补充：`src/evidence.py` 为轻量脱敏辅助，`src/experiment_export.py` 按当前任务白名单离线打包；第二页「导出实验包」已实际浏览器下载验证，原始资料与历史记录不覆盖，不属于 T04 最终商品图导出。
-- 本轮只读核验：case-001 任务 `7e0c5261dd6b40b9aa81f0750c626517` 有 1 次 T02 实际调用、3 个版本及确认状态；T03 有 5 个独立 Run（4 次成功保存、1 次连接失败）。实际输入、请求 Prompt、确认计划和返回图片可追溯，详见 T03 验证记录。T03 保持 ACTIVE，技术真实运行已确认，业务验收仍 PENDING。
-- 待解决：连接失败的具体原因、服务端是否执行及计费、人工重试与 Run 的直接关联、重复请求/重复计费风险仍待核验。四张图是否符合各自计划、商品外观与文字质量、实际账单和人工接受均未标记 PASS；T02 其余验收仍分别保留。
-- 历史 `tiktok-jp-image-tool`：只读参考，不迁移、不修改。
-- T04 本地实现：`src/image_review.py` 扩展已有 Run 历史，第二页支持选中版本、Pass、自然语言编辑、新版本与已通过图片导出。复用 T01 SDK/参数及 T03 输入/证据保存，未改写 T01；旧 Run 和图片不迁移、不覆盖。
-- OF-02：首页任务列表与新建入口；独立 Task ID、名称、显式恢复 URL，沿用本地 session 文件隔离。OF-01：理解/规划/生成/修改的实际操作状态、等待秒数和结果，显示生成/通过数量，无虚假百分比。
-- 本轮验证：45 项免费离线测试通过，Mock 浏览器完成创建/恢复、生成/编辑、版本选择/Pass、切换任务与两种导出；无付费 API 调用。真实图片编辑质量、结构/文字保持、连续修改稳定性和完整运营接受仍 PENDING。
+### Git、测试与部署基线
+
+- **本地代码（OBSERVED）**：main / **34d633aa30cc218339781908462f5f2de3484e25**，提交信息 refactor: isolate T02 requests and shared file operations；T02 边界测试、Request Builder 和 G1 已合并提交，共 7 个生产文件及 3 个测试文件。核查开始时仅 README.md、本文件有既有未提交部署记录，暂存区为空；本轮只更新本文件，不提交。
+- **软件检查（OBSERVED）**：本轮在该代码基线上执行完整离线回归，**118 项通过，6.008 秒**。SDK 使用 MockTransport，Python 网络连接与真实 runtime 访问受阻断，资料在临时目录；其中包含两个运行 Node 测试的 Python 包装，内部 10 项共享交互及 7 项批次测试单列，不重复计数。本轮无浏览器、部署或真实模型验收。依据：[tests/](../tests/)、下述 T02/G1 测试。
+- **历史部署（历史证据）**：最近本地保存的部署检查为 2026-10-16 14:55（上海时间），应用源 **cd66dad5216fddd8a365494e7652d625702dd722**，目录仍名为 releases/e709435…；当时 HTTPS 8444 正常，789 个业务文件完整，真实模型验收仍 PENDING。依据：[result.json](../.runtime/deployment/workspace-visual-20261016T064810Z-3b1cb442/result.json)、[final-integrity.json](../.runtime/deployment/workspace-visual-20261016T064810Z-3b1cb442/final-integrity.json)。这些是当日快照，不能证明今日在线状态。
+- **当前服务器（UNVERIFIED）**：本轮没有核验进程、应用清单、网络、密钥或运营新增数据；不能把本地 34d633a 写成已部署，也不能把历史 cd66dad 写成今日实时版本。历史入口 https://192.168.112.37:8444/、独立 data/.runtime/、LaunchAgent/CIDR/备份及回滚资料保留于后文。
+- **历史提交索引**：T01 3cb9f4b、T02 696994d、T03 ede6f6a、T04 7a692f3；规划模型 a2e1123；I01 60d98e0、I02 1354a0b、I03 a69470f、逐图确认/批次 e709435、共享交互 13266b1、视觉 cd66dad；本地已有历史合并 1b0fb3c。远程当前同步情况 UNKNOWN，不因 README 早期“尚未恢复历史”而重新操作远程。
+
+### 业务实现与验收分层
+
+| 范围 | 当前工程状态 | 真实 AI / 运营结论 |
+|---|---|---|
+| T01 | COMPLETE：首张真实图片及证据保存 | 实验日志追加了用户对该首图的 PASS；不推广到其他图片或普遍价值 |
+| T02 | IMPLEMENTED：理解、修正、规划、逐图确认、过期保护；Request Builder 已提交 | 已有真实 Responses 调用；reference_001 有已观察语义偏差；理解准确率、修正质量和完整业务验收 PENDING |
+| T03 | IMPLEMENTED / REAL RUN VERIFIED | case-001 已保存四张成功图及一次连接失败；逐图计划执行、商品/文字质量、失败计费仍待核验，非全部 PASS |
+| T04 / OF-01～03 | IMPLEMENTED：编辑、版本、Pass、两类导出、任务中心与等待状态 | 软件回归通过；本次本地索引未见可核实的真实图片编辑 Run，不能推断服务器未执行；真实编辑质量/运营闭环 PENDING |
+| I01 | PRODUCT INTEGRATION IMPLEMENTED | 仅一个有正面反馈的独立真实样本；原 review.json decision 仍为空，BUSINESS VALIDATION PENDING |
+| I02 | IMPLEMENTED / REAL EDIT VALIDATION PENDING | 实际辅助图传入与两模式复用已由离线测试保护；真实外观修正、文字/布局保持与费用待验 |
+| I03 / Follow-up、逐图确认与批次 | IMPLEMENTED / OPERATOR REVIEW PENDING | 单页工作台、共享编辑、草稿隔离及顺序批次已实现；真实操作成本、批量费用与运营接受待验 |
+| D01/D02 | VISUAL PROTOTYPE IMPLEMENTED | 历史截图/浏览器检查存在，USER VISUAL REVIEW PENDING；不自动开始 D03 |
+
+上述工程实现以当前源码和测试为据；下方保留具体业务范围、原始验收项及历史检查，不将技术成功改写为业务通过。
+
+### 当前模块、执行链与依赖（OBSERVED）
+
+| 模块 | 当前职责与直接边界 |
+|---|---|
+| [prepare_plan.py](../src/prepare_plan.py) | create_app():439 是 Flask 组装入口；Store:100 同时管理资料、状态/版本与部分确认/卡片规则。save_inputs():756 → Store.create() 创建独立任务；action():785 校验/调用/应用结果。仍有业务与存储耦合，未宣称全项目分层完成 |
+| [generate_plan_image.py](../src/generate_plan_image.py) | generate/revise Route → GenerationService.generate():164 → _generate():218；负责作用域、锁/操作 ID、Context、Images 调用、Run 与图片指针，复用审核/重设计能力 |
+| [image_review.py](../src/image_review.py) | prepare_auxiliary():24、versions():65、review():109、export_passed():151；通过生成服务的路径/锁协作，选中版本与 passed_run 分开，已解除对生成模块 JSON 工具的反向导入 |
+| [generate_image.py](../src/generate_image.py)、[quick_redesign.py](../src/quick_redesign.py) | 两个独立 CLI 默认只做本地检查，显式 --run-paid 才尝试一次调用；前者提供图像客户端/参数，后者提供重设计 Prompt 供 Web 复用，独立实验不经 Task 工作流 |
+| [file_ops.py](../src/file_ops.py) | 仅标准库：safe_path():16、sha256():38、read_json():42、write_json_atomic():54、write_json_exclusive():67。调用方负责脱敏；原 ExportError 名称/消息及导出重新导出兼容保留 |
+| [evidence.py](../src/evidence.py)、[experiment_export.py](../src/experiment_export.py) | clean_record()/safe_text() 过滤凭据与隐藏推理；export_experiment():64 按白名单/哈希只读打包，区分 ACTUAL/RECONSTRUCTED/MISSING。基础路径/哈希已移出导出器；evidence 仍复用 T01 redact，未在 G1 扩大拆分 |
+| [前端](../src/static/) | tasks.js 读取任务列表；prepare.js 管理输入/规划，generate.js 冻结 Task/Image/版本与意见/附件，workspace.js 协调快照；batch_generate.js:34 在浏览器顺序调用单图接口，不是后台 Worker |
+
+- **入口与费用**：GET /、/workspace/new、/workspace/<Task ID> 为任务中心/工作台；旧 prepare/generate URL 保持兼容。保存输入建立新 Task；action 的 understand/product/reference/plan/replan、单图 generate/revise 是显式 AI 操作。确认、查看、刷新、选版本、Pass、导出不调用模型；批次必须由用户明确确认后开始。
+- **T02 请求边界**：planning_images():311 选择已保存身份/顺序；build_planning_request():318 输入任务状态、动作、目标、意见、显式模型和已校验字节映射，输出完整 SDK arguments 与 image_order，不读文件/环境、不写入、不调用模型。call_ai():359 仍负责配置、哈希检查、SDK、错误及持久化；一次 understand 可同时完成商品/参考理解与 N 图规划，没有新增模型阶段。
+- **代码默认模型/Context**：T02 为 gpt-5.4-mini（reasoning low），可显式回退 gpt-4.1-mini 或其 2025-04-14 快照；Responses 使用 instructions、JSON Context、逐图标签和 data URL input_image/detail=auto，JSON object、store=false、6000/2500 输出上限。Images 默认 gpt-image-2.5-sunburst，另允许 gpt-image-2.5-flare，n=1/low/PNG，商品包默认 1024×1536，Quick 另支持方/横幅。Web 生成采用必要商品资料+本图参考/确认计划；Quick 不强制规划；编辑以选中成图为首图，再送必要原始依据、本次可选辅助图及意见，不自动混入其他图片/全部历史。配置值不等于本轮已调用；实际模型以各 Run 请求/响应为准。
+
+### 状态、Evidence、错误与未解决风险
+
+- Task 的 state.json、versions/ 保存输入/理解/计划与事件；plan_versions、plan_confirmations 按 Image ID 绑定计划哈希、理解版本和确认快照。Task revision、Plan version、card_revision 与图片显示 V 编号含义不同；实际版本身份是 Run ID。旧整体 confirmed 在读取时派生兼容，不批量改写历史。依据：Store.save():132、image_state():154、plan_status():76；[逐图确认测试](../tests/test_per_image_confirmation.py)。
+- 图片 Run 位于 sessions/<Task ID>/generations/<确认快照修订号>/<Image ID>/runs/<Run ID>/，保存 plan.json 有效 Context、实际输入副本/顺序/哈希、Prompt、参数、响应、Usage/错误和图片；Quick 的 confirmed_revision 指输入快照，plan.json 不是独立规划产物。选中/Pass 指针与 reviews 事件保存；最终图片导出按确认修订号倒序寻找首个有 passed_run 的历史桶，不以未 Pass 新图替换旧接受版本。实验包与最终图片包分开。
+- T02 calls/<Call ID>/ 保存完整 SDK 请求（含图片 data URL）、result 与 applied 版本关联；Images 保存请求参数/图片清单和输入副本，未保存原始 multipart 抓包。source_sha256 等仍表示相应入口源码文件哈希，不是完整依赖源码或 Git 部署版本快照；Usage/request ID 只记录实际返回值，账单、内部有效 Prompt/隐藏推理和未返回内容 UNKNOWN/MISSING。依据：[call_ai()](../src/prepare_plan.py)、[_generate()](../src/generate_plan_image.py)、[导出缺失标记](../src/experiment_export.py)。
+- 同步 HTTP 内执行模型；Store 锁、图片锁/active 均为进程内状态。SDK 不自动重试（规划 120 秒、图像 180 秒）。图片链有 operation_id、卡片修订号和未知状态阻断；浏览器批次在刷新/离开或未知结果时暂停，只读查询不重发。T02 的中断 activity 仅展示状态，没有同等持久化 operation_id 去重协议；人工新请求仍可能重复远端执行/计费。单文件 .tmp 替换不构成多文件事务，版本→state、审核事件→指针、Run→指针存在中断窗口，未完成故障恢复验证。
+- 新公共文件模块不处理业务版本或密钥。T01 直接覆盖/文本脱敏、T02/T03 原子写入/clean_record、T02 独占创建、导出错误转换仍保留差异；缺密钥的本地调用可先保存请求/失败 Evidence，不能套用旧服务器入口“写 Evidence 前返回 503”的描述。路径安全不等于多用户权限；服务器专用访问层当前未核验。旧 .env.example 曾有疑似密钥，保持忽略、不读取、不作为配置来源，轮换是否完成 UNKNOWN。
+
+### 已核实的 AI 与失败证据（不新增实验）
+
+1. **T02 reference_001 偏差（OBSERVED）**：Task 7e0c5261dd6b40b9aa81f0750c626517 / Call 47321144e9e649f8bd247e03f3182f65。实际打开原图确认参考语义为“手持商品＋尺寸/重量表达”；“两种握法＋按钮特写”来自 product_001，模型却写入 reference_001。请求 3 张商品图＋4 张参考图的 data URL、顺序、角色与 SHA-256 均匹配保存字节，结果按 ID 写入 revision 2；第一处可观察偏差在返回的参考理解，未见本案例程序映射/应用错误。模型内因、是否由参考干扰/Prompt 导致、修正效果仍 UNKNOWN；新增测试不把错误语义当正确答案。依据：[原参考图](../.runtime/prepare-plan/sessions/7e0c5261dd6b40b9aa81f0750c626517/inputs/reference_001.webp)、[原商品图](../.runtime/prepare-plan/sessions/7e0c5261dd6b40b9aa81f0750c626517/inputs/product_001.jpg)、该 calls 目录的 request/image_order/response/result/applied.json 与 versions/000002.json。
+2. **规划模型实际调用已存在（OBSERVED）**：Task 43889e73c53c462da86216ed42f0a1ec / Call 9d0a4751ae454f22b08b1f4d069ebfb1，2026-10-16 replan；请求 gpt-5.4-mini、返回 gpt-5.4-mini-2026-03-17，completed，应用到 revision 4；五张图片哈希、保存结果/版本及 Usage 一致，input/output/total=11645/438/12083，总耗时 8.481 秒。依据：[run.json](../.runtime/prepare-plan/sessions/43889e73c53c462da86216ed42f0a1ec/calls/9d0a4751ae454f22b08b1f4d069ebfb1/run.json) 及同目录 request/response/result/image_order/applied.json。只确认这次技术调用，不证明新模型理解正确、优于旧模型或当前账户仍可用。
+3. **真实图片与失败**：T01 Run 20261014T052541Z-786016c60ae94a7c9168d74c55d4a36b 与 I01 Run 20261016T013618Z-c0952e3ddfff430189e350a8bbb27c00 的输出字节/哈希匹配保存响应；T01 用户首图 PASS 见 [实验日志](03_EXPERIMENT_LOG.md)，I01 review.json 仍未填写。case-001 T03 四张成功图/连接失败的 Run 索引见下方 T03 表；失败 20261014T063301Z-098375f4a339473c9f8168c5e8f88e5b 为 APIConnectionError、attempted=true，无 request ID/Usage，不能推断未执行/免费。I01 初次缺资料 Run 为 LOCAL_CHECK_FAILED、未尝试 API，不与真实模型失败混同。
+4. **仍未完成的评价**：T02 各图理解与修正、计划准确性、生成图商品结构/文字/计划遵从、真实带图编辑与连续修改、批量耗时/账单、运营效率和接受程度均无完整评价集。当前本地 Run 索引未见真实 revise_image/带辅助图调用，不等于线上没有；20261016T071710Z-94b3eab16e3c4f* 在本轮检查的本地 Run 索引中未见，本轮不访问 Mac mini，不能追加其主体替换或场景缺失的根因结论。
+
+### T02 / G1 已完成与测试依据
+
+- **T02 工程改进已提交**：纯 Request Builder 与角色/身份/输入顺序/实际字节、Context 来源、目标结果/快照关联、未知 Image ID 拒绝、图片变更前置拦截。依据：[5 项边界测试](../tests/test_t02_image_boundaries.py)、[3 项构建测试](../tests/test_t02_request_construction.py)；后者保护 5 动作 × 3 模型的 SDK 请求、稳定 Evidence 字节和写入顺序，动态 ID/时间及来源哈希另核对。语义理解偏差没有被此重构修复。
+- **G1 已提交**：file_ops 为中立标准库模块；生成/审核/Quick 不再因路径工具依赖 experiment_export，审核不再反向导入 generate_plan_image 的 JSON 工具，哈希不再要求依赖 T01 CLI。保留兼容包装、异常名称、原写入与脱敏语义；业务编排/多文件提交没有借 G1 重构。依据：[17 项文件操作测试](../tests/test_file_ops.py)。
+- **回归边界**：118 项覆盖 T01/规划/生成、两模式、I02、工作台/草稿/异步归属、版本/Pass、逐图确认/批次/中断、隔离、脱敏/ZIP、公共文件及 T02 请求。软件测试通过与历史浏览器 Mock 不是 AI 效果或运营验收；本轮未新增真实实验，不修改实验日志或运行记录。
+
+### 文档一致性与待评审事项
+
+- README 本轮只读：第 3 节地图未反映 file_ops/新测试；第 4 节“尚未恢复远程历史”不能当当前结论；第 6/7/15 节仍夹有整套确认/两页操作，当前应以逐图确认和共享工作台源码及第 17 节为准；第 11 节真实新模型验证待执行的说法需区分已有 replan 技术证据与质量待验。
+- README 顶部及第 19 节部署/在线口吻只能作为 2026-10-16 历史记录，不能替代实时核验；缺密钥在 Evidence 前停止的描述依赖服务器专用入口，非本地应用通用行为。03_EXPERIMENT_LOG.md 顶部“T02 尚未执行真实规划”及末尾 Next Action 已过期；本轮均不修改这些文件，也不因此抹掉其历史记录。
+- **UNKNOWN / UNVERIFIED**：当前服务器版本/安全配置/密钥与推理权限；真实编辑及逐图质量/费用/业务收益；未记录的服务端执行；崩溃窗口的实际恢复行为。历史访问策略为受控试用网段共享，不能从 Task 文件隔离推导用户级授权。
+
+| 后续候选 | 状态 | 仅供评审的范围 |
+|---|---|---|
+| G2 | PROPOSED / NOT STARTED | 状态存取与提交边界 |
+| G3 | PROPOSED / NOT STARTED | Images 执行及图片校验复用 |
+| G4 | PROPOSED / NOT STARTED | 业务规则、查询视图与应用编排边界 |
+
+以上不是 Coding 授权，不创建新目录/框架，不自动部署或继续重构。
+
+## 历史记录阅读口径
+
+顶部重复的逐轮摘要已收敛至本次核查；有价值的任务、反馈、实验和原有人工部署记录继续保留。下方带日期的实现/测试/部署段落是当轮快照，“本轮”“当前”、测试数量、PID、密钥布尔值、目录和源码行号均只对其日期/版本成立；不覆盖上面的当前核查结论。旧部署小节完整保留，不表示本轮再次部署、验证服务或接受图片。Coding Tasks 的能力摘要按本次核查修正。
 
 ## 当前资料状态 — case-001
 
@@ -51,7 +96,7 @@
 
 ## Coding Tasks
 
-以下为开发规划，不构成自动启动或付费模型调用授权。T02 对应第一页 Prepare & Plan；T03、T04 同属第二页 Generate & Review。
+以下保留原任务目标与验收项，并同步当前实现状态；不构成自动启动或付费调用授权。Prepare & Plan / Generate & Review 现在是同一工作台中的逻辑阶段，旧 URL 兼容。日期明确的测试与部署描述仍按历史快照阅读。
 
 ### T01 — Real Image Generation
 
@@ -88,9 +133,9 @@
 - 运营可以查看并修改计划。
 - 不将未经确认的商品宣称自动作为已验证事实。
 
-**状态**：ACTIVE
+**状态**：IMPLEMENTED / REAL RUN OBSERVED / SEMANTIC QUALITY REVIEW PENDING
 
-**本地已实现**：三个区域、case-001 加载、动态数量商品/参考图上传、Listing/描述/运营要求输入、商品与逐张参考理解、逐图计划卡片、自然语言理解修正、单张计划修改及历史、整套计划确认。默认页面不调用模型；只有明确点击 AI 按钮才尝试一次真实 Responses 请求，SDK 不自动重试。
+**本地已实现**：任务中心与统一工作台、case-001 加载、动态商品/参考图上传、Listing/描述/运营要求输入、商品与逐张参考理解、逐图计划、理解修正、单张计划修改及历史、逐图确认。Request Builder 与输入边界测试已在 34d633a 提交。默认页面不调用模型；只有明确点击 AI 按钮才尝试一次真实 Responses 请求，SDK 不自动重试。
 
 **修改与保存**：原始输入复制到 `.runtime/prepare-plan/sessions/<id>/inputs/`，保存新资料创建新任务；每次成功修改追加 `versions/` 快照和意见记录。单图只写回目标计划。理解修正后，相关计划标为待更新，后续请求带上修正结果和意见；不静默重规划其他图。确认计划不调用模型，不伪造 T03 成图状态。
 
@@ -100,11 +145,11 @@
 |---|---|
 | 浏览器打开第一页、加载 case-001 | 本地浏览器实际验证；3 张商品图、4 张参考图、两份文本显示正确 |
 | 上传/输入新资料，动态数量 | 本地上传接口覆盖 1 与 5 张参考图；浏览器完成文字编辑、调整参考图数量及保存 |
-| 商品与参考理解、N 张计划、理解修正、单张 AI 修改 | 通路已实现；离线 SDK MockTransport 检查通过，真实模型验证 **PENDING** |
+| 商品与参考理解、N 张计划、理解修正、单张 AI 修改 | 通路与离线检查已完成；已有 understand/replan 的真实响应及版本应用，reference_001 观察到语义偏差。不能把全部能力写成从未调用，也不能把理解/修正质量标 PASS |
 | 单张修改不覆盖其他计划、旧版本与意见保留 | 离线测试通过；真实模型交互效果 **PENDING** |
-| 保存与刷新恢复、确认整套计划 | 浏览器验证资料恢复；离线测试验证理解/计划/历史恢复及确认；真实计划确认 **PENDING** |
+| 保存与刷新恢复、逐图确认 | 软件测试覆盖状态/历史恢复、部分确认/失效和旧整体确认只读兼容；历史 case-001 已有整体确认快照。新逐图交互的完整运营验收仍 PENDING |
 
-**本地检查**：共 16 项测试通过（T01 7 项 + T02 9 项）；`pip check`、Python 编译与 JavaScript 语法检查通过。以上不是 T02 真实 AI 实验或运营验收。未在实验日志新增 T02 Mock 记录。
+**历史本地检查（T02 初次交付）**：共 16 项测试通过（T01 7 项 + T02 9 项）；`pip check`、Python 编译与 JavaScript 语法检查通过。以上不是 T02 真实 AI 实验或运营验收。未在实验日志新增 T02 Mock 记录。
 
 ### T03 — Generate
 
@@ -122,7 +167,7 @@
 
 该状态表示已有真实运行和四张图片的技术证据，不再描述为完全未运行；T03 未标记 COMPLETE，全部业务验收未标记 PASS。
 
-**本地已实现**：T02 确认后可进入第二页，按 N 张确认计划展示独立卡片。每卡显示本张参考图、已确认计划、真实状态、当前/上次成功生成图片及「生成图片」按钮。仅显式点击该按钮调用一次 Images API；切换、加载、刷新和本地状态轮询不调用模型，不提供自动批量生成。
+**本地已实现**：统一工作台按 N 张图片展示独立任务，提供选图、参考/计划/成图、版本及单图生成。商品图包必须确认本图有效计划，Quick 无计划前置；显式单图或用户确认的顺序批次复用 Images API。切换、加载、刷新和轮询不调用模型，批次不自动重试或恢复提交；两页旧 URL 保持兼容。
 
 **请求范围**：全部当前商品原图、Listing/描述、整体要求、该卡参考图、该卡确认计划及保存的对应理解。不重跑 T02，不发送其他计划或其修改历史；模型使用 T01 已验证的 `images.edit`，默认单张低质量 PNG，零自动重试。
 
@@ -182,17 +227,17 @@
 - 修改某张图片不影响其他已通过图片。
 - 可以导出最终通过的图片。
 
-**状态**：ACTIVE / REAL EDIT PENDING
+**状态**：IMPLEMENTED / REAL EDIT VALIDATION PENDING / BUSINESS REVIEW PENDING
 
 **本地已实现（OF-03，P0）**：每卡保留生成按钮，新增 Pass、修改意见/修改按钮、历史版本查看与当前版本选择。首个成功生成显示 V1，后续成功修改追加 V2/V3 等；可选历史版本继续修改并保存父 Run。失败保留原图、选中版本和已 Pass 版本，不自动重试。
 
 **编辑范围与证据**：复用官方 SDK `images.edit`，输入顺序为选中成图、当前商品实拍、本张设计参考；结合原始 Listing/描述、整体要求、本张确认计划与保存的对应理解、本次意见，不重新运行 T02，也不带其他图片的修改历史。每个新 Run 保存 version、parent_run_id/parent_version、feedback、operation_id、选中成图快照及原有请求/响应/用量/错误；版本保留实际图片、Run、计划版本、Prompt、输入顺序/参数和创建时间。旧 T03 版本标签从既有记录推导，不重写历史。
 
-**人工接受与导出**：Pass 绑定指定已选 Run，独立于正在查看的新版本；其他图片操作不替换它。选择另一版本可再审核，新生成版本未自动 Pass。审核/选择事件追加在同卡 `reviews/<id>.json`，状态指针保存选中和已接受 Run。最终图片 ZIP 只包含当前任务、当前确认计划中已 Pass 的图片，支持已通过子集；实验包仍保存完整开发记录并纳入 T04 所需字段与事件。
+**人工接受与导出**：Pass 绑定指定已选 Run，独立于正在查看的新版本；其他图片操作不替换它。选择另一版本可再审核，新生成版本未自动 Pass。审核/选择事件追加在同卡 `reviews/<id>.json`，状态指针保存选中和已接受 Run。最终图片 ZIP 只包含当前任务明确 Pass 的图片，按确认修订号倒序寻找有 Pass 的历史桶，支持已通过子集；实验包仍保存完整开发记录并纳入 T04 所需字段与事件。
 
 **任务隔离与等待**：每个 Task 独立 `sessions/<task-id>/` 保存输入、理解、计划、规划修改、成图、版本、审核与 Evidence；Run 的 Task/参考/确认版本/路径/hash 在选择、编辑和导出时核对，拒绝外任务父图、越界路径及符号链接。新任务页不自动恢复旧任务；既有 case-001 可从列表打开。仍无多用户权限、数据库、队列或后台调度系统，不承诺跨进程并发。AI 运行显示操作名、不确定等待动画、实际秒数及结果；刷新只读已有状态，中断与连接失败不伪装成未执行/免费。
 
-**本地验证**：原有 34 项回归及新 11 项检查通过（T04 6、任务中心 3、等待状态 2），覆盖实际 SDK 多模态序列化、选中图片优先、修改前后/父版本、失败隔离、指定版本 Pass、最终包字节、实验包关联/hash、Task 切换与外任务引用拒绝、同 operation_id 去重、规划等待/中断无自动重试。依赖、Python/JavaScript 语法和 diff 检查通过。浏览器在独立 Mock 服务验证命名新建任务、计划、单图生成/编辑、V1/V2 查看与 V1 Pass、刷新恢复、切换两任务及两种 ZIP；V2 待审核时最终包仍为 V1，实验包 38 个文件 hash 匹配。路径：`.runtime/prepare-plan/local-checks/t04-ui-20261014T081319Z/`。这些是免费程序检查，不是实际图像模型验收；未在实验日志添加 Mock 试验。
+**历史本地验证（T04 初次交付）**：原有 34 项回归及新 11 项检查通过（T04 6、任务中心 3、等待状态 2），覆盖实际 SDK 多模态序列化、选中图片优先、修改前后/父版本、失败隔离、指定版本 Pass、最终包字节、实验包关联/hash、Task 切换与外任务引用拒绝、同 operation_id 去重、规划等待/中断无自动重试。依赖、Python/JavaScript 语法和 diff 检查通过。浏览器在独立 Mock 服务验证命名新建任务、计划、单图生成/编辑、V1/V2 查看与 V1 Pass、刷新恢复、切换两任务及两种 ZIP；V2 待审核时最终包仍为 V1，实验包 38 个文件 hash 匹配。路径：`.runtime/prepare-plan/local-checks/t04-ui-20261014T081319Z/`。这些是免费程序检查，不是实际图像模型验收；未在实验日志添加 Mock 试验。
 
 **待人工真实验证**：真实编辑 API 的账户访问与返回、按意见修改质量、商品结构及日文文字保持、未修改区域变化、历史版本分支后的连续编辑稳定性、最终运营接受和实际费用均 PENDING。必要 Context 可追溯及传递正确，不等于模型能 100% 保持未修改区域。本轮未执行真实编辑或给实际商品图片标记 Pass。
 
@@ -371,7 +416,7 @@
 - **浏览器**：Edge + 独立临时合成任务 + MockTransport。商品图包完成查看计划 → 修改指定计划 → 旧图只读显示 → 确认 → 同页生成；Quick 完成查看原图/成图 → 上传辅助图/外观修正用途 → 修改 V2 → Pass → 选择 V1 → 刷新，Pass 仍为 V2。临时 Evidence 核对辅助图原字节、输入顺序及父 Run，不冒充真实模型验收。
 - **资产与边界**：现有 `.runtime/` 301 个文件前后 SHA-256 一致；核心生成/编辑/导出/Evidence 源码、Product Brief、AGENTS 和实验日志未变，T01～T04/早前运营反馈与部署历史保留。I03 未提交、未部署；真实模型质量、运营操作成本和界面接受度待人工验证。
 
-### I03 补充 — 逐图确认与一键批量生成（2026-10-16，仅本地）
+### I03 补充 — 逐图确认与一键批量生成（2026-10-16，本地实现历史）
 
 - **确认粒度**：顶部统一确认按钮已移除，改为只读已确认 X/N；每个 OUTPUT 卡片提供「确认本图计划」。`plan_versions[图片 ID]` 独立计数，`plan_confirmations[图片 ID]` 绑定计划版本、SHA-256、商品/参考理解版本、确认快照修订号、时间与来源。修改本图计划只使本图确认失效，其他有效确认和成图保留；整体理解/重新规划及既有过期保护继续有效。
 - **生成校验与兼容**：正式生成/修改使用本图确认快照，并校验卡片修订号；未确认的本图不能生成。旧整体 `confirmed=true` 任务在读取时派生有效确认，明确记录来源 `LEGACY_GLOBAL_CONFIRMED`，不改原文件；仅显式操作时补充逐图字段。旧 generations/Run、图片与 Pass 不迁移、不覆盖，最终导出保留最近一次明确 Pass，不被新确认或未通过的新成图替换。
@@ -382,7 +427,7 @@
 
 ### I03 Follow-up — Unified Image Interaction
 
-**当前状态：IMPLEMENTED / OPERATOR REVIEW PENDING**。本轮已按后续 Coding 授权完成 Step A / Step B，仅本地实现；下方保留原规划，实际交付与验证见本节末尾。
+**当前状态：IMPLEMENTED / OPERATOR REVIEW PENDING**。Step A / Step B 已实现并提交为 13266b1，后有 cd66dad 的历史部署记录；本轮没有核验线上。下方保留当时规划、源码行号与本地交付快照，不能把“未实现/仅本地”当作今日工程状态。
 
 **前序规划状态（历史）：PLANNED / NOT IMPLEMENTED**。当时仅仓库检查与最小 UX 规划，等待 Coding 授权；以下反馈、源码基线和方案按该节点理解。
 
@@ -430,11 +475,30 @@
 
 ## Current Task
 
-**Current Task**：D01/D02 任务中心与 OUTPUT 视觉样本，**VISUAL PROTOTYPE IMPLEMENTED / USER VISUAL REVIEW PENDING**。本地 HEAD 为 `13266b1bd1a3f0dde176f9a868d3ddecc5e46d11`，I03 Follow-up 已提交；本轮视觉修改未提交、未部署。INPUT 与既有业务逻辑保留，Mac mini 部署历史及 I01/I02/I03 的待验结论不变。
+**Current Task**：CURRENT_STATE 全面现状核查与同步已完成，**DOCUMENT REVIEW PENDING**。本地代码 main / 34d633aa30cc218339781908462f5f2de3484e25，T02 + G1 已提交；本轮仅更新本文件，README 既有修改保留。历史部署源 cd66dad 不等于今日实时版本；当前服务器 **UNVERIFIED**。
 
-**Next Action**：停止，等待用户查看上述真实截图并体验本地页面；原本地服务如缓存旧模板，按原方式重启后刷新。先评价深色视觉、图片展示与编辑区可读性，再决定是否继续；不自动扩大到 INPUT 全面改造或 D03，不付费调用、部署、Commit/Push。真实模型与完整运营验收仍须独立执行。
+**Next Action**：停止并等待人工审核本次文档及已提交的 T02/G1。后续由用户分别决定是否核验线上、修订 README/实验索引、执行真实质量对照或启动某项 G2～G4；本文件不自动授权这些操作，不调用模型、部署、Commit 或 Push。
 
-**T01～T04 已完成工程记录、原有运营反馈、2026-10-14/15 部署与检查历史均保留。I03 本地实现只整合工作台入口、只读状态与前端交互；本次服务器增量部署另记如下，不改变模型调用、数据/Evidence 格式或原始真实实验结论。早前部署记录按原日期理解。**
+**以下为既有部署历史，保留原人工新增记录，不代表 2026-10-21 重新检查服务器；与最新本地代码的关系见顶部部署基线。**
+
+## 共享图片交互与视觉样本增量部署 — 2026-10-16
+
+- **版本/同步**：本地 main / `cd66dad5216fddd8a365494e7652d625702dd722`，I03 Follow-up `13266b1` 与视觉 Commit 均存在；开始时仅 README/本文件有已知部署记录，未提交源码为零。服务器原清单实际为 `e709435`，39 文件无独立修改。预览后只同步 `src/static/{generate.js,prepare.js,visual.css,workspace.css}`、`src/templates/{tasks.html,workspace.html}` 和 `tests/{test_experiment_export.py,test_workspace.py,unified_interaction.test.cjs}`，未部署本地未提交文档或业务数据。
+- **配置边界**：本次不覆盖 LaunchAgent，故在原固定 `releases/e7094352a0bb728f28517f1b519899dafba6f9b0/` 更新显式文件；该目录当前代码实际为 cd66dad，不能再用目录名当版本号。`.pilot-source.json` 保存应用/测试哈希及部署源，非应用历史文档保留原字节。未改后端、模型配置、Context、依赖、config、WSGI、证书、密钥或原 plist；仅重启同一个服务，master PID `92966` 为本次检查快照。
+- **备份/完整性**：批次 `20261016T064810Z-3b1cb442`（上海时间 14:48 起）。两次确认无活动 Run，停止本服务并等待数据锁后，保存/逐文件验证全部 789 个业务文件，再同步并启动；14:55 最终检查仍 789 文件 SHA-256 一致，无新增/覆盖运营任务、图片、Run 或 Pass。备份目录 `backups/deploy-20261016T064810Z-3b1cb442/` 含 code.tar.gz、原清单/plist、data.tar.gz 与逐文件清单；数据归档 SHA-256 `a235caa48ac2a8bd531f85d774bde577d406a22d454667c1c92b039e6b2bceae`，恢复字节核验通过。
+- **免费验证**：本地/服务器暂存代码各 93 项离线测试、依赖/JS 及原访问层 7 项检查通过。实际 HTTPS 核对 15 个任务、98 张输入图、21 张当前成图、27 个版本、4 张含 Pass 的卡片和 42 项兼容确认；case-001 实验 ZIP 78 文件哈希一致，最终图片导出通过。Edge 实际查看新主题、case-001 #02 及对应 Run、计划/INPUT、草稿隔离和刷新恢复；Quick 原图 2 张/批量候选 2、无计划要求；旧洗车机两张 Pass 保留，浏览器最终包含 2 张 PNG。没有在历史任务上确认/修改计划、选择其他版本或新增 Pass，相关写入由隔离离线测试覆盖；没有点击任何 AI 按钮，不冒充真实模型验收。
+- **访问与密钥**：仍为 HTTPS 8444，LAN/IPv4/IPv6 回环验证 200、错误 Host 403，CIDR 保持 `192.168.112.0/24`、`127.0.0.1/32`、`::1/128`，没有公网入口或新账号。密钥存在且 0600，新进程 ai_configured=true；检查的响应/ZIP/日志未见密钥，不证明推理额度。浏览器自签证书仍显示 Not Secure，未自动绕过警告。
+- **记录/回滚/待验**：服务器备份目录保存 result.json、offline-tests.txt、http-checks.json、final-integrity.json；本地副本、browser-checks.json 和三张实际页面截图在 `.runtime/deployment/workspace-visual-20261016T064810Z-3b1cb442/`。若阻断，确认空闲及兼容后停本服务、等待数据锁，按 code.tar.gz 恢复代码及原清单，将新增 visual.css/Node 测试移入回滚留档，再启动；不可用旧目录名代替旧代码，不恢复备份覆盖业务数据。真实重设计/带图编辑、版本质量、批量/断线费用、共享交互和视觉接受仍待运营。只更新本地 README/本文件，不新增 Commit、Push 或后续功能。
+
+## 逐图确认与批量生成增量部署 — 2026-10-16
+
+- **实际版本与范围**：本地 main 在 Preflight 时干净，现有 HEAD `e7094352a0bb728f28517f1b519899dafba6f9b0`，提交说明 `feat: add per-image plan approval and sequential batch generation`，包含 16 个已核实功能/测试/文档文件；此前文档记录已在该现有提交中，本轮未再提交或改写。服务器旧 `a69470f...` 的发布清单无独立修改，同步预览后仅传 14 个应用/静态/测试文件，清单见 README 第 18 节。依赖不变、不重装，服务器历史文档按原哈希保留。
+- **时间与服务**：批次 `20261016T053210Z-1b6f34a6`（UTC，上海时间 13:32 起）；新 release 为 `releases/e7094352a0bb728f28517f1b519899dafba6f9b0/`。沿用原 `com.song36.commerce-image-pilot` 和 HTTPS 8444，LaunchAgent 仅改变 `--chdir`；原 WSGI、Gunicorn、venv、规划模型配置不变。master/worker PID 为 `98653`/`98655`（检查快照），没有更新其他服务。
+- **数据保护**：旧备份未含最新运营修改；本次确认无 RUNNING/PREPARING Run，保存旧代码与 plist，停止本服务并等待独占数据锁，在锁内备份和核验全部 788 个业务文件后切换应用。备份 `backups/deploy-20261016T053210Z-1b6f34a6/data.tar.gz`，SHA-256 `a1f8fa8421426265dca7977b580a6533bf3bc675d10086efece2521c628c4d9f`，清单 `data.manifest.json`。重启、HTTP/浏览器查看和两种导出后，788 文件全部字节一致；无业务测试写入，不覆盖/迁移 Task、原图、历史 Run、Pass 或 Evidence。
+- **配置与安全**：config 全部字节未变，密钥/证书保留；实际服务 ai_configured=true，密钥文件 0600、配置目录 0700，不记录密钥内容/哈希。允许网段仍为 `192.168.112.0/24`、`127.0.0.1/32`、`::1/128`，仅原 LAN 和回环监听 8444；LAN/IPv4/IPv6 回环 TLS 200，错误 Host 403。原访问层 7 项测试通过，越界与伪造转发头拒绝由逻辑模拟覆盖；没有增加账号或公网入口。自签证书仍显示 Not Secure，未代为绕过警告。
+- **免费验证**：本地和新 release 各 92 项离线测试通过（含 Node 批次测试），依赖/JS/差异检查通过；涵盖独立确认与失效、整体理解过期、单图/顺序批量、跳过已有结果/Pass、确定失败及未知状态暂停、刷新不重发、Quick、I02 编辑与导出。实际 HTTPS 恢复 15 个任务，读取 98 张输入图、21 张当前成图、27 个版本及 3 张 Pass 卡片，42 项旧整体确认正常兼容。case-001 实验 ZIP 78 文件清单哈希匹配，已 Pass 任务最终 ZIP 含 2 张图片；检查的响应、ZIP、服务日志无实际密钥。
+- **浏览器与证据**：Edge 看到 case-001 已确认 4/4、四张旧成图及辅助图/历史版本入口，批量候选为 0；已有合成 Quick 任务候选 2 张，费用弹窗已主动取消，刷新后仍 0/2、无 Run。没有在真实任务上确认/修改计划、Pass 或调用模型。服务器同一备份目录保存 result.json、offline-tests.txt、http-checks.json，MacBook 副本/浏览器记录在 `.runtime/deployment/per-image-batch-20261016/`。校验脚本首次误取 ZIP 根目录 manifest，按实际前缀修正后通过；没有修改应用或原 Evidence。
+- **回滚与待验**：旧 `a69470f...` release、code.tar.gz 与原 launchagent.plist 保留。回滚须确认无 AI 请求、新数据格式兼容，再停本服务、等待数据锁并恢复旧代码入口；绝不恢复备份覆盖业务数据。若已产生新的逐图确认状态，旧版整套确认逻辑可能不兼容，不得盲目回滚。真实批量耗时/费用、断线计费、商品/文字保持及运营接受待人工验证；本轮无付费 API、Push 或额外 Commit，不新增功能。
 
 ## I01～I03 增量部署 — 2026-10-16
 
@@ -481,7 +545,7 @@
 2. **I02（IMPLEMENTED / REAL EDIT VALIDATION PENDING）**：本地文字加一张辅助图集成完成，待人工真实编辑验证外观修正、内容保持和费用。
 3. **I03（IMPLEMENTED / OPERATOR REVIEW PENDING）**：本地统一工作台完成，待运营体验与业务效果评价，不自动部署或继续优化。
 
-Mac mini 已更新至 I01～I03 版本并持续试用，暂不建设正式多模式架构。以下保留原有运营验证事项，不用新方向替代未完成的验收，也不自动将其设为 I01/I02 实验的前置门槛。
+2026-10-16 部署记录包含 I01～I03；本轮没有确认 Mac mini 今日在线版本或试用进展。暂不建设正式多模式架构。以下保留原有运营验证事项，不用新方向替代未完成的验收，也不自动将其设为 I01/I02 实验的前置门槛。
 
 ### 现有原型持续核验（保留事项）
 
@@ -495,7 +559,7 @@ Mac mini 已更新至 I01～I03 版本并持续试用，暂不建设正式多模
 
 ## 工程原则
 
-- 当前项目仍为跨境电商 AI 商品图制作低成本原型；Commerce Image Workspace 单页交互已随 I01/I02 增量部署，保留任务中心、旧 URL 和既有能力；不据界面或部署成功推导业务价值，也不预建正式多模式架构。
+- 当前项目仍为跨境电商 AI 商品图制作低成本原型；Commerce Image Workspace 单页交互已实现，历史部署包含 I01/I02/I03，当前在线状态未核验；保留任务中心、旧 URL 和既有能力；不据界面或部署成功推导业务价值，也不预建正式多模式架构。
 - 优先使用成熟模型原生能力，不预先引入 Agent、Skill、RAG 或复杂 Workflow。
 - 商品理解、参考理解、逐图规划属于逻辑能力，不强制拆分成独立模型调用。
 - 开发采用短任务、真实实验、人工评价的方式推进；图片最终接受由运营决定。
@@ -515,7 +579,7 @@ Mac mini 已更新至 I01～I03 版本并持续试用，暂不建设正式多模
 - 不新增 Agent、Skill、MCP、RAG、LangChain、Workflow/Context Engine、数据库、新 Evidence 平台或业务模式框架，不重构 T01～T04，不开发遮罩编辑或 Photoshop 自动化。
 - 不 Commit I03、不 Push 或处理远程历史；完成本地实现与免费验证后停止，等待人工体验，不自动进入下一阶段。
 
-## 本轮部署边界
+## 2026-10-16 部署轮边界（历史）
 
 - 仅部署已提交 I01～I03 并执行免费检查，不开发功能、不改业务流程、原始资料、历史 Run 或 Evidence；无付费调用或自动重试，不更新其他服务，不新建基础设施，不处理远程历史。
 - 服务器 config/data/venv/证书/密钥保持；新增合成检查任务按正常 API 创建并保留，未覆盖任何原任务。回滚仅针对代码，不覆盖业务数据。
