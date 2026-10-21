@@ -19,10 +19,11 @@ from openai import OpenAI
 from PIL import Image
 from werkzeug.exceptions import HTTPException
 
-from generate_image import sha256
+from file_ops import (read_json as read_json_file, safe_path, sha256,
+                      write_json_atomic, write_json_exclusive)
 from generate_plan_image import GenerationService
 from evidence import clean_record, safe_text, contains_private
-from experiment_export import export_experiment, ExportError, historical_case_match, safe_path
+from experiment_export import export_experiment, ExportError, historical_case_match
 import image_review
 from quick_redesign import DEFAULT_REQUIREMENTS, SIZES
 
@@ -38,19 +39,14 @@ def now():
 
 
 def write_json(path, value, exclusive=False):
-    path = safe_path(path.parent, path.name)
-    data = json.dumps(clean_record(value), ensure_ascii=False, indent=2) + "\n"
     if exclusive:
-        with path.open("x", encoding="utf-8") as stream:
-            stream.write(data)
+        write_json_exclusive(path, value, transform=clean_record)
     else:
-        temporary = safe_path(path.parent, path.name + '.tmp')
-        temporary.write_text(data, encoding="utf-8")
-        temporary.replace(path)
+        write_json_atomic(path, value, transform=clean_record)
 
 
 def read_json(path):
-    return json.loads(safe_path(path.parent, path.name).read_text(encoding="utf-8"))
+    return read_json_file(path)
 
 
 class Problem(Exception):
@@ -312,6 +308,54 @@ def validate_result(result, action, ids):
     return clean
 
 
+def planning_images(state, action, target):
+    """Select input identities in saved order without reading their files."""
+    return [image for image in state["images"]
+            if not (image["role"] == "reference" and
+                    (action == "product" or target and image["id"] != target))]
+
+
+def build_planning_request(state, action, target, feedback, model, image_bytes):
+    """Build complete SDK arguments and image order, without I/O or mutation.
+
+    image_bytes maps saved relative filenames to verified bytes loaded by the
+    caller. Model selection, file validation and persistence stay in call_ai().
+    """
+    ids = reference_ids(state)
+    current = {"product": state["product"], "corrections": state["corrections"]}
+    if target:
+        current["corrections"] = {"product": state["corrections"]["product"],
+                                  "references": {target: state["corrections"]["references"].get(target, [])}}
+        current.update({"reference": state["references"].get(target), "plan": state["plans"].get(target)})
+    elif action != "product":
+        current.update({"references": state["references"], "plans": state["plans"]})
+    tasks = {"understand": "理解商品与每张参考图，结合整体要求，为每张参考图分别制定一张图片计划。",
+             "product": "只根据修正意见更新商品理解，不修改参考理解或任何计划。",
+             "reference": "只更新指定参考图的理解，不修改商品理解或任何计划。",
+             "plan": "只修改指定图片的制作计划，采用当前已修正理解、当前计划和本次意见，不规划其他图片。",
+             "replan": "按当前已修正的商品理解和参考理解，重新制作全部计划；保留这些已修正理解。"}
+    context = {"task": tasks[action], "target": target, "original_inputs": state["inputs"],
+               "current": current, "operator_feedback": feedback,
+               "required_reference_ids": ids if action in ["understand", "replan"] else [],
+               "return_json": response_shape(action, ids)}
+    prompt = json.dumps(context, ensure_ascii=False, indent=2)
+    content = [{"type": "input_text", "text": prompt}]
+    image_order = []
+    for image in planning_images(state, action, target):
+        data = image_bytes[image["file"]]
+        content.append({"type": "input_text", "text": f"{image['id']}：{'商品外观依据' if image['role']=='product' else '仅设计参考'}（{image['name']}）"})
+        content.append({"type": "input_image", "image_url": f"data:{image['mime']};base64,{base64.b64encode(data).decode()}", "detail": "auto"})
+        image_order.append({"slot": len(image_order) + 1, **image})
+    arguments = {"model": model, "instructions": RULES,
+                 "input": [{"role": "user", "content": content}],
+                 "text": {"format": {"type": "json_object"}}, "store": False,
+                 "max_output_tokens": 6000 if action in ["understand", "replan"] else 2500}
+    # Bound reasoning cost/latency for the new default; 4.1 does not accept this parameter.
+    if model == MODELS[0]:
+        arguments["reasoning"] = {"effort": "low"}
+    return arguments, image_order
+
+
 def call_ai(store, state, action, target, feedback):
     folder = store.folder(state["id"])
     call_id = uuid4().hex
@@ -332,41 +376,15 @@ def call_ai(store, state, action, target, feedback):
         if model not in MODELS:
             raise Problem("规划模型配置不在已核实的模型列表内，请检查运行配置。")
         ids = reference_ids(state)
-        current = {"product": state["product"], "corrections": state["corrections"]}
-        if target:
-            current["corrections"] = {"product": state["corrections"]["product"],
-                                      "references": {target: state["corrections"]["references"].get(target, [])}}
-            current.update({"reference": state["references"].get(target), "plan": state["plans"].get(target)})
-        elif action != "product":
-            current.update({"references": state["references"], "plans": state["plans"]})
-        tasks = {"understand": "理解商品与每张参考图，结合整体要求，为每张参考图分别制定一张图片计划。",
-                 "product": "只根据修正意见更新商品理解，不修改参考理解或任何计划。",
-                 "reference": "只更新指定参考图的理解，不修改商品理解或任何计划。",
-                 "plan": "只修改指定图片的制作计划，采用当前已修正理解、当前计划和本次意见，不规划其他图片。",
-                 "replan": "按当前已修正的商品理解和参考理解，重新制作全部计划；保留这些已修正理解。"}
-        context = {"task": tasks[action], "target": target, "original_inputs": state["inputs"],
-                   "current": current, "operator_feedback": feedback,
-                   "required_reference_ids": ids if action in ["understand", "replan"] else [],
-                   "return_json": response_shape(action, ids)}
-        prompt = json.dumps(context, ensure_ascii=False, indent=2)
-        content = [{"type": "input_text", "text": prompt}]
-        image_order = []
-        for image in state["images"]:
-            if image["role"] == "reference" and (action == "product" or target and image["id"] != target):
-                continue
+        image_bytes = {}
+        for image in planning_images(state, action, target):
             data = (folder / image["file"]).read_bytes()
             if sha256(data) != image["sha256"]:
                 raise Problem("保存的输入图片发生变化，已停止调用。")
-            content.append({"type": "input_text", "text": f"{image['id']}：{'商品外观依据' if image['role']=='product' else '仅设计参考'}（{image['name']}）"})
-            content.append({"type": "input_image", "image_url": f"data:{image['mime']};base64,{base64.b64encode(data).decode()}", "detail": "auto"})
-            image_order.append({"slot": len(image_order) + 1, **image})
-        arguments = {"model": model, "instructions": RULES,
-                     "input": [{"role": "user", "content": content}],
-                     "text": {"format": {"type": "json_object"}}, "store": False,
-                     "max_output_tokens": 6000 if action in ["understand", "replan"] else 2500}
-        # Bound reasoning cost/latency for the new default; 4.1 does not accept this parameter.
-        if model == MODELS[0]:
-            arguments["reasoning"] = {"effort": "low"}
+            image_bytes[image["file"]] = data
+        arguments, image_order = build_planning_request(state, action, target, feedback, model, image_bytes)
+        del image_bytes  # Release raw inputs before the potentially long SDK call.
+        content = arguments["input"][0]["content"]
         write_json(evidence / "request.json", arguments, exclusive=True)
         write_json(evidence / "image_order.json", image_order, exclusive=True)
         # Include every text part, including per-image labels, in sent order.

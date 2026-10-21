@@ -15,9 +15,9 @@ from uuid import uuid4
 
 from PIL import Image
 
-from generate_image import MODELS, PARAMETERS, TIMEOUT_SECONDS, make_client, sha256
+from generate_image import MODELS, PARAMETERS, TIMEOUT_SECONDS, make_client
 from evidence import clean_record, safe_text
-from experiment_export import safe_path
+from file_ops import read_json as read_json_file, safe_path, sha256, write_json_atomic
 import image_review
 import quick_redesign
 
@@ -27,15 +27,11 @@ def now():
 
 
 def write_json(path, value):
-    path = safe_path(path.parent, path.name)
-    text = json.dumps(clean_record(value), ensure_ascii=False, indent=2) + "\n"
-    temporary = safe_path(path.parent, path.name + '.tmp')
-    temporary.write_text(text, encoding="utf-8")
-    temporary.replace(path)
+    write_json_atomic(path, value, transform=clean_record)
 
 
 def read_json(path):
-    return json.loads(safe_path(path.parent, path.name).read_text(encoding="utf-8"))
+    return read_json_file(path)
 
 
 def request_uncertain(record, status=None):

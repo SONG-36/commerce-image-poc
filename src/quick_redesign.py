@@ -13,9 +13,9 @@ from uuid import uuid4
 
 from PIL import Image
 
-from generate_image import MODELS, PARAMETERS, ROOT, TIMEOUT_SECONDS, make_client, sha256, write_json
+from generate_image import MODELS, PARAMETERS, ROOT, TIMEOUT_SECONDS, make_client, write_json
 from evidence import clean_record, contains_private, safe_text
-from experiment_export import safe_path
+from file_ops import safe_path, sha256
 
 
 EXPERIMENT = "i01-quick-redesign"

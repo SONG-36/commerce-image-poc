@@ -3,42 +3,16 @@
 from datetime import datetime, timezone
 import io
 import json
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import re
 import zipfile
 
 from evidence import contains_private
-from generate_image import sha256
+from file_ops import ExportError, safe_path, sha256
 
 RUN_ID = r"[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}"
 IMAGE_NAME = r"(?:product|reference)_[0-9]+\.(?:jpg|jpeg|png|webp)"
 RUN_FILES = ("run.json", "request.json", "prompt.txt", "response.json", "error.json")
-
-
-class ExportError(ValueError):
-    pass
-
-
-def safe_path(root, relative="."):
-    """Allow only descendants; reject symlinks before any file read."""
-    relative = PurePosixPath(str(relative))
-    if relative.is_absolute() or ".." in relative.parts or "\\" in str(relative):
-        raise ExportError("导出已停止：记录包含越界路径。")
-    root = Path(root).absolute()
-    # Trust platform ancestors, but not symlinks in the configured runtime tree.
-    parents = [root, *root.parents]
-    boundary = next((i for i, parent in enumerate(parents) if parent.name == ".runtime"), 0)
-    for parent in parents[:boundary + 1]:
-        if parent.is_symlink():
-            raise ExportError("导出已停止：运行目录是符号链接。")
-    path = root
-    for part in relative.parts:
-        path = path / part
-        if path.is_symlink():
-            raise ExportError("导出已停止：允许范围内发现符号链接。")
-    if not path.resolve().is_relative_to(root.resolve()):
-        raise ExportError("导出已停止：文件超出允许目录。")
-    return path
 
 
 def children(root, relative, pattern):

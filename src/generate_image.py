@@ -2,7 +2,6 @@
 
 import argparse
 import base64
-import hashlib
 import io
 import json
 import os
@@ -17,6 +16,8 @@ from uuid import uuid4
 from openai import OpenAI
 from PIL import Image
 
+from file_ops import sha256
+
 
 ROOT = Path(__file__).resolve().parents[1]
 MODELS = ("gpt-image-2.5-sunburst", "gpt-image-2.5-flare")
@@ -27,10 +28,6 @@ TIMEOUT_SECONDS = 180.0
 
 def now():
     return datetime.now(timezone.utc).isoformat()
-
-
-def sha256(data):
-    return hashlib.sha256(data).hexdigest()
 
 
 def redact(text, key):

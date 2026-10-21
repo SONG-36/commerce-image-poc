@@ -8,9 +8,8 @@ import threading
 from uuid import uuid4
 import zipfile
 
-from experiment_export import safe_path
+from file_ops import read_json, safe_path, sha256, write_json_atomic
 from evidence import contains_private
-from generate_image import sha256
 from PIL import Image
 
 
@@ -116,7 +115,6 @@ def review(service, state, target, kind, run_id, expected_revision):
     with service.guard:
         service.active.add(key)
     try:
-        from generate_plan_image import read_json, write_json
         folder = service.folder(*key)
         pointer = read_json(folder / 'current.json') if (folder / 'current.json').is_file() else {}
         if expected_revision != pointer.get('card_revision', 0):
@@ -142,7 +140,7 @@ def review(service, state, target, kind, run_id, expected_revision):
         with (events / (event['id'] + '.json')).open('x', encoding='utf-8') as stream:
             from evidence import clean_record
             stream.write(json.dumps(clean_record(event), ensure_ascii=False, indent=2) + '\n')
-        write_json(folder / 'current.json', pointer)
+        write_json_atomic(folder / 'current.json', pointer, transform=clean_record)
         return event
     finally:
         with service.guard:
@@ -152,7 +150,6 @@ def review(service, state, target, kind, run_id, expected_revision):
 
 def export_passed(service, state):
     """Only the explicitly accepted version; selection alone never changes acceptance."""
-    from generate_plan_image import read_json
     output = io.BytesIO()
     count = 0
     with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as archive:
