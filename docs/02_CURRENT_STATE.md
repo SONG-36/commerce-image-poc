@@ -3,6 +3,14 @@
 > 核查：2026-10-21（Asia/Shanghai）；范围为本地源码、Git、离线测试与已有 Evidence。本轮不 SSH、不访问生产、不调用模型。
 > 阶段：**INTERNAL PILOT / BUSINESS VALIDATION**。工程实现、软件测试、真实 AI 效果和运营验收分别记录；当前服务器运行版本 **UNVERIFIED**。
 
+## G2 第一切片 — Task Snapshot 持久化（2026-10-21）
+
+- **检查点与状态**：Phase 1 已单独提交本文件的现状核查，main / `0f796a27bba1e6c69155d0cbc74b640d37505400`；源码基线仍为 T02 + G1 `34d633a`。G2 本地首片 **IMPLEMENTED / ENGINEERING REVIEW PENDING**，整体 G2 仍为 **PARTIAL**；以下既有核查段按 34d633a 及其当轮验证理解。README 原有修改保留，G2 未提交、未部署。
+- **实际分离**：[persistence/task_state.py](../src/persistence/task_state.py) 提供 read_current()、read_snapshot()、write_snapshot_and_current()，只负责 Task 的 state.json 与 versions/ 文件布局、读取及“独占快照 → 原子替换当前状态”的写入顺序。输入为已校验任务目录、revision/原状态与读写函数；返回原始 JSON（写入返回 None），不推进业务状态。Package 名 persistence 表示文件存取职责，并非通用 Repository/ORM。
+- **兼容边界**：[Store.load/save/version](../src/prepare_plan.py) 委托上述存取；ID/图片路径及快照内容校验、revision/事件/确认更新仍留在 Store。沿用原 JSON 包装与 clean_record，不在新模块引入脱敏业务、Flask、生成服务、审核或模型依赖；MissingStateFile 仅用于把原 is_file 缺失检查映射回既有 Problem 消息/状态码，JSON/编码/读写异常继续传播。锁的所有权与调用位置不变。
+- **实际验证**：修改前完整离线回归 **118 项 / 5.925 秒**；修改后相关测试 **50 项 / 1.784 秒**、完整回归 **131 项 / 6.070 秒**。新增 [13 项临时目录测试](../tests/test_task_state_persistence.py) 覆盖读取/格式/快照、写入顺序、覆盖拒绝、部分写失败、路径/符号链接、原错误映射及导入无环。重构前采集的两种模式全部 8 个任务文件字节与调用顺序指纹均一致；既有 5 动作 × 3 模型请求/Evidence 指纹通过，动态来源哈希仍按实际入口源码验证。AST 对比确认原文件只有三个 Store 方法及导入改变，模型/Prompt/Context、HTTP/CLI 代码未改。
+- **保留与未做**：Store.create() 的资料/图片落盘、current.json 任务入口指针、image_state()/card_view() 规则/视图，以及生成 Run、审核指针与 Evidence 持久化未迁移；不扩大为超级 Store。快照成功而 state 写失败时仍保留快照/原当前文件及已推进的内存状态，没有新增多文件事务、重试或恢复策略。测试阻断网络和真实 runtime 访问；未读写运营数据、调用模型、SSH 或部署，AI 质量/运营验收与线上状态不因本次软件回归改变。G3/G4 未开始，等待人工审核。
+
 ## 当前核查结论 — 2026-10-21
 
 ### Git、测试与部署基线
@@ -73,11 +81,11 @@
 
 | 后续候选 | 状态 | 仅供评审的范围 |
 |---|---|---|
-| G2 | PROPOSED / NOT STARTED | 状态存取与提交边界 |
+| G2 | PARTIAL / FIRST SLICE IMPLEMENTED / REVIEW PENDING | Task 状态/快照文件存取已分离；其余状态存储与提交责任未迁移，见顶部首片记录 |
 | G3 | PROPOSED / NOT STARTED | Images 执行及图片校验复用 |
 | G4 | PROPOSED / NOT STARTED | 业务规则、查询视图与应用编排边界 |
 
-以上不是 Coding 授权，不创建新目录/框架，不自动部署或继续重构。
+G2 首片已按后续明确授权实施；该表不授权其余 G2 或 G3/G4，不自动部署或继续重构。
 
 ## 历史记录阅读口径
 
@@ -475,9 +483,9 @@
 
 ## Current Task
 
-**Current Task**：CURRENT_STATE 全面现状核查与同步已完成，**DOCUMENT REVIEW PENDING**。本地代码 main / 34d633aa30cc218339781908462f5f2de3484e25，T02 + G1 已提交；本轮仅更新本文件，README 既有修改保留。历史部署源 cd66dad 不等于今日实时版本；当前服务器 **UNVERIFIED**。
+**Current Task**：CURRENT_STATE 检查点已提交为 `0f796a2`；G2 Task Snapshot 持久化首片已本地实现，**ENGINEERING REVIEW PENDING**，整体 G2 **PARTIAL**。T02 + G1 历史保留；G2 源码/测试及本文件更新未提交，README 既有修改原样保留。当前服务器 **UNVERIFIED**，未部署 G2。
 
-**Next Action**：停止并等待人工审核本次文档及已提交的 T02/G1。后续由用户分别决定是否核验线上、修订 README/实验索引、执行真实质量对照或启动某项 G2～G4；本文件不自动授权这些操作，不调用模型、部署、Commit 或 Push。
+**Next Action**：停止并等待人工审核 G2 首片职责边界、兼容性与实际测试。其他持久化、业务规则/查询视图和 G3/G4 仍待后续单独授权；不自动继续、调用模型、部署或提交 G2。
 
 **以下为既有部署历史，保留原人工新增记录，不代表 2026-10-21 重新检查服务器；与最新本地代码的关系见顶部部署基线。**
 

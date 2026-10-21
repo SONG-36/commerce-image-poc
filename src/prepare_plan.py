@@ -26,6 +26,7 @@ from evidence import clean_record, safe_text, contains_private
 from experiment_export import export_experiment, ExportError, historical_case_match
 import image_review
 from quick_redesign import DEFAULT_REQUIREMENTS, SIZES
+from persistence import task_state
 
 ROOT = Path(__file__).resolve().parents[1]
 PRODUCT_FIELDS = ("identity", "claims", "appearance", "uncertainties")
@@ -117,10 +118,10 @@ class Store:
         return safe_path(self.root, 'sessions/' + session_id)
 
     def load(self, session_id):
-        path = safe_path(self.folder(session_id), 'state.json')
-        if not path.is_file():
-            raise Problem("准备任务不存在，请重新加载资料。", 404)
-        state = read_json(path)
+        try:
+            state = task_state.read_current(self.folder(session_id), reader=read_json)
+        except task_state.MissingStateFile:
+            raise Problem("准备任务不存在，请重新加载资料。", 404) from None
         if state.get('id') != session_id:
             raise Problem('任务标识与保存记录不一致。', 409)
         for image in state['images']:
@@ -135,18 +136,15 @@ class Store:
             state['confirmed'] = all(plan_status(state, target)['confirmed'] for target in reference_ids(state))
         state["updated_at"] = now()
         state["events"].append({"at": now(), "revision": state["revision"], **event})
-        folder = self.folder(state["id"])
-        (folder / "versions").mkdir(exist_ok=True)
-        write_json(folder / "versions" / f"{state['revision']:06}.json", state, exclusive=True)
-        write_json(folder / "state.json", state)
+        task_state.write_snapshot_and_current(self.folder(state["id"]), state, writer=write_json)
 
     def version(self, state, revision):
         if not isinstance(revision, int) or not 1 <= revision <= state['revision']:
             raise Problem('图片确认版本无效。', 409)
-        path = safe_path(self.folder(state['id']), f'versions/{revision:06}.json')
-        if not path.is_file():
-            raise Problem('本任务的确认版本记录不存在。', 409)
-        saved = read_json(path)
+        try:
+            saved = task_state.read_snapshot(self.folder(state['id']), revision, reader=read_json)
+        except task_state.MissingStateFile:
+            raise Problem('本任务的确认版本记录不存在。', 409) from None
         if saved.get('id') != state['id'] or saved.get('revision') != revision:
             raise Problem('历史计划记录与本任务不一致，已停止读取。', 409)
         return saved
