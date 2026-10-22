@@ -325,8 +325,8 @@ def compatibility_fingerprints(*, details=False):
     """
     import httpx
     import test_generate_plan_image as fixtures
-    import image_review
-    import quick_redesign
+    from image_workflow.generation import auxiliary as image_review
+    from cli import quick_redesign
 
     cases = {}
     scenarios = ('first', 'regenerate', 'edit', 'auxiliary', 'quick', 'quick_edit', 'quick_auxiliary',
@@ -441,7 +441,7 @@ def compatibility_fingerprints(*, details=False):
                                                          'missing_key', 'too_many_images') else attempt - 1
             assert len(requests) == expected_calls, (scenario, len(requests))
             assert record['source_sha256'] == generation.sha256(Path(generation.__file__).read_bytes())
-            assert record['t01_source_sha256'] == generation.sha256(Path(generation.__file__).with_name('generate_image.py').read_bytes())
+            assert record['t01_source_sha256'] == generation.sha256((Path(generation.__file__).resolve().parents[2] / 'cli/generate_image.py').read_bytes())
             if 'quick_redesign_source_sha256' in record:
                 assert record['quick_redesign_source_sha256'] == generation.sha256(Path(quick_redesign.__file__).read_bytes())
             files = {str(path.relative_to(task)): path.read_bytes() for path in sorted(task.rglob('*')) if path.is_file()}
@@ -461,8 +461,10 @@ def compatibility_fingerprints(*, details=False):
             run_ids = list(dict.fromkeys(re.findall(r'\d{8}T\d{6}Z-[0-9a-f]{32}', payload)))
             for index, identity in enumerate(run_ids):
                 payload = payload.replace(identity, f'<RUN{index}>')
-            for path in (Path(generation.__file__), Path(generation.__file__).with_name('generate_image.py'), Path(quick_redesign.__file__)):
-                payload = payload.replace(generation.sha256(path.read_bytes()), '<ENTRY_HASH:' + path.name + '>')
+            for path, label in ((Path(generation.__file__), 'generate_plan_image.py'),
+                                (Path(generation.__file__).resolve().parents[2] / 'cli/generate_image.py', 'generate_image.py'),
+                                (Path(quick_redesign.__file__), 'quick_redesign.py')):
+                payload = payload.replace(generation.sha256(path.read_bytes()), '<ENTRY_HASH:' + label + '>')
             payload = re.sub(r'0x[0-9a-f]+', '<MEMORY_ADDRESS>', payload)
             cases[scenario] = json.loads(payload) if details else hashlib.sha256(payload.encode()).hexdigest()
         finally:

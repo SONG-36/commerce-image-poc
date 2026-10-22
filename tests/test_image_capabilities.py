@@ -22,7 +22,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from infrastructure import openai_images as images
-import generate_image as t01
+from cli import generate_image as t01
 
 
 
@@ -116,8 +116,8 @@ CLI_BEFORE = {
 
 class ImageCapabilitiesTests(unittest.TestCase):
     def test_images_policy_values_are_unchanged_and_shared_without_copying(self):
-        import generate_plan_image as generation
-        import quick_redesign as quick
+        from image_workflow.tasks import generation_runtime as generation
+        from cli import quick_redesign as quick
         self.assertEqual(images.MODELS, ("gpt-image-2.5-sunburst", "gpt-image-2.5-flare"))
         self.assertEqual(images.PARAMETERS, {"n": 1, "quality": "low", "size": "1024x1536", "output_format": "png"})
         self.assertEqual(images.TIMEOUT_SECONDS, 180.0)
@@ -155,7 +155,7 @@ class ImageCapabilitiesTests(unittest.TestCase):
     def test_callers_keep_local_model_parameter_and_factory_override_seams(self):
         import test_generate_image as t01_fixtures
         import test_quick_redesign as quick_fixtures
-        import generate_plan_image as generation
+        from image_workflow.tasks import generation_runtime as generation
         parameters = {**images.PARAMETERS, "quality": "medium"}
         models = ("anonymous-offline-model",)
         for kind, module, fixtures in (("t01", t01, t01_fixtures.GenerationSafetyTests),

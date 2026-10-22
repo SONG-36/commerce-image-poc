@@ -18,9 +18,9 @@ from openai import OpenAI
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-import prepare_plan as web
-import generate_plan_image as generation
-from evidence import clean_record
+import app as web
+from image_workflow.tasks import generation_runtime as generation
+from infrastructure.evidence import clean_record
 
 HEADERS = {"X-Local-Action": "prepare-plan"}
 

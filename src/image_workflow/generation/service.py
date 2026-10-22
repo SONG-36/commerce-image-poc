@@ -34,7 +34,7 @@ class RunAccess:
 class GenerationIO:
     """Per-call execution adapters preserving existing storage/redaction policy.
 
-    source_file is the original compatibility entry, NOT this package or all
+    source_file is the supplied calling entry, NOT this package or all
     its dependencies. The existing source_sha256 field keeps that limited scope.
     """
 

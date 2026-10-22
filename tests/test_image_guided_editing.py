@@ -12,7 +12,7 @@ import zipfile
 import httpx
 from PIL import Image
 import test_generate_plan_image as fixtures
-import image_review
+from image_workflow.generation import auxiliary as image_review
 
 
 def auxiliary_bytes(format="PNG", color="blue"):

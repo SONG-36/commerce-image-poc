@@ -19,7 +19,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-import evidence as legacy
+from infrastructure import evidence as legacy
 from infrastructure import evidence as core
 
 
@@ -177,8 +177,8 @@ class EvidenceInfrastructureTests(unittest.TestCase):
         self.assertEqual(str(inspect.signature(legacy.redact)), "(text, key)")
 
     def test_legacy_redact_patch_reaches_recursion_imported_web_helpers_and_http_errors(self):
-        import generate_plan_image
-        import prepare_plan
+        from image_workflow.tasks import generation_runtime as generate_plan_image
+        import app as prepare_plan
         from image_workflow import Problem
         calls = []
         def replacement(text, key):
@@ -199,8 +199,8 @@ class EvidenceInfrastructureTests(unittest.TestCase):
         self.assertTrue(all(key == "" for _, key in calls))
 
     def test_t01_redact_patch_reaches_t01_and_quick_writers_without_changing_evidence_binding(self):
-        import generate_image
-        import quick_redesign
+        from cli import generate_image
+        from cli import quick_redesign
         original_evidence_redact = legacy.redact
         with tempfile.TemporaryDirectory() as directory, \
                 patch.object(generate_image, "redact", side_effect=lambda text, key: text.replace("opaque", "patched")) as redact:
@@ -241,18 +241,18 @@ class EvidenceInfrastructureTests(unittest.TestCase):
             self.assertTrue(legacy.private_field("custom"))
             self.assertEqual(legacy.clean_record({"custom": "opaque", "password": "old"}), {"password": "old"})
             self.assertTrue(legacy.contains_private({"custom": "opaque"}))
-            self.assertTrue(core.private_field("password"))
+        self.assertTrue(core.private_field("password"))
         with patch.object(legacy, "TOKEN_PATTERN", re.compile("CANARY")):
             self.assertEqual(legacy.safe_text("CANARY"), "[REDACTED]")
             self.assertTrue(legacy.contains_private("CANARY"))
             self.assertEqual(legacy.clean_record({"text": "CANARY"}), {"text": "[REDACTED]"})
-            self.assertEqual(core.safe_text("CANARY"), "CANARY")
+        self.assertEqual(core.safe_text("CANARY"), "CANARY")
 
     def test_t01_quick_and_web_json_bytes_keep_their_distinct_policies(self):
-        import generate_image
-        import generate_plan_image
-        import prepare_plan
-        import quick_redesign
+        from cli import generate_image
+        from image_workflow.tasks import generation_runtime as generate_plan_image
+        import app as prepare_plan
+        from cli import quick_redesign
         value = {"Authorization": "opaque", "label": "商品", "usage": {"reasoning_tokens": 7},
                  "output": [{"type": "reasoning"}, {"type": "message", "text": "visible"}]}
         expected = {"label": "商品", "usage": {"reasoning_tokens": 7},
@@ -276,7 +276,7 @@ from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0,sys.argv[1])
 blocked={'openai','PIL','flask','generate_image','generate_plan_image','prepare_plan','quick_redesign','image_review','image_workflow'}
-allowed_export={'image_workflow','image_workflow.errors','image_workflow.experiment_export'} if sys.argv[2]=='experiment_export' else set()
+allowed_export={'image_workflow','image_workflow.errors','image_workflow.experiment_export'} if sys.argv[2]=='image_workflow.experiment_export' else set()
 def forbidden(name):
  return name.split('.')[0] in blocked and name not in allowed_export
 class Block(importlib.abc.MetaPathFinder):
@@ -291,8 +291,8 @@ def guard(event,args):
   raise AssertionError('Import must not write files')
 sys.addaudithook(guard)
 module=importlib.import_module(sys.argv[2])
-if sys.argv[2]=='experiment_export':
- module=importlib.import_module('evidence')
+if sys.argv[2]=='image_workflow.experiment_export':
+ module=importlib.import_module('infrastructure.evidence')
 with patch.dict(os.environ,{'OPENAI_API_KEY':'opaque-child-canary'}), \
  patch('builtins.open',side_effect=AssertionError('No business files')), \
  patch.object(Path,'open',side_effect=AssertionError('No business files')):
@@ -301,7 +301,7 @@ with patch.dict(os.environ,{'OPENAI_API_KEY':'opaque-child-canary'}), \
 assert not any(forbidden(name) for name in sys.modules)
 print('independent import and in-memory sanitization PASS')
 """
-        for name in ("infrastructure.evidence", "evidence", "experiment_export"):
+        for name in ("infrastructure.evidence", "image_workflow.experiment_export"):
             with self.subTest(module=name):
                 result = subprocess.run([sys.executable, "-B", "-c", script,
                                          str(Path(__file__).resolve().parents[1] / "src"), name],
@@ -315,11 +315,10 @@ print('independent import and in-memory sanitization PASS')
                    for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom))
                    for alias in node.names}
         self.assertEqual(imports, {"json", "os", "re"})
-        shim = ast.parse(Path(legacy.__file__).read_text())
-        self.assertFalse(any(isinstance(node, (ast.If, ast.For, ast.While, ast.Try, ast.DictComp, ast.ListComp))
-                             for node in ast.walk(shim)))
-        imported = {node.module for node in ast.walk(shim) if isinstance(node, ast.ImportFrom)}
-        self.assertEqual(imported, {"infrastructure", "infrastructure.evidence"})
+        self.assertIs(legacy, core)
+        root = Path(core.__file__).parents[1]
+        self.assertFalse((root / "evidence.py").exists())
+        self.assertEqual(core.clean_record.__module__, "infrastructure.evidence")
         self.assertTrue((Path(core.__file__).parent / "__init__.py").is_file())
 
 

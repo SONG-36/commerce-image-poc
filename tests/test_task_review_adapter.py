@@ -140,24 +140,24 @@ class TaskReviewAdapterTests(unittest.TestCase):
         self.assertEqual(self.fx.snapshot(), before)
 
     def test_legacy_scope_file_io_and_core_operation_replacements_stay_late_bound(self):
-        import image_review as legacy
-        import evidence
-        with patch.object(legacy, "_scope", return_value="scope") as scope, \
-                patch.object(legacy, "_files", return_value="files") as files, \
+        from image_workflow.tasks import review as legacy
+        from infrastructure import evidence
+        with patch.object(legacy, "image_scope", return_value="scope") as scope, \
+                patch.object(legacy, "review_files", return_value="files") as files, \
                 patch.object(legacy, "review_versions", return_value=["version"]) as versions:
             self.assertEqual(legacy.versions(self.generation, self.state, self.target), ["version"])
             scope.assert_called_once_with(self.state, self.target)
             files.assert_called_once_with(self.generation, self.state, self.target)
             versions.assert_called_once_with("scope", "files")
         with patch.object(legacy, "read_json") as reader, patch.object(legacy, "write_json_atomic") as writer:
-            files = legacy._files(self.generation, self.state, self.target)
+            files = legacy.review_files(self.generation, self.state, self.target)
             self.assertIs(files.pointer_reader, reader)
             self.assertIs(files.pointer_writer, writer)
         fixed = datetime(2026, 10, 22, tzinfo=timezone.utc)
         with patch.object(legacy, "uuid4") as identifier, \
                 patch.object(legacy, "datetime", SimpleNamespace(now=lambda tz: fixed)), \
-                patch.object(evidence, "clean_record") as sanitize:
-            bindings = legacy._io(self.generation, self.state)
+                patch.object(legacy, "clean_record") as sanitize:
+            bindings = legacy.review_io(self.generation, self.state)
             self.assertIs(bindings.new_id, identifier)
             self.assertEqual(bindings.utc_now(), fixed)
             self.assertIs(bindings.sanitize, sanitize)

@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from image_workflow.generation import quick_prompt
-import quick_redesign as cli
+from cli import quick_redesign as cli
 
 
 PROMPT_BEFORE = {
@@ -46,7 +46,7 @@ class QuickPromptPolicyTests(unittest.TestCase):
         self.assertEqual(imports, {"pathlib"})
 
     def test_defaults_belong_to_business_policy_and_dimensions_remain_cli_only(self):
-        import prepare_plan
+        import app as prepare_plan
         from infrastructure import openai_images
         self.assertEqual(quick_prompt.DEFAULT_REQUIREMENTS, "提升商业设计质量、排版与信息层级、光影与背景、场景表现及原有卖点的视觉表达。")
         self.assertEqual(quick_prompt.SIZES, ("1024x1536", "1024x1024", "1536x1024"))
@@ -111,13 +111,13 @@ from unittest.mock import patch
 sys.path.insert(0,sys.argv[1])
 class Block(importlib.abc.MetaPathFinder):
  def find_spec(self,name,*args):
-  if name.split('.')[0] in {'generate_image','quick_redesign'}:
+  if name.split('.')[0] in {'generate_image','quick_redesign','cli'}:
    raise AssertionError('Production must not import an experimental CLI: '+name)
 sys.meta_path.insert(0,Block())
 from openai import OpenAI
 with patch('openai.OpenAI',side_effect=AssertionError('Client creation forbidden')):
- import prepare_plan
- import generate_plan_image as generation
+ import app as prepare_plan
+ from image_workflow.tasks import generation_runtime as generation
  from image_workflow.generation import quick_prompt
  from infrastructure import openai_images
  store=SimpleNamespace()
@@ -128,31 +128,31 @@ with patch('openai.OpenAI',side_effect=AssertionError('Client creation forbidden
   assert adapters['io'].client_factory is openai_images.make_client
   assert adapters['prompts'].quick_generate is quick_prompt.build_prompt
   assert adapters['prompts'].quick_edit is quick_prompt.build_edit_prompt
-  assert adapters['io'].t01_source_file==Path(generation.__file__).with_name('generate_image.py')
-  assert adapters['io'].quick_source_file==Path(generation.__file__).with_name('quick_redesign.py')
+  assert adapters['io'].t01_source_file==Path(generation.__file__).resolve().parents[2] / 'cli/generate_image.py'
+  assert adapters['io'].quick_source_file==Path(generation.__file__).resolve().parents[2] / 'cli/quick_redesign.py'
  with tempfile.TemporaryDirectory() as directory:
   app=prepare_plan.create_app(Path(directory)/'runtime',Path(directory)/'case')
   assert app.test_client().get('/').status_code==200
-assert not {'generate_image','quick_redesign'}.intersection(sys.modules)
+assert not {'generate_image','quick_redesign','cli'}.intersection(sys.modules)
 print('production without experiment imports PASS')
 """
-        result = subprocess.run([sys.executable, "-B", "-c", script, str(Path(cli.__file__).parent)],
+        result = subprocess.run([sys.executable, "-B", "-c", script, str(Path(cli.__file__).parents[1])],
                                 capture_output=True, text=True, timeout=30)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("production without experiment imports PASS", result.stdout)
 
     def test_production_import_direction_and_deploy_literal_are_preserved(self):
-        root = Path(cli.__file__).parent
+        root = Path(cli.__file__).parents[1]
         paths = list((root / "infrastructure").rglob("*.py")) + list((root / "image_workflow").rglob("*.py"))
-        paths += [root / "generate_plan_image.py", root / "prepare_plan.py", root / "evidence.py"]
+        paths += [root / "app.py"]
         for path in paths:
             tree = ast.parse(path.read_text(encoding="utf-8"))
             imports = {node.module.split(".")[0] for node in ast.walk(tree)
                        if isinstance(node, ast.ImportFrom) and node.module}
             imports.update(alias.name.split(".")[0] for node in ast.walk(tree)
                            if isinstance(node, ast.Import) for alias in node.names)
-            self.assertFalse(imports & {"generate_image", "quick_redesign"}, str(path))
-        tree = ast.parse((root / "prepare_plan.py").read_text(encoding="utf-8"))
+            self.assertFalse(imports & {"generate_image", "quick_redesign", "cli"}, str(path))
+        tree = ast.parse((root / "app.py").read_text(encoding="utf-8"))
         models = next(ast.literal_eval(node.value) for node in tree.body if isinstance(node, ast.Assign)
                       and any(isinstance(target, ast.Name) and target.id == "MODELS" for target in node.targets))
         self.assertEqual(models, ("gpt-5.4-mini", "gpt-4.1-mini", "gpt-4.1-mini-2025-04-14"))

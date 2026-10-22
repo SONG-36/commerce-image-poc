@@ -276,7 +276,7 @@ class TaskStatePersistenceTests(unittest.TestCase):
 
         for name in graph:
             visit(name, [])
-        self.assertIn('persistence.task_state', graph['prepare_plan'])
+        self.assertIn('persistence.task_state', graph['app'])
 
 
 if __name__ == '__main__':

@@ -14,8 +14,8 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from image_workflow.generation import auxiliary
-import evidence
-import image_review as legacy
+from infrastructure import evidence
+from image_workflow.generation import auxiliary as legacy
 
 
 # Captured from the actual pre-C5 auxiliary_prompt, before moving the policy.
@@ -103,7 +103,7 @@ class AuxiliaryInputTests(unittest.TestCase):
             for module in (auxiliary, legacy):
                 result = module.prepare_auxiliary("../opaque-anonymous-canary.png", picture(), "design_style")
                 self.assertEqual(result["name"], "[REDACTED].png")
-        with patch.object(evidence, "safe_text", return_value="legacy-label") as sanitize:
+        with patch.object(auxiliary, "safe_text", return_value="legacy-label") as sanitize:
             result = legacy.prepare_auxiliary("x.png", picture(), "local_content")
             self.assertEqual(result["name"], "legacy-label")
             sanitize.assert_called_once_with("x.png")

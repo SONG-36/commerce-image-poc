@@ -1,8 +1,7 @@
 """Auxiliary edit input validation and role-specific Prompt policy.
 
 Reads supplied image bytes in memory only. This is a Generation input policy,
-not Review, upload persistence or model execution. Keyword bindings let the old
-entry preserve its existing constants and sanitization override seams.
+not Review, upload persistence or model execution. Validation and Prompt policy have one canonical owner.
 """
 
 import io
@@ -22,30 +21,28 @@ AUXILIARY_PURPOSES = {
 }
 
 
-def prepare_auxiliary(name, data, purpose, *, purposes=AUXILIARY_PURPOSES,
-                      max_bytes=MAX_AUXILIARY_BYTES, private=contains_private,
-                      sanitize=safe_text, image_type=Image, hash_bytes=sha256):
+def prepare_auxiliary(name, data, purpose):
     """Validate a newly uploaded image; never accept a server path or asset ID."""
-    if purpose not in purposes:
+    if purpose not in AUXILIARY_PURPOSES:
         raise ValueError("请选择辅助图片用途：商品外观修正、设计风格参考或局部内容参考。")
-    if not data or len(data) > max_bytes:
+    if not data or len(data) > MAX_AUXILIARY_BYTES:
         raise ValueError("辅助图片不能为空，且不能超过 20 MB。")
-    if private(data.decode('utf-8', errors='ignore')):
+    if contains_private(data.decode('utf-8', errors='ignore')):
         raise ValueError("辅助图片包含疑似认证信息，请移除后重新上传；未发送模型。")
     try:
-        with image_type.open(io.BytesIO(data)) as image:
+        with Image.open(io.BytesIO(data)) as image:
             extension, mime = {"JPEG": ("jpg", "image/jpeg"), "PNG": ("png", "image/png"),
                                "WEBP": ("webp", "image/webp")}[image.format]
             width, height = image.size
             image.verify()
-        with image_type.open(io.BytesIO(data)) as image:
+        with Image.open(io.BytesIO(data)) as image:
             image.load()
     except Exception as error:
         raise ValueError("辅助图片无法读取，请上传有效的 JPG、PNG 或 WebP。") from error
-    return {"name": sanitize(Path(name).name[:255]), "data": data,
+    return {"name": safe_text(Path(name).name[:255]), "data": data,
             "file": f"inputs/auxiliary_reference.{extension}", "mime": mime,
-            "role": "auxiliary_reference", "purpose": purpose, "purpose_label": purposes[purpose],
-            "sha256": hash_bytes(data), "bytes": len(data), "width": width, "height": height,
+            "role": "auxiliary_reference", "purpose": purpose, "purpose_label": AUXILIARY_PURPOSES[purpose],
+            "sha256": sha256(data), "bytes": len(data), "width": width, "height": height,
             "scope": "current_image_only"}
 
 

@@ -15,7 +15,7 @@ from openai import OpenAI as OfficialClient
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-import prepare_plan as web
+import app as web
 
 HEADERS = {"X-Local-Action": "prepare-plan"}
 

@@ -403,9 +403,9 @@ def compatibility_fingerprints(*, details=False):
     Compare stable files, events, pointers, exceptions, lock cleanup, write order
     and ZIP members/bytes. ZIP timestamps are not business state or compared.
     """
-    import evidence
-    import image_review as legacy
-    from generate_plan_image import GenerationService
+    from infrastructure import evidence
+    from image_workflow.tasks import review as legacy
+    from image_workflow.tasks.generation_runtime import GenerationService
 
     cases = {}
     scenarios = ('empty', 'versions', 'legacy_versions', 'select', 'pass', 'pass_unselected', 'stale',
@@ -516,7 +516,7 @@ def compatibility_fingerprints(*, details=False):
                 with patch.object(Path, 'open', opened), patch.object(Path, 'replace', replaced), \
                         patch.object(legacy, 'uuid4', return_value=SimpleNamespace(hex='f' * 32)), \
                         patch.object(legacy, 'datetime', SimpleNamespace(now=lambda tz: datetime(2026, 10, 21, tzinfo=timezone.utc))), \
-                        patch.object(evidence, 'clean_record', side_effect=sanitize) if scenario == 'sanitize_error' else patch.object(evidence, 'clean_record', wraps=evidence.clean_record):
+                        patch.object(legacy, 'clean_record', side_effect=sanitize) if scenario == 'sanitize_error' else patch.object(legacy, 'clean_record', wraps=legacy.clean_record):
                     if scenario in ('empty', 'versions', 'legacy_versions'):
                         outcome = {'versions': legacy.versions(generation, state, target)}
                     elif scenario.startswith('export'):

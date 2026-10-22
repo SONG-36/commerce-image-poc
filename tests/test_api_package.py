@@ -25,7 +25,7 @@ EXPECTED_ROUTES = [["/",["GET","HEAD","OPTIONS"],"home",True],["/api/case-001",[
 
 class ApiContractTests(unittest.TestCase):
     def setUp(self):
-        import prepare_plan as web
+        import app as web
         self.web = web
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

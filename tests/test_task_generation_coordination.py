@@ -241,7 +241,7 @@ class TaskGenerationCoordinationTests(unittest.TestCase):
         self.assert_released()
 
     def test_original_class_and_instance_method_override_seams_remain_usable(self):
-        import generate_plan_image as legacy
+        from image_workflow.tasks import generation_runtime as legacy
         service = legacy.GenerationService(self.store)
         self.assertIsInstance(service, GenerationService)
         with patch.object(legacy, "make_client") as factory, \

@@ -20,7 +20,7 @@ from .validation import validate_result
 class PlanningIO:
     """Concrete call adapters, not a global registry or a shared model context.
 
-    source_file identifies the legacy entry source for source_sha256. It is
+    source_file identifies the calling entry source for source_sha256. It is
     deliberately NOT the service file or a fingerprint of all dependencies.
     JSON/text writers retain the caller's existing sanitization policy.
     """

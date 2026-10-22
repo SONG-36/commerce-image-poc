@@ -11,11 +11,11 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import file_ops
-import experiment_export
-import generate_image
-import generate_plan_image
-import prepare_plan
-import quick_redesign
+from image_workflow import experiment_export
+from cli import generate_image
+from image_workflow.tasks import generation_runtime as generate_plan_image
+import app as prepare_plan
+from cli import quick_redesign
 
 
 class FileOperationTests(unittest.TestCase):
@@ -218,16 +218,16 @@ class FileOperationTests(unittest.TestCase):
 
     def test_shared_module_and_consumers_have_no_reverse_file_dependencies(self):
         source = Path(file_ops.__file__).parent
-        for name in ('file_ops', 'generate_plan_image', 'image_review', 'quick_redesign', 'prepare_plan'):
-            tree = ast.parse((source / (name + '.py')).read_text())
+        for name in ('file_ops', 'image_workflow.tasks.generation_runtime', 'image_workflow.tasks.review', 'cli.quick_redesign', 'app'):
+            tree = ast.parse((source / (name.replace('.', '/') + '.py')).read_text())
             imports = [node for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom))]
             modules = {node.module for node in imports if isinstance(node, ast.ImportFrom)}
             modules.update(alias.name for node in imports if isinstance(node, ast.Import) for alias in node.names)
             if name == 'file_ops':
                 self.assertEqual(modules, {'hashlib', 'json', 'pathlib'})
-            if name in ('generate_plan_image', 'image_review', 'quick_redesign'):
+            if name in ('image_workflow.tasks.generation_runtime', 'image_workflow.tasks.review', 'cli.quick_redesign'):
                 self.assertNotIn('experiment_export', modules)
-            if name == 'image_review':
+            if name == 'image_workflow.tasks.review':
                 self.assertNotIn('generate_plan_image', modules)
                 self.assertNotIn('generate_image', modules)
             for node in imports:

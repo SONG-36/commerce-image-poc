@@ -327,7 +327,7 @@ class PlanningPackageTests(unittest.TestCase):
         self.assertEqual(self.activity, {})
 
     def test_legacy_exports_mock_seams_and_deploy_model_literal_are_compatible(self):
-        import prepare_plan as web
+        import app as web
         self.assertIs(web.Problem, validation.Problem)
         self.assertIs(web.validate_result, validation.validate_result)
         self.assertIs(web.planning_images, construction.planning_images)

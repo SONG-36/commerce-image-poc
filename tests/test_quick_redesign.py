@@ -15,7 +15,7 @@ from openai import OpenAI
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-import quick_redesign as experiment
+from cli import quick_redesign as experiment
 
 
 def png(color, size=(32, 48)):

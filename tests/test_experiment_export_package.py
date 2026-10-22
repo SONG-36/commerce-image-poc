@@ -17,7 +17,7 @@ from unittest.mock import patch
 import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-import experiment_export as legacy
+from image_workflow import experiment_export as legacy
 import file_ops
 from image_workflow import experiment_export as core
 
@@ -440,9 +440,8 @@ print('independent import and export PASS')
         self.assertIn("independent import and export PASS", result.stdout)
 
     def test_canonical_business_owner_has_single_algorithm_and_no_upward_imports(self):
-        shim = ast.parse(Path(legacy.__file__).read_text(encoding="utf-8"))
-        self.assertFalse(any(isinstance(node, (ast.For, ast.While, ast.Try, ast.ListComp, ast.DictComp))
-                             for node in ast.walk(shim)))
+        self.assertIs(legacy, core)
+        self.assertFalse((Path(core.__file__).parents[1] / "experiment_export.py").exists())
         tree = ast.parse(Path(core.__file__).read_text(encoding="utf-8"))
         imported = {node.module if isinstance(node, ast.ImportFrom) else alias.name
                     for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom))
@@ -450,7 +449,7 @@ print('independent import and export PASS')
         self.assertEqual(imported, {"datetime", "io", "json", "pathlib", "re", "zipfile",
                                     "infrastructure.evidence", "file_ops"})
         # The bootstrap uses the new owner directly; old imports remain callable.
-        import prepare_plan
+        import app as prepare_plan
         self.assertIs(prepare_plan.export_experiment, core.export_experiment)
         self.assertIs(prepare_plan.historical_case_match, core.historical_case_match)
 

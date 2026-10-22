@@ -54,10 +54,17 @@ assert not extras and all(actual.get(name) == value for name, value in expected.
 files = {name: base64.b64decode(value, validate=True) for name, value in p['files'].items()}
 for name, value in files.items():
     assert digest(value) == p['target_hashes'][name]
-combined = {**expected, **{name: digest(value) for name, value in files.items()}}
-required = set(expected) | {name for name in p['target_hashes'] if name.startswith(('src/', 'tests/'))}
+retired = set(expected) - set(p['target_hashes'])
+allowed_retired = {'src/generate_plan_image.py', 'src/image_review.py',
+                   'src/experiment_export.py', 'src/evidence.py'}
+assert retired <= allowed_retired, 'Unexpected removed deployment files; stopped.'
+combined = {**{name: value for name, value in expected.items() if name not in retired},
+            **{name: digest(value) for name, value in files.items()}}
+required = (set(expected) - retired) | {name for name in p['target_hashes'] if name.startswith(('src/', 'tests/'))}
 assert all(combined.get(name) == p['target_hashes'].get(name) for name in required), 'Required changed files were not selected; stopped.'
-tree = ast.parse(files.get('src/prepare_plan.py', (old / 'src/prepare_plan.py').read_bytes()))
+entry = 'src/app.py' if 'src/app.py' in files or (old / 'src/app.py').is_file() else 'src/prepare_plan.py'
+source = files[entry] if entry in files else (old / entry).read_bytes()
+tree = ast.parse(source)
 models = next(ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign)
               and any(isinstance(t, ast.Name) and t.id == 'MODELS' for t in n.targets))
 assert p['model'] in models, 'Planning model not allowed by deployed source.'
@@ -70,7 +77,7 @@ def idle():
 
 idle()
 print(json.dumps({'stage': 'PREFLIGHT_OK', 'old_release': str(old), 'commit': p['commit'],
-                  'planning_model': p['model'], 'sync_files': list(files), 'apply': p['apply']}), flush=True)
+                  'planning_model': p['model'], 'sync_files': list(files), 'retired_files': sorted(retired), 'apply': p['apply']}), flush=True)
 if not p['apply']: sys.exit(0)
 os.umask(0o077)
 deployment_lock = (base / 'backups/.incremental-deploy.lock').open('a')
@@ -84,8 +91,8 @@ with tarfile.open(archive, 'x:gz') as tar:
     for name in expected: tar.add(old / name, arcname=name, recursive=False)
 with tarfile.open(archive) as tar:
     assert {entry.name: digest(tar.extractfile(entry).read()) for entry in tar} == expected
-new = base / 'releases' / p['commit'] if files else old
-if files:
+new = base / 'releases' / p['commit'] if files or retired else old
+if files or retired:
     new.mkdir()  # Never overwrite an existing release.
     for name in combined:
         destination = new / name
@@ -160,7 +167,7 @@ try:
     assert file_hashes(data) == before_data, 'Business data changed; do not overwrite it.'
     assert file_hashes(base / 'config') == before_config, 'Server config changed unexpectedly.'
     record = {'commit': p['commit'], 'release': str(new), 'previous_release': str(old),
-              'planning_model': p['model'], 'worker_pids': children, 'synced_files': list(files),
+              'planning_model': p['model'], 'worker_pids': children, 'synced_files': list(files), 'retired_files': sorted(retired),
               'data_files_unchanged': len(before_data), 'config_unchanged': True,
               'code_backup': str(archive), 'launchagent_backup': str(backup / 'launchagent.plist'),
               'https': 'PASS', 'task_count': len(tasks['tasks']), 'paid_api_calls': 0,
