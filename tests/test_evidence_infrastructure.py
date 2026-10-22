@@ -269,16 +269,19 @@ class EvidenceInfrastructureTests(unittest.TestCase):
             self.assertEqual(paths[3].read_bytes(), (json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode())
             self.assertFalse(any(Path(directory).glob("*.tmp")))
 
-    def test_fresh_process_imports_core_legacy_and_export_without_any_model_or_business_runtime(self):
+    def test_fresh_process_imports_core_legacy_and_export_without_model_or_unrelated_business_runtime(self):
         script = """
 import importlib,importlib.abc,json,os,sys
 from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0,sys.argv[1])
 blocked={'openai','PIL','flask','generate_image','generate_plan_image','prepare_plan','quick_redesign','image_review','image_workflow'}
+allowed_export={'image_workflow','image_workflow.errors','image_workflow.experiment_export'} if sys.argv[2]=='experiment_export' else set()
+def forbidden(name):
+ return name.split('.')[0] in blocked and name not in allowed_export
 class Block(importlib.abc.MetaPathFinder):
  def find_spec(self,name,*args):
-  if name.split('.')[0] in blocked:
+  if forbidden(name):
    raise AssertionError('Forbidden sanitization dependency: '+name)
 sys.meta_path.insert(0,Block())
 def guard(event,args):
@@ -295,7 +298,7 @@ with patch.dict(os.environ,{'OPENAI_API_KEY':'opaque-child-canary'}), \
  patch.object(Path,'open',side_effect=AssertionError('No business files')):
  assert module.clean_record({'Authorization':'opaque','label':'opaque-child-canary','usage':{'total_tokens':4}})=={'label':'[REDACTED]','usage':{'total_tokens':4}}
  assert module.contains_private({'password':'opaque'})
-assert not any(name.split('.')[0] in blocked for name in sys.modules)
+assert not any(forbidden(name) for name in sys.modules)
 print('independent import and in-memory sanitization PASS')
 """
         for name in ("infrastructure.evidence", "evidence", "experiment_export"):

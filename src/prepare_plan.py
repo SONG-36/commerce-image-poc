@@ -16,7 +16,7 @@ from file_ops import (read_json as read_json_file, safe_path, sha256,
                       write_json_atomic, write_json_exclusive)
 from generate_plan_image import GenerationService
 from evidence import clean_record, safe_text, contains_private
-from experiment_export import export_experiment, ExportError, historical_case_match
+from image_workflow.experiment_export import export_experiment, ExportError, historical_case_match
 import image_review
 from quick_redesign import DEFAULT_REQUIREMENTS, SIZES
 from persistence import task_state
