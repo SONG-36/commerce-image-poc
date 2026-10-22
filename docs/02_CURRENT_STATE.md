@@ -143,6 +143,8 @@ cd66dad 是原目录内更新，旧代码应从该批 `code.tar.gz` 和原清单
 
 ## 9. 下一阶段
 
+- **P3 学习记录已初始化（2026-10-22）**：P3-01 / L1～L5 与 P3-02～P3-04 均为 NOT_STARTED；见 [P3 源码走读学习主文档](learning/P3_SOURCE_WALKTHROUGH_STUDY_V0.1.md)。下一步审核后从 L1 开始，Mac mini 核验仍 DEFER。
+
 源码组织整理到此结束。后续按人工授权进行走读与诊断，不自动启动重构、付费实验或新业务：
 
 1. 本地源码执行链走读：从正式入口到 Task / Planning / Generation / Review。
