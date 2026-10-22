@@ -18,7 +18,7 @@ from generate_plan_image import GenerationService
 from evidence import clean_record, safe_text, contains_private
 from image_workflow.experiment_export import export_experiment, ExportError, historical_case_match
 import image_review
-from quick_redesign import DEFAULT_REQUIREMENTS, SIZES
+from image_workflow.generation.quick_prompt import DEFAULT_REQUIREMENTS, SIZES
 from persistence import task_state
 from image_workflow import Problem
 from image_workflow.planning import (RULES, PRODUCT_FIELDS, REFERENCE_FIELDS, PLAN_FIELDS,

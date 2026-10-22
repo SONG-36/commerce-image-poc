@@ -320,7 +320,7 @@ print('independent import and in-memory sanitization PASS')
                              for node in ast.walk(shim)))
         imported = {node.module for node in ast.walk(shim) if isinstance(node, ast.ImportFrom)}
         self.assertEqual(imported, {"infrastructure", "infrastructure.evidence"})
-        self.assertEqual(len(list((Path(core.__file__).parent).glob("*.py"))), 2)
+        self.assertTrue((Path(core.__file__).parent / "__init__.py").is_file())
 
 
 if __name__ == "__main__":

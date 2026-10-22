@@ -17,13 +17,12 @@ from PIL import Image
 
 from file_ops import sha256
 from infrastructure.evidence import redact
+from infrastructure import openai_images as _images
+from infrastructure.openai_images import MODELS, PARAMETERS, TIMEOUT_SECONDS
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MODELS = ("gpt-image-2.5-sunburst", "gpt-image-2.5-flare")
 REFERENCES = tuple(f"ref_{i:02}.webp" for i in range(1, 5))
-PARAMETERS = {"n": 1, "quality": "low", "size": "1024x1536", "output_format": "png"}
-TIMEOUT_SECONDS = 180.0
 
 
 def now():
@@ -100,8 +99,8 @@ def build_prompt(texts, images):
 
 
 def make_client(api_key):
-    # Fixed official endpoint; no paid retry or fallback, including SDK defaults.
-    return OpenAI(api_key=api_key, base_url="https://api.openai.com/v1", max_retries=0, timeout=TIMEOUT_SECONDS)
+    # Preserve this entry's late-bound SDK/timeout overrides for legacy callers.
+    return _images._make_client(api_key, client_class=OpenAI, timeout_seconds=TIMEOUT_SECONDS)
 
 
 def run(case_dir, reference, model, paid=False, runtime_dir=ROOT / ".runtime"):
