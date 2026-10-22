@@ -6,7 +6,6 @@ import io
 import json
 import os
 from pathlib import Path
-import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -17,6 +16,7 @@ from openai import OpenAI
 from PIL import Image
 
 from file_ops import sha256
+from infrastructure.evidence import redact
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,12 +28,6 @@ TIMEOUT_SECONDS = 180.0
 
 def now():
     return datetime.now(timezone.utc).isoformat()
-
-
-def redact(text, key):
-    if key:
-        text = text.replace(key, "[REDACTED]")
-    return re.sub(r"sk-[A-Za-z0-9_-]{10,}", "[REDACTED]", text)
 
 
 def write_json(path, value, key):
