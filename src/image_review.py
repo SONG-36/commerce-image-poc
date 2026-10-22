@@ -1,4 +1,4 @@
-"""Per-card review and image history, using the existing generation Run folders."""
+"""Legacy Review adapters plus unchanged auxiliary-image input/Prompt helpers."""
 
 from datetime import datetime, timezone
 import io
@@ -11,6 +11,7 @@ from PIL import Image
 from persistence.review_state import ReviewFiles
 from image_workflow.review import (ImageScope, ReviewIO, apply_review, export_passed as export_accepted,
                                    image_bytes as reviewed_image_bytes, versions as review_versions)
+from image_workflow.tasks import review as _task_review
 
 
 MAX_AUXILIARY_BYTES = 20 * 1024 * 1024
@@ -63,38 +64,36 @@ def auxiliary_prompt(reference, slot):
 
 
 def _scope(state, target):
-    return ImageScope(state['id'], state['revision'], target)
+    return _task_review.image_scope(state, target, scope_type=ImageScope)
 
 
 def _files(service, state, target):
-    return ReviewFiles(
-        card_folder=lambda: service.folder(state['id'], state['revision'], target),
-        run_folder=lambda run_id: service.run_folder(state['id'], state['revision'], target, run_id),
-        pointer_reader=read_json, pointer_writer=write_json_atomic)
+    return _task_review.review_files(service, state, target, reader=read_json,
+                                     writer=write_json_atomic, files_type=ReviewFiles)
 
 
 def _io(service, state):
     from evidence import clean_record
-    return ReviewIO(new_id=uuid4, utc_now=lambda: datetime.now(timezone.utc),
-                    case_id=lambda: service.store.case_id(state), sanitize=clean_record,
-                    contains_private=contains_private)
+    return _task_review.review_io(
+        service, state, new_id=uuid4, utc_now=lambda: datetime.now(timezone.utc),
+        sanitize=clean_record, private=contains_private, io_type=ReviewIO)
 
 
 def versions(service, state, target):
-    return review_versions(_scope(state, target), _files(service, state, target))
+    return _task_review.versions(service, state, target, scope_for=_scope,
+                                 files_for=_files, version_reader=review_versions)
 
 
 def image_bytes(service, state, target, run_id):
-    return reviewed_image_bytes(_scope(state, target), _files(service, state, target), run_id)
+    return _task_review.image_bytes(service, state, target, run_id, scope_for=_scope,
+                                    files_for=_files, image_reader=reviewed_image_bytes)
 
 
 def review(service, state, target, kind, run_id, expected_revision):
-    with service.review_operation(state, target):
-        return apply_review(_scope(state, target), _files(service, state, target), kind, run_id,
-                            expected_revision, io=_io(service, state))
+    return _task_review.review(service, state, target, kind, run_id, expected_revision,
+                               scope_for=_scope, files_for=_files, io_for=_io, apply=apply_review)
 
 
 def export_passed(service, state):
-    return export_accepted(state, targets=lambda: service.targets(state),
-                           image_history=lambda target: service.store.image_history(state, target),
-                           files_for=lambda saved, target: _files(service, saved, target), io=_io(service, state))
+    return _task_review.export_passed(service, state, files_for=_files,
+                                      io_for=_io, exporter=export_accepted)
