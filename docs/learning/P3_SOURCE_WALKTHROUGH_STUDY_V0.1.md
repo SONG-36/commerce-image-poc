@@ -3,9 +3,10 @@
 **项目：** commerce-image-poc
 **定位：** 业务驱动学习 Context、多模态、图片与评价；通过真实案例按需补足 Python 后端和 AI 系统执行基础。
 **初始化日期：** 2026-10-22（Asia/Shanghai）
+**最近状态同步：** 2026-10-23；本轮起点 `main / cb8ec3944c5df5473d5e1a6b404cc1a9c6a717e8`，既有 C3 已提交；本轮只同步学习事实与跨仓接续。
 **当前阶段：** P3-01 快速源码定向；主要转向真实商品变形的证据诊断，不继续线性逐行深学。
 **执行状态：** P3-01 ACTIVE；采用 A/B/C 三个任务检查点。已有部分概念达到 ORIENTED，尚未完成调用链追踪与检查点复述；L1～L5 专题深学不作为第一轮前置条件。
-**初始化与本轮起点：** `main` / `dfcf6df82230c6f1a7c8383ce8a1fe95091312b6`（P3 初始化已提交）；初始规划基线为 `5a3c57a`。
+**历史初始化基线：** `main` / `dfcf6df82230c6f1a7c8383ce8a1fe95091312b6`（P3 初始化已提交）；初始规划基线为 `5a3c57a`。
 **本次源码核查基线：** `main` / `39199acc42ec056eae87247f17b267f1adbfd05a`（Inspector / Live Debug C1）；学习记录作为独立 C3 文档提交，不改变源码。
 **业务源码基线：** `78c68f9f25639d77abfdc3792a36541912f8af09` 是 FINAL CUTOVER 历史检查点；后续 Inspector/Live Debug 源码检查点以 [CURRENT_STATE](../02_CURRENT_STATE.md) 第 5 节为准，不能只用旧 SHA 复现当前工作台。
 
@@ -193,6 +194,18 @@ A/B/C 各保留一次复述与记录；遇到具体阻碍再查下方知识索�
 
 学习者本次检查点复述原文、反馈与 TRACEABLE 验证：待记录。不能将上述初步理解标为全部 UNDERSTOOD。
 
+### 待复习与独立检验
+
+以下来自已有学习记录与用户已确认的定向基础，本次没有替学习者测验或推进掌握等级：
+
+| 主题 | 仍需自己说明/验证 |
+|---|---|
+| Python 后端 | 从 Client/Server、Flask、应用初始化的 ORIENTED 基础，追清一次对象引用、HTTP 调用、Runtime/文件副作用；不要求逐行精通 Python。 |
+| M01 / M03 | Token Embedding 与 Sentence Embedding、训练如何形成表示；Q/K 权重与 V 汇总输出的区别。M01 已提交复盘仍为 REVIEW_REQUIRED，M03 记录未跟踪且为 ORIENTED。 |
+| M04 / M05 / M07 | 商品事实与参考角色、Context 与实际 SDK 输入、生成与保持、Validation 与 Evaluation、无依据与已证伪宣称、人工 Rubric 与受控对照。已有概念记录不等于真实工程实践已验收。 |
+
+依据：理论仓库 [M01 复盘](../../../enterprise-ai-theory/theory/M01_LEARNING_REVIEW_V0.1.md) 与第一轮知识地图；后者及 M03/M04/M05/M07 记录目前未跟踪，Git 边界见末尾交接。优先在商品变形诊断中定点复习，未独立掌握的部分保留 UNKNOWN。
+
 ### B 记录
 
 NOT_STARTED；调用链复述、定位结果与学习深度待记录，不预填 TRACEABLE。
@@ -222,7 +235,7 @@ NOT_STARTED；已明确商品变形诊断方向，但独立证据定位、复述
 
 | 项目 | 当前事实 |
 |---|---|
-| 文档 | 初始化已提交为 dfcf6df；本次双主线与快速定向修订按用户授权建立独立 C3 检查点，实际 SHA 以 Git log 为准 |
+| 文档 | 初始化 dfcf6df，双主线 C3 已提交为 cb8ec3944c5df5473d5e1a6b404cc1a9c6a717e8；本次仅同步事实与下一会话接续，不新建学习文件 |
 | P3-01 / A | ACTIVE；用户提供的初步理解为 ORIENTED，系统全貌检查点复述待记录 |
 | P3-01 / B、C | NOT_STARTED；单图生成与典型失败追踪尚未记录为 TRACEABLE |
 | L1～L5 | 后续专题索引；不作为第一轮全部深学的门槛，已有部分 ORIENTED 不等于专题完成 |
@@ -247,3 +260,28 @@ NOT_STARTED；已明确商品变形诊断方向，但独立证据定位、复述
 | L5 | [Testing Flask Applications](https://flask.palletsprojects.com/en/stable/testing/) | 测试客户端与隔离思路；官方示例使用 pytest，不意味着本项目需替换现有 unittest |
 
 原草稿提及的 Docs as Code、Diátaxis、主动复述/间隔复习仅作为记录与学习组织方法，不据此新增 Charter、多层文档或工程组件。
+
+## 10. 下一会话接续（2026-10-23）
+
+**读取顺序**：本节 → [CURRENT_STATE](../02_CURRENT_STATE.md) → [系统愿景](../../../aigc-system-blueprint/docs/AIGC_SYSTEM_VISION_V0.1.md) / [演进台账](../../../aigc-system-blueprint/docs/SYSTEM_EVOLUTION_MAP_V0.1.md)；先核对各仓 Git，不依赖聊天记忆认定已提交、已学会或已部署。本节所在的最新文档 Commit 可用 `git log -1 -- docs/learning/P3_SOURCE_WALKTHROUGH_STUDY_V0.1.md` 确认，避免把自引用 SHA 写入正文。
+
+| 本地仓库（均位于 /Users/andy/projects/） | 职责与 Git 检查点 |
+|---|---|
+| commerce-image-poc | 商品图业务、源码与运行 Evidence；源码 C1 `39199acc42ec056eae87247f17b267f1adbfd05a`，工程文档 C2 `331a13b`、学习 C3 `cb8ec39`；本轮文档起点 cb8ec39，最新交接以本文件所属 Commit 为准。 |
+| enterprise-ai-theory | M00–M07 理论/实验；HEAD `d0ab310ed9ff9ee71ed6894188ec2f7bce96776c`。另有 .gitignore 修改、7 份未跟踪 Markdown 和 1 份未跟踪 M04 实验脚本；未获本轮文档提交条件，保持原样，不把本地成果冒充该 SHA 内容。 |
+| aigc-system-blueprint | 长期产品方向与取舍；本轮文档检查点 `60ac4bfc3f5d803950fcdcc9c0c29a39f082a5e7`。沿用 Vision §9.1、演进 EV-002/003；不新建 ADR。 |
+
+**已有能力**：商品/参考输入 → Planning/逐图确认（Quick 不需要）→ 生成/带图编辑 → Review/Pass → 版本/ZIP/Evidence；Inspector V0.7 和独立本地 Live Debug 已提交。最近软件实测 366 项 / Node 46 项通过，完整浏览器验收仍 PARTIAL；本轮未重跑测试或模型。
+**理论状态**：本地知识地图记第一轮 M00–M07 定向结束，不能当作全模块掌握；M01 四项实验及复盘已提交且 REVIEW_REQUIRED，M02/M03/M06 仅 ORIENTED，M04/M05/M07 为 ORIENTED / ENGINEERING PRACTICE PENDING。M04 笔记报告合成分类对照 10/10 vs 10/10，非真实商品质量评价，本轮未核验原响应；M00 无独立验收，M06 无单独学习文件。相关未跟踪记录不具备 Git 可恢复性。
+**两条主线**：A 以业务问题学习 Context / Multimodal / Image / Evaluation；B 通过同一案例按需补 Python 后端、Runtime、Persistence 和调试。P3-01 用 A/B/C 快速定向，不逐行深学 L1～L5；目前只有 Client/Server、Flask、Task/持久化及初始化等 ORIENTED 记录，B/C 独立复述仍待完成。
+**当前问题与重要案例**：运营反馈商品主体变形。已有本地未跟踪 [M05 CASE-001](../../../enterprise-ai-theory/theory/M05_CASE_001_QUICK_REDESIGN_EVIDENCE_V0.1.md) 报告 Task `bbf3f10c42ad4a329438222ac1715d39`、Image `product_011`、revision 1、Run `20261016T071710Z-94b3eab16e3c4f33a99a63332eaefdf6`；Quick 未执行 T02，旧报告未证实主体替换，指出宣称缺少已保存事实支持。它是调查索引，不是本轮原图核验或已证明的变形根因。
+
+**Evidence / Inspector**：已有启动为 `./scripts/start_live_debug.sh` → `http://127.0.0.1:8013/`，需既有隔离 Runtime，CLI 自动加载根目录 .env；本轮没有启动或核验运行进程/Key。只读侧栏跟随完整 Task/Image/revision/Run，按来源查看原图、清单、Context、Prompt、请求/响应与结果；Quick 图不虚构 Planning，INFERRED/MISSING 不升级为事实。历史材料可用性须在明确授权目录内核对，不自动 SSH 或扫描运营数据。
+
+**下一步具体任务（待下一轮授权，不在本轮执行）**：
+
+1. 先核对目标案例/运营拒绝图的准确版本，恢复商品与参考身份、实际 Prompt/顺序、输出和审核的证据表；分开评价主体保持与宣称依据。原始材料缺失时报告 UNKNOWN，不以现有 Builder 或 Mock 替代。
+2. 定义最小人工 Rubric，再提出一个受控对照因素；付费生成独立授权，不自动重试/批量。近期停止扩张 UI/架构。
+3. 理论仓库先独立审查未提交 M04 源码与现有修改，再建立检查点并同步总索引的 M04/M05/M07 重心；本轮因源码未提交停止该仓操作，七份 Markdown 均未纳入 Git。
+
+**UNKNOWN / 安全**：真实外观变形的确切失败版本、案例原始文件可用性、模型内部根因、真实质量/账单与人工完整验收均未确认；Mac mini 版本/WSGI/备份 UNKNOWN，核验 DEFER。保留历史凭据风险及快照，不读取/展示密钥，不把 .env、runtime、图片或日志入 Git；资料访问、源码改动、实验/付费须分别按授权范围执行。
