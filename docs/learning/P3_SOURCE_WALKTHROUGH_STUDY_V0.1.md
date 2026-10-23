@@ -1,18 +1,28 @@
 # P3｜AI 产品工程源码走读与执行机制学习记录 V0.1
 
 **项目：** commerce-image-poc
-**定位：** 以真实 AIGC 业务流程为载体，理解 Python 后端工程与 AI 系统的执行机制。
+**定位：** 业务驱动学习 Context、多模态、图片与评价；通过真实案例按需补足 Python 后端和 AI 系统执行基础。
 **初始化日期：** 2026-10-22（Asia/Shanghai）
-**当前阶段：** P3-01 — 全局 Python 与 AI 业务执行通路
-**计划状态：** PLANNED；P3-01 与 L1～L5 均为 NOT_STARTED，尚未评价学习者掌握程度。
-**仓库基线：** `main` / `5a3c57a8de8e3c0c07b886f9379c111cd5a79cf6`（文档检查点）。
-**业务源码基线：** `78c68f9f25639d77abfdc3792a36541912f8af09`（FINAL CUTOVER）；当前 HEAD 未改变该检查点的源码。
+**当前阶段：** P3-01 快速源码定向；主要转向真实商品变形的证据诊断，不继续线性逐行深学。
+**执行状态：** P3-01 ACTIVE；采用 A/B/C 三个任务检查点。已有部分概念达到 ORIENTED，尚未完成调用链追踪与检查点复述；L1～L5 专题深学不作为第一轮前置条件。
+**初始化与本轮起点：** `main` / `dfcf6df82230c6f1a7c8383ce8a1fe95091312b6`（P3 初始化已提交）；初始规划基线为 `5a3c57a`。
+**本次源码核查基线：** `main` / `39199acc42ec056eae87247f17b267f1adbfd05a`（Inspector / Live Debug C1）；学习记录作为独立 C3 文档提交，不改变源码。
+**业务源码基线：** `78c68f9f25639d77abfdc3792a36541912f8af09` 是 FINAL CUTOVER 历史检查点；后续 Inspector/Live Debug 源码检查点以 [CURRENT_STATE](../02_CURRENT_STATE.md) 第 5 节为准，不能只用旧 SHA 复现当前工作台。
 
-本文既是计划，也是后续持续更新的唯一 P3 学习记录。本轮发现已有同名未跟踪草稿，直接补全，不另建等价计划或逐课文件。
+本文既是计划，也是后续持续更新的唯一 P3 学习记录。初始化已提交，本次按已批准的业务/Python 双主线调整执行方式，并建立独立文档检查点；不另建学习文档。
 源码、测试和业务状态分别以 [src/](../../src/)、[tests/](../../tests/)、[CURRENT_STATE](../02_CURRENT_STATE.md) 为准；[README](../../README.md) 是启动与导航入口。
-这里的函数和行号只适用于上述基线；后续先核对版本，再更新定位，不把旧行号当作新版本事实。
+以下函数和行号已按本次 Inspector/Live Debug 工作树静态核对；提交后以对应源码检查点为准。后续先核对版本，不把旧行号当作新版本事实。
 
 ## 1. 学习目标、方法与证据
+
+采用两条互补主线，**主线 A/B 与下方 P3-01 检查点 A/B/C 是不同维度**：
+
+| 学习主线 | 任务与边界 |
+|---|---|
+| A — 业务驱动的 Context / Multimodal / Image / Evaluation | 以商品主体变形案例检查商品身份、参考角色、Context/Prompt、模型图片输入、输出与人工评价；分开记录事实、推断和 UNKNOWN，不用工具图谱代替语义判断。 |
+| B — 真实案例中的 Python 后端基础 | 只为当前诊断补足 HTTP/Flask、应用初始化、Runtime、Persistence、文件与异常调试；不要求先精通语言、框架内部或复杂并发。 |
+
+Workflow Inspector 是现有证据的只读调试辅助工具，不是模型内部因果解释器；实现工具、看过截图或读过源码都不自动表示已经掌握相关理论。
 
 建立三条相互关联的工程认知：
 
@@ -28,8 +38,17 @@
 | Why | 当前业务为何需要这个边界；删掉它或放错位置，会出现什么具体问题？设计动机若无直接证据须标 INFERENCE。 |
 | Engineering | 在哪个文件/函数/对象上体现？谁调用、何时执行、修改什么状态、产生什么 I/O、失败由谁处理？ |
 
-学习顺序：只读定位 → 结合代码解释理论 → 跟踪输入/输出/状态/副作用 → 学习者无提示复述 → 记录与复习。
-可以与已有 C、嵌入式或 AI 理论经验对照，但不预设学习者已经掌握；源码调查完成不等于学习完成。
+以 **Top-down** 为主：先看业务目标、组件职责与一次请求，再沿实际调用进入必要函数；不从 import、每个构造器或每行语法开始线性深挖。
+仅在当前任务被语法、对象引用或 I/O 概念阻断时，短暂 **Bottom-up** 补足最小 Python 基础，随后回到原调用链。Python 按需学习，不要求先完成整套语言课程。
+执行方式：选择检查点任务 → 最小源码定位 → What / Why / Engineering → **每检查点一次复述与记录** → 列出 UNKNOWN 后继续或定向补足。复述仅覆盖本检查点，不逐个专题考试。
+
+| 学习深度 | 含义与边界 |
+|---|---|
+| ORIENTED | 能说明大致用途、职责和位置，已有初步概念；不代表可以独立追完整调用链或已全部 UNDERSTOOD。 |
+| TRACEABLE | 能借助源码追踪本任务的输入、调用、状态、I/O 与失败去向，并指出证据位置及 UNKNOWN；这是第一轮的主要目标。 |
+| DEEP DIVE | 对选定专题深入研究内部机制、边界和实现细节；只在实际问题需要时展开，不是 P3-01 第一轮必达层级。 |
+
+执行状态（NOT_STARTED / ACTIVE / REVIEW / COMPLETED）与学习深度分开记录；未评估的深度记 UNKNOWN，不自动推定。可以与既有经验对照，但源码调查完成不等于学习完成。
 
 | 标识 | 使用规则 |
 |---|---|
@@ -37,48 +56,76 @@
 | INFERENCE | 根据源码关系或观察作出的解释，列依据与推导；不写成作者已确认动机或模型内部事实。 |
 | UNKNOWN | 当前缺证据、未执行或尚未理解；写清缺什么、怎样安全核对。 |
 
-以下调用定位为本轮 **OBSERVED / 静态源码**，仅作为待学习的真实入口，不是本轮运行轨迹或用户已掌握知识。
+下列调用位置为 **OBSERVED / 静态源码**，不是本轮模型运行轨迹；学习事实来自用户确认，不因源码已提取或工程回归通过就提高掌握等级。
 
 ## 2. 阶段路线
 
 | 阶段 | 范围与预期产物 | 学习状态 |
 |---|---|---|
-| P3-01 | 全局执行通路；完成 L1～L5，能独立串联一次请求及失败边界。详见第 3 节。 | NOT_STARTED |
+| P3-01 | 快速源码定向：A 系统全貌 → B 单图生成调用链 → C 失败与证据定位。以可追踪、可定位为目标。 | ACTIVE |
 | P3-02 | 多模态输入、图片角色、Context 与 Planning；建立数据来源到请求/结果的简要追踪。暂不细化课次。 | NOT_STARTED |
 | P3-03 | Generation、Review、并发和版本；理解执行身份、锁、父版本与 Pass。暂不细化课次。 | NOT_STARTED |
 | P3-04 | Evidence 与 AI Failure Diagnosis；按阶段证据区分程序问题、语义偏差及未知原因。暂不细化课次。 | NOT_STARTED |
 
-只有当前 P3-01 详细规划；后续阶段在人工确认当前学习进度后展开，不预设新的工程任务。
+只有当前 P3-01 详细规划。L1～L5 保留为专题索引，不要求第一轮全部深入掌握；P3-02～P3-04 按真实需要展开，不预设新的工程任务。
+当前优先用商品变形案例串联主线 A，并在阻碍追踪时补主线 B；这不自动将后续阶段或尚未独立复述的理论标为完成。
 
-## 3. P3-01 五节学习安排
+## 3. P3-01 第一轮执行检查点
+
+### A — 系统全貌与组件职责
+
+- **任务**：从运营创建任务到生成、修改、Pass 和导出，说明主要组件各管什么、怎样连接；先定向，不展开全部函数。
+- **最小入口**：[app.create_app():108](../../src/app.py#L108)、[api.register_routes():17](../../src/api/routes.py#L17) 及 [CURRENT_STATE 模块表](../02_CURRENT_STATE.md)。
+- **产物与复述**：一张简要组件关系图/职责表，一次用自己的话串联业务过程；能指出 HTTP、Task/Application、AI Capability、持久化与 Evidence 的归属即可。
+- **边界**：已有基础概念先按 ORIENTED 使用；不要求理解 Flask 内核、全部依赖初始化或每个 lambda 的细节。当前 A 尚待完整复述。
+
+### B — 单次商品图生成的真实业务调用链
+
+- **任务**：选目标商品案例的一张图片，沿源码追踪生成请求；商品图包使用已有确认版本，Quick 不虚构 Planning。计划本身不授权新的付费执行。
+- **主链**：[routes.generate_one():137](../../src/api/routes.py#L137) → [TaskImageApplication.generate_one():51](../../src/image_workflow/tasks/images.py#L51) → [GenerationService.generate():94](../../src/image_workflow/tasks/generation.py#L94) → [execute_generation():147](../../src/image_workflow/generation/service.py#L147) → Run/图片/指针与 HTTP 返回；需要时再进入 runtime 回调核对。
+- **产物与复述**：一次按顺序说明 Task/Image/确认版本、Context/图片输入、SDK 边界、输出文件和状态变化；记录实际文件/函数与未知项，目标为 TRACEABLE。
+- **边界**：只跟本图，不同时展开完整 Planning、所有工作模式、修改分支或复杂锁实现；不把静态链路当作已发生的真实运行。
+
+### C — 一条典型失败路径与证据定位
+
+- **任务**：围绕同一商品变形案例，依次定位原商品/参考身份、确认 Context（如有）、实际 Prompt 与图片顺序、模型输出及人工评价，找出第一处可观察偏差。可借 [InspectorReader.inspect()](../../src/image_workflow/inspector.py#L289) 与 [context_graph()](../../src/image_workflow/inspector_graph.py#L12) 定位保存证据，不能用当前 Builder 重建内容冒充历史请求。
+- **产物与复述**：一次说明已保存什么、哪些关联可确认、哪些缺失或 UNKNOWN；区分输入/Planning/请求构建错误与输出偏差，不凭外观断言模型内部根因。补充程序失败例时，可追踪 confirmed_revision 不匹配 → Problem → [HTTP problem():28](../../src/api/routes.py#L28) 返回 409，与已尝试调用后失败对比。
+- **边界**：先达到 TRACEABLE；前置拒绝不能虚构 Run，已有错误文件不能证明服务端未执行或免费。案例读取与真实调用须另有明确授权；本次仅同步计划，不新增历史调查或实验结论。
+
+A/B/C 各保留一次复述与记录；遇到具体阻碍再查下方知识索引，不为了覆盖索引扩展检查点。
+
+## 4. L1～L5 后续专题知识索引
+
+以下保留原五节的源码入口、理论候选与复述题，供按需补足或后续 DEEP DIVE 使用，**不是第一轮线性必修清单**。各节列出的“产物/复述”也不要求在第一轮逐项完成。
+复杂并发/锁实现、多进程、Flask/WSGI 框架内部、装饰器/闭包底层、完整导入机制与全量版本/恢复边界延后；第一轮只识别接口、作用范围和风险。延后不等于已掌握，也不自动授权深挖或重构。
 
 ### L1 — 应用启动
 
-**学习状态：NOT_STARTED。**
+**索引状态**：应用初始化与对象引用已有 ORIENTED 基础；专题深学 NOT_STARTED。
 
 - **Python 理论**：解释器/进程、模块与 Package、import 的顶层执行、`__name__` / `__main__`、函数定义与调用、类与实例、继承、函数作为参数及 lambda。
 - **后端理论**：应用工厂、依赖组装、应用对象与服务器进程的区别、配置和资源路径、WSGI 与本机开发服务。
 - **AI 理论**：导入 SDK、创建适配器与实际调用模型是不同动作；配置模型/密钥不等于已经发出请求或产生费用。
-- **源码入口**：[app.py:108 `create_app()`](../../src/app.py#L108)、[app.py:134 启动块](../../src/app.py#L134)、[prepare_plan.py:5 兼容导入](../../src/prepare_plan.py#L5)、[generation_runtime.py:56 配置子类](../../src/image_workflow/tasks/generation_runtime.py#L56)。
+- **源码入口**：[app.py:108 `create_app()`](../../src/app.py#L108)、[app.py:134 本地调试工厂](../../src/app.py#L134)、[app.py:155 本地启动块](../../src/app.py#L155)、[prepare_plan.py:5 兼容导入](../../src/prepare_plan.py#L5)、[generation_runtime.py:56 配置子类](../../src/image_workflow/tasks/generation_runtime.py#L56)。
 - **要亲自验证的关系**：启动块调用工厂后才调用 `.run()`；工厂创建 Store、一个 GenerationService、TaskApplication、TaskQueries、TaskImageApplication，再调用 `register_routes()`。区分“注册 handler”与“执行 handler”；追踪同一实例如何传入下游。
 - **What / Why / Engineering 产物**：画一张对象关系草图；逐项列出对象创建点、共享关系和作用域。为何工厂适合隔离测试，用源码与现有测试支持解释。
 - **无提示复述**：`import app`、`create_app()`、启动服务器、点击 AI 各会执行什么？为何 `prepare_plan.create_app` 不是第二套应用工厂？为什么不能从本地入口兼容推出 Mac mini 今日 WSGI 已可用？
 
 ### L2 — HTTP 请求
 
-**学习状态：NOT_STARTED。**
+**索引状态**：Client/Server、HTTP、Flask 路由已有 ORIENTED 基础；专题深学 NOT_STARTED。
 
 - **Python 理论**：装饰器、嵌套函数/闭包、可调用对象、字典/列表、字符串与 bytes、回调参数和返回值。
 - **后端理论**：Client/Server、URL/Method/endpoint、HTTP 状态码、JSON 与 multipart、请求上下文、模板/静态资源、请求解析和错误响应。
 - **AI 理论**：浏览器到本地 API 与后端到模型服务是两段边界；GET/保存/确认与模型操作不能混同；识别任务、图片和版本参数。
-- **源码入口**：[api/routes.py:17 `register_routes()`](../../src/api/routes.py#L17)、[routes.py:170 `save_inputs()`](../../src/api/routes.py#L170)、[routes.py:177 `action()`](../../src/api/routes.py#L177)；前端 [prepare.js:97 `runAction()`](../../src/static/prepare.js#L97) 与 [tasks.js:2 `loadTasks()`](../../src/static/tasks.js#L2)。
+- **源码入口**：[api/routes.py:17 `register_routes()`](../../src/api/routes.py#L17)、[routes.py:170 `save_inputs()`](../../src/api/routes.py#L170)、[routes.py:177 `action()`](../../src/api/routes.py#L177)；前端 [prepare.js:98 `runAction()`](../../src/static/prepare.js#L98) 与 [tasks.js:2 `loadTasks()`](../../src/static/tasks.js#L2)。
 - **要亲自验证的关系**：`loadTasks()` 的 GET `/api/tasks` → `task_list()` → 查询；上传 POST `/api/sessions` → `save_inputs()` → `tasks.save_inputs()`；`runAction()` 的 POST `/api/sessions/<session_id>/action` → `action()` → `tasks.action()`。后者按 action 类型决定是否规划，不能将所有 action POST 都称作付费请求。
 - **What / Why / Engineering 产物**：选一条请求，填写 Method、URL、输入字段/文件、handler、用例、响应和可能状态码；先以只读列表理解 HTTP，再在源码上追踪 AI 操作。
 - **无提示复述**：路由装饰器何时生效？`request.get_json` 作为回调传递和立刻调用有什么差别？为何业务用例不直接导入 Flask 的 request？
 
 ### L3 — Task / Application 协调
 
-**学习状态：NOT_STARTED。**
+**索引状态**：Task 与持久化的基本关系已有 ORIENTED 基础；协调/版本/锁专题深学 NOT_STARTED。
 
 - **Python 理论**：对象组合与实例引用、字典可变性、拷贝和别名、异常/异常链、`try/finally`、上下文管理、线程锁及非阻塞获取。
 - **后端理论**：HTTP 表示、应用用例、业务规则、查询视图和持久化职责；并发冲突、版本检查、执行顺序与锁释放。
@@ -90,7 +137,7 @@
 
 ### L4 — AI Capability 与文件 I/O
 
-**学习状态：NOT_STARTED。**
+**索引状态**：仅 Task 持久化的基本概念为 ORIENTED；AI 调用与文件 I/O 专题深学 NOT_STARTED。
 
 - **Python 理论**：`Path`、文件 open/with、文本编码与图片字节、JSON/base64 序列化、dataclass/Callable、SDK 对象、异常传播与耗时测量。
 - **后端理论**：纯函数与副作用、同步网络 I/O、超时/重试、原子替换与独占创建、文件写入顺序；单文件原子性不等于跨文件事务。
@@ -104,7 +151,7 @@
 
 ### L5 — 端到端调用链和失败诊断
 
-**学习状态：NOT_STARTED。**
+**索引状态**：端到端追踪与失败诊断 NOT_STARTED；第一轮先完成检查点 B/C。
 
 - **Python 理论**：调用栈与 traceback、`raise ... from ...`、异常被转换/被记录后返回的差异、finally、可变状态与持久化后的状态区别。
 - **后端理论**：请求→用例→能力→文件→响应；错误映射、操作去重、状态查询、成功/失败与未知状态，进程内保护及崩溃窗口。
@@ -114,86 +161,79 @@
 - **What / Why / Engineering 产物**：一条成功链和一条失败链，逐边界列输入、输出、状态、文件/外部副作用和错误去向；指出至少一个现有保护和一个尚未解决的窗口。
 - **无提示复述**：从哪个入口调查商品变形、计划映射错误、版本冲突和不确定请求？哪些证据能区分 Planning 错误与 Generation 偏差，哪些仍然不能确定？
 
-**测试导航（本轮未运行）**：[入口兼容](../../tests/test_source_cutover.py)、[HTTP](../../tests/test_api_package.py)、[Task 应用](../../tests/test_task_application.py)、[请求构建](../../tests/test_t02_request_construction.py)、[Generation](../../tests/test_generation_package.py)、[Review](../../tests/test_review_package.py)。先阅读相应断言；若后续需要执行，须单独确认隔离临时目录、阻断网络/真实 runtime，不因学习默认启动服务或运行生成任务。
+**测试导航（工程结果见 CURRENT_STATE，不自动推进学习状态）**：[入口兼容](../../tests/test_source_cutover.py)、[HTTP](../../tests/test_api_package.py)、[Task 应用](../../tests/test_task_application.py)、[请求构建](../../tests/test_t02_request_construction.py)、[Generation](../../tests/test_generation_package.py)、[Review](../../tests/test_review_package.py)。先阅读相应断言；后续学习中若需执行，仍须确认隔离临时目录、阻断网络/真实 runtime，不因学习默认启动服务或运行生成任务。
 
-## 4. 课次记录模板与持续记录区
+## 5. 检查点记录模板与持续记录区
 
-每次在本节对应课次下扩展记录，复用以下模板；不得为每节另建文件。留空表示未记录，不由 Codex 代填“我的理解”或制造实验。
+每完成 A/B/C 中一个检查点，在本节补一次实际复述、反馈与记录；后续专题也在本文追加，不另建逐课文件。留空表示未记录，不由 Codex 代填“我的理解”或制造实验。
 
 ```text
-课次：Lx — 名称
-学习状态：NOT_STARTED / ACTIVE / REVIEW / UNDERSTOOD
-学习日期：待记录
-源码基线：Branch / Git SHA；与初始化版本的差异
-
-A. 已核实事实
-- [OBSERVED / 静态源码或实际执行] 文件、函数、行号、调用方/被调用方。
-- 输入、输出、状态所有者和副作用；证据与适用版本。
-B. What / Why / Engineering
-- What：概念是什么；Why：为什么需要（推断须标 INFERENCE）。
-- Engineering：当前实现、接口、对象、I/O、失败边界；可与既有经验对照。
-C. 我的理解与复述（由学习者提供或明确确认）
-- 自己解释的调用链、回答、误解和未理解点。
-D. 验证
-- 只读追踪/临时离线检查方法，实际是否执行；结果和证据。
-- [INFERENCE] 推导及依据；[UNKNOWN] 缺失信息和安全核对方法。
-E. 复习与下一步
-- 待解决问题、复述反馈、是否复习、下一节入口。
-更新人/确认方式：待记录；不能仅因助教读过源码就标 UNDERSTOOD。
+检查点：A / B / C（后续专题再标 L1～L5）
+任务与执行状态：NOT_STARTED / ACTIVE / REVIEW / COMPLETED
+学习深度：ORIENTED / TRACEABLE / DEEP DIVE；未评估则 UNKNOWN
+学习日期、源码基线：Branch / Git SHA；与记录版本的差异
+1. What / Why / Engineering：本任务的用途、理由、真实组件与调用位置。
+2. [OBSERVED] 静态源码或实际执行、来源、输入/输出、状态和副作用。
+3. 我的单次复述：由学习者提供/确认；记录反馈与纠正，不补写不存在的原话。
+4. [INFERENCE] 推导及依据；[UNKNOWN] 尚缺什么，是否阻断当前任务。
+5. 验证与下一步：实际做了什么/未做什么；按需补哪个 Python 概念，何时回到主链。
+确认方式：待记录。源码已摘录、计划已生成或模型返回成功均不自动提高学习深度。
 ```
 
-### L1 学习记录
+### A 记录 — 已有定向基础
 
-NOT_STARTED；学习日期、学习者复述、验证结果均待记录。
+**执行状态：ACTIVE；相关概念深度：ORIENTED；检查点复述尚未完成。**
+**来源：OBSERVED / 用户本轮明确提供的学习事实**，不冒充独立测验或已保存的逐字复述：
 
-### L2 学习记录
+| 已有学习事实 | 深度与边界 |
+|---|---|
+| 初步理解 Client/Server、HTTP、Flask 路由 | ORIENTED；具体请求的完整追踪尚待 B |
+| 初步理解 Task 与持久化 | ORIENTED；不代表状态/事务/恢复机制已深入掌握 |
+| 初步理解 create_app 初始化和对象引用 | ORIENTED；不代表全部构造器、回调或框架内部均 UNDERSTOOD |
 
-NOT_STARTED；学习日期、学习者复述、验证结果均待记录。
+学习者本次检查点复述原文、反馈与 TRACEABLE 验证：待记录。不能将上述初步理解标为全部 UNDERSTOOD。
 
-### L3 学习记录
+### B 记录
 
-NOT_STARTED；学习日期、学习者复述、验证结果均待记录。
+NOT_STARTED；调用链复述、定位结果与学习深度待记录，不预填 TRACEABLE。
 
-### L4 学习记录
+### C 记录
 
-NOT_STARTED；学习日期、学习者复述、验证结果均待记录。
+NOT_STARTED；已明确商品变形诊断方向，但独立证据定位、复述与学习深度仍待记录，不预填 TRACEABLE 或虚构已查明根因。
 
-### L5 学习记录
+## 6. 第一轮完成标准
 
-NOT_STARTED；学习日期、学习者复述、验证结果均待记录。
+- A/B/C 各有一次学习者复述与对应记录；A 能说明全貌并找到职责归属，B/C 达到 TRACEABLE：能借助源码追踪单图生成、定位典型失败及应查证据。
+- 能区分已观察事实、推断与 UNKNOWN，说明当前路径的关键输入、输出、状态和副作用；不要求背诵源码、掌握所有函数或消除所有 UNKNOWN。
+- Python 基础只需足以支撑本轮追踪；不要求 L1～L5 全部 UNDERSTOOD，也不要求任何专题达到 DEEP DIVE。
+- 达到以上标准后才将 P3-01 执行状态标 COMPLETED；本轮仅调整计划并记录 ORIENTED 基础，不宣称检查点已全部完成。
+- 第一轮目标是**可追踪、可定位，不是源码精通**；学习完成仍不等于真实模型验收、运营接受、部署通过或新工程范围获授权。
 
-## 5. 状态、复述要求和完成标准
+## 7. 更新与 Git 检查点规则
 
-- NOT_STARTED：尚未开始该课；ACTIVE：正在学习；REVIEW：存在需复习的缺口；UNDERSTOOD：学习者无提示复述并经确认。生成计划和静态索引不推进这些状态。
-- 每课结束先由学习者解释调用顺序、数据、状态与失败边界，再用源码核对。记录其实际表述和纠正点，后续短复习；不知道的部分保留 UNKNOWN。
-- P3-01 仅在 L1～L5 均达到 UNDERSTOOD，并能独立追踪一条成功路径和一条失败路径、辨别源码/运行证据/推断之后标 COMPLETED。
-- 完成时应能解释：模块加载与工厂、HTTP 到 Task 的边界、模型与文件 I/O、确认/版本/Pass 身份，以及错误、去重和诊断限制。
-- 学习完成不等于真实模型验收、运营业务接受、部署通过或新工程范围获授权。
-
-## 6. 更新与 Git 检查点规则
-
-- 每节更新本文件的学习记录、实际进度与下一步；保留既有人工记录与未解决问题，不静默改写已确认结论。
+- 每检查点完成一次复述与记录后更新进度和下一步；专题按需补记。保留既有人工记录与未解决问题，不静默改写已确认结论。
 - 源码变更后先核对 HEAD、工作区和实际函数，重要结论携带版本；新结论注明日期和依据，旧基线标为历史而非套用新代码。
 - 学习验证默认只读；不读取密钥/真实 runtime、不发送业务资料、不调用模型、不部署、不借学习继续重构。需要运行离线检查时仅用受控临时目录与 Mock，并如实记录执行与未执行。
 - 重要学习节点或阶段完成可提出独立文档 Commit；**只有用户明确授权后才暂存和提交**。显式列文件、检查 staged diff/空白与敏感信息；不自动 Push，不混入用户原有修改。
-- CURRENT_STATE 仅记录阶段初始化、重要检查点与完成状态及相对链接，不复制课次计划。README 保持导航用途，本轮无需改动。
+- CURRENT_STATE 仅记录阶段、重要检查点与本文相对链接，不复制学习计划；本次同步其 P3-01 ACTIVE / ORIENTED 与双主线状态，保留未完成复述和 UNKNOWN。详细学习进度以本文为准。
 - 进入新聊天先读本文件的基线、进度、复述与 UNKNOWN，再继续；不依赖聊天记忆认定已掌握。
 
-## 7. 当前进度及下一步
+## 8. 当前进度及下一步
 
 | 项目 | 当前事实 |
 |---|---|
-| 文档 | 既有草稿补全，初始化待人工审核；未 Commit |
-| P3-01 / L1～L5 | NOT_STARTED，0/5 节有已确认学习记录 |
+| 文档 | 初始化已提交为 dfcf6df；本次双主线与快速定向修订按用户授权建立独立 C3 检查点，实际 SHA 以 Git log 为准 |
+| P3-01 / A | ACTIVE；用户提供的初步理解为 ORIENTED，系统全貌检查点复述待记录 |
+| P3-01 / B、C | NOT_STARTED；单图生成与典型失败追踪尚未记录为 TRACEABLE |
+| L1～L5 | 后续专题索引；不作为第一轮全部深学的门槛，已有部分 ORIENTED 不等于专题完成 |
 | P3-02～P3-04 | NOT_STARTED，仅保留阶段索引 |
-| 本轮源码核对 | OBSERVED / 静态定位；没有启动服务、执行软件回归或产生运行 Evidence |
-| 学习者掌握程度 | UNKNOWN，尚无本轮复述或测试记录 |
+| 本轮验证 | 文档、静态源码定位与链接复核；工程离线回归另记 CURRENT_STATE，不当作学习者已掌握理论的证明；未启动服务、调用模型或读取真实 runtime |
 | Mac mini | UNKNOWN / UNVERIFIED，核验 DEFER；本地版本不代表线上版本 |
 
-下一步：等待人工审核本文；随后从 **P3-01 / L1 应用启动** 开始，一次只讲一条链路，等待学习者复述和提问，再决定进入下一课。
-本轮仅初始化记录，不在这里提前给出五课的学习完成结论。
+下一步：从**真实商品变形案例**切入业务主线，借 Inspector 找到输入、Context、请求和输出的证据；按 A/B/C 检查点补足系统全貌复述、单图调用追踪和偏差定位记录，遇到阻碍才补 Python/Runtime/Persistence 基础。
+不按 L1→L5 逐行深学推进，也不因已有 ORIENTED 基础跳过独立追踪、评价和复述；未独立掌握的理论继续记 UNKNOWN 或 NOT_STARTED。
 
-## 8. Python / Flask 官方参考
+## 9. Python / Flask 官方参考
 
 以下链接于初始化时打开核对；用于解释基础原理，项目行为仍以对应 Git 版本的源码为准。Python 文档选择 3.12，Flask 选择 3.1.x 的 stable 文档；在线补丁版文档不代表本机已升级。
 
