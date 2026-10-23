@@ -30,20 +30,19 @@ python3.12 -m venv .venv
 打开 http://127.0.0.1:8010/ 。启动、页面加载和刷新不调用模型。
 原 `src/prepare_plan.py --port 8010` 及 `prepare_plan.create_app()` 仍兼容；该 Flask 调试服务不应直接开放到公网。
 
-AI 操作需要运行人员在启动前安全配置服务端环境变量 `OPENAI_API_KEY`；程序不自动读取 `.env` 或 `.env.example`。
+常规启动需预先配置服务端环境变量 `OPENAI_API_KEY`，不自动读取环境文件。固定本地 Live Debug 请在根目录 `.env` 的 `OPENAI_API_KEY=` 后填写 Key，再执行 `./scripts/start_live_debug.sh`，打开 [8013 任务中心](http://127.0.0.1:8013/)。该本地隔离 Runtime 内新建任务可直接手动生成、修改并查看右侧 Inspector，无需逐 Task 白名单或重启；生产入口不启用此范围。该入口只安全读取 `.env` 中的 Key，已有非空进程环境变量优先；不读取 `.env.example`，不自动调用模型。无 Key 时页面与 Inspector 可用，生成禁用；修改 Key 后重新运行同一命令即可。
 `OPENAI_PLANNING_MODEL`、`OPENAI_IMAGE_MODEL` 选择代码允许的模型，当前默认与调用边界见 [CURRENT_STATE](docs/02_CURRENT_STATE.md)。
 
 ## 离线测试
 
-复用现有依赖；完整回归还需本机可执行的 Node.js，供两组前端交互测试使用：
+复用现有依赖；完整回归还需本机可执行的 Node.js，供前端交互测试使用：
 
 ```bash
 .venv/bin/python -B -m unittest discover -s tests -v
 .venv/bin/python -B -m pip check
 ```
 
-测试使用临时目录和 Mock；不需要 API Key，不调用真实模型。279 项 Python 用例包含前端测试包装，不另行累加内部 Node 用例。
-本轮核查使用额外的临时目录/网络访问保护；未重新安装依赖或启动常驻服务。
+测试使用临时目录和 Mock；不需要 API Key，不调用真实模型。Python 回归包含 Node 测试包装，不另行累加内部用例；也可单独执行 `node --test tests/*.test.cjs`。最近实际结果与隔离保护范围见 [CURRENT_STATE](docs/02_CURRENT_STATE.md)。
 
 ## 目录导航
 
@@ -54,13 +53,29 @@ AI 操作需要运行人员在启动前安全配置服务端环境变量 `OPENAI
 | [src/image_workflow/](src/image_workflow/) | Task 编排、Planning、Generation、Review 与实验导出 |
 | [src/infrastructure/](src/infrastructure/) | 脱敏与 OpenAI Images 客户端配置 |
 | [src/persistence/](src/persistence/) / [file_ops.py](src/file_ops.py) | 状态文件、快照、路径及 JSON 操作 |
-| [src/cli/](src/cli/) | T01 与 Quick 独立实验命令；默认免费检查，只有显式 `--run-paid` 才尝试付费 |
+| [src/cli/](src/cli/) | T01/Quick 实验默认免费检查，`--run-paid` 才尝试付费；Live Debug 启动不调用模型 |
 | [src/templates/](src/templates/) / [src/static/](src/static/) | HTML、原生 JavaScript 与样式 |
 | [tests/](tests/) / [requirements.txt](requirements.txt) | 离线回归与 Python 依赖 |
 | `.runtime/` | Git 忽略的真实输入、任务、成图与 Evidence，须单独备份 |
 
 Web 默认数据位于 `.runtime/prepare-plan/sessions/<task-id>/`；`create_app(runtime_dir, case_dir)` 可指定独立数据位置。
 实验 CLI 原命令路径仍兼容，正式实现位于 `src/cli/`；参数可通过 `--help` 查看。
+
+## 本地 Workflow Inspector V0.7
+
+8013 Live Debug 工作台含只读侧栏，自动跟随隔离 Runtime 内的 Task/Image/revision/Run。Quick 单次 Run 支持 Context 有向图、节点/连线详情、来源、Prompt 和图片对照；商品图包保留执行证据查看。完整浏览器交互验收仍待完成。
+环境标识来自服务端配置：MOCK 是离线模拟，不能证明真实调用或计费；LIVE DEBUG 使用正式 SDK，用户主动模型操作可能付费，Key 非空不代表账户已验证或图片质量通过。
+独立只读入口仍保留，正式运营应用默认不开启 Inspector。显式授权证据根和 Task ID 后启动（替换示例；`--task-id` 可重复）：
+
+```bash
+PYTHONPATH=src .venv/bin/python -B -m api.inspector \
+  --runtime-dir /absolute/path/to/authorized/runtime \
+  --task-id 0123456789abcdef0123456789abcdef
+```
+
+打开 http://127.0.0.1:8011/inspector；Ctrl+C 停止。根目录应包含 `sessions/`。仅接受本机访问，拒绝转发头与外站请求；不用于生产、局域网入口或反向代理。
+可选 Image/revision/Run，查看原图、实际输入、Prompt、Context、响应、错误、哈希及 Review；已观察证据、推断关联和缺失资料分开标记。
+不补写历史、不自动判断变形根因；仅定位最近相关 Planning Call。展示会脱敏并省略图片编码，图片本身不做 OCR 匿名化，必须只授权可查看的任务。
 
 ## 文档入口
 

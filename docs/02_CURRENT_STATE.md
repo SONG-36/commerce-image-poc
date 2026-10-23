@@ -1,7 +1,9 @@
 # Current State
 
-> 核查日期：2026-10-22（Asia/Shanghai）。当前代码基线：`main` / `78c68f9f25639d77abfdc3792a36541912f8af09`。
-> 该 SHA 是 FINAL CUTOVER 源码检查点；后续本轮文档提交不改变业务源码基线。线上状态 **UNKNOWN / UNVERIFIED**。
+> 同步日期：2026-10-23（Asia/Shanghai）；本轮起点：`main` / `dfcf6df82230c6f1a7c8383ce8a1fe95091312b6`。
+> FINAL CUTOVER `78c68f9f25639d77abfdc3792a36541912f8af09` 是历史源码检查点；其后 Inspector/Live Debug 实现不包含在该 SHA 中。本轮新源码检查点见第 5 节。Mac mini 线上状态 **UNKNOWN / UNVERIFIED**，核验 **DEFER**。
+
+**当前摘要**：Inspector V0～V0.7 与本地 Live Debug 已实现；完整离线工程回归 366 项、Node 前端 46 项通过（Python 包含 Node 包装，不累加）。已有人工截图和部分操作体验，来源为用户本轮确认；本轮未重新做浏览器验证，完整交互清单尚未全部验收。真实模型质量仍未验收，Mock 成功不代表业务通过。第 6 节保留各阶段历史记录，现行启动、权限及验证状态以上述摘要和最新检查点为准。
 
 ## 1. 定位与当前阶段
 
@@ -44,6 +46,7 @@
 | [infrastructure/](../src/infrastructure/) | `evidence` 通用脱敏/私密字段过滤；`openai_images` Images SDK 客户端及参数，无业务/CLI 反向依赖 |
 | [persistence/](../src/persistence/) / [file_ops.py](../src/file_ops.py) | Task 当前状态/不可变快照、审核文件、路径/哈希/JSON；不替调用方推进业务状态，不提供多文件事务 |
 | [cli/](../src/cli/) | T01 与 Quick 实验入口，默认免费检查；不成为正式业务的导入依赖 |
+| [api/inspector.py](../src/api/inspector.py) / [image_workflow/inspector.py](../src/image_workflow/inspector.py) / [inspector_graph.py](../src/image_workflow/inspector_graph.py) | 本地显式启用的只读 API、受限证据读取及纯图投影；复用历史数据，不写 Evidence 或调用模型 |
 | [templates/](../src/templates/) / [static/](../src/static/) | 原生前端；prepare/workspace/generate 协同，批次由浏览器顺序执行，无后台 Worker |
 
 主要执行链：HTTP → API → Task 用例/协调 → Planning、Generation 或 Review → Persistence / Infrastructure。
@@ -80,11 +83,61 @@ T01 CLI 自身原本没有 source_sha256；这些字段都不代表完整 Packag
 - **独立审核事实**：19 个已修改测试文件中的原测试方法均保留；固定请求/Evidence 指纹未改。新来源哈希先与实际文件比较再归一化。43 个 Python 模块静态无环；额外探针确认同一 App 共享一个协调器及锁/active。部分测试 legacy/core 别名已指同一模块，不能把它们作为独立新旧实现对照。
 - **验收边界**：本地源码组织与软件兼容性 PASS；多文件事务/崩溃恢复未解决，线上部署、真实模型质量和运营闭环没有因此 PASS。
 
+- **Inspector / Live Debug 源码检查点（2026-10-23，已提交）**：`39199acc42ec056eae87247f17b267f1adbfd05a`，`feat: add context flow inspector and local live debug`。从 dfcf6df 起累计的 28 个源码、资源、配置及测试文件构成完整功能检查点，未改变模型、Prompt 或业务状态规则。当前本文对应此 C1 源码；后续工程文档 C2 与学习记录 C3 分别提交，不改变该源码基线，也不代表线上发布。
+- **本轮验证（2026-10-23）**：C1 暂存内容与已审计工作树一致，受控完整离线回归 **366 项通过（21.140 秒），0 失败/错误**；独立 Node **46 项通过，0 失败/跳过**，不与 Python 包装重复累加。测试只用匿名临时目录与 Mock，保护器禁止联网及项目真实 `.env` / `.runtime` 读取、临时目录外写入；未安装依赖、操作运行中服务或调用真实模型。空白及文档链接检查通过。浏览器完整验收、真实 GPT 效果及运营接受不由这些测试证明。
+
 回归依据：[Cutover](../tests/test_source_cutover.py)、[HTTP](../tests/test_api_package.py)、[T02 请求](../tests/test_t02_request_construction.py)、[图片边界](../tests/test_t02_image_boundaries.py)、[Generation](../tests/test_generation_package.py)、[Review](../tests/test_review_package.py)、[Task 持久化](../tests/test_task_state_persistence.py)、[实验 ZIP](../tests/test_experiment_export_package.py)、[前端交互](../tests/unified_interaction.test.cjs)。
 
 ## 6. 历史真实实验、失败与质量缺口
 
-以下沿用此前已记录的核验与人工反馈；本轮仅核对源码、Git 和软件测试，不重新读取真实 runtime、执行模型或补写实验结论。
+**Workflow Inspector V0（2026-10-22）：IMPLEMENTED / OPERATOR REVIEW PENDING。**基于本地 `dfcf6df` 开发独立只读入口 `api.inspector`，不注册到运营 App。启动必须指定 runtime 根目录及获准 Task ID，只绑定 127.0.0.1，拒绝非本机、转发头和跨站请求；仅提供 GET/HEAD，不调用模型或写业务数据。支持 Task → Image/revision/Run 选择、输入/Planning/确认/生成/Review 证据图、原图与成图预览、Prompt/Context/JSON/错误/哈希查看。原始证据、根据事件推断的关联、缺失和不适用分别显示；只定位最近相关计划 Call，不声称完整血缘或模型内部根因。匿名临时证据新增 17 项测试通过，完整离线回归 **296 项通过（17.911 秒）**；浏览器验证节点切换、缺失/失败记录、脱敏错误、大图、Pass 及刷新。真实运营 runtime 未读取、未部署；启动方法见 README。软件测试不代替真实失败归因或人工验收。
+
+**Workflow Inspector V0.5 — Integrated Debug Sidebar（2026-10-22）：IMPLEMENTED / OPERATOR REVIEW PENDING。**
+
+- 统一工作台新增可收起的右侧证据侧栏，窄屏为抽屉。通过主界面只读选择接口跟随实际 Task/Image/所展示的 revision/Run；复用 V0 页面、`InspectorReader`、脱敏与受限图片读取，不新增 Evidence 解析器，不修改生成/审核逻辑或数据格式。Quick 明确标为无独立 Planning；历史关联继续区分 OBSERVED / INFERRED / MISSING。
+- 正式 `create_app(runtime_dir, case_dir)`、原 CLI、23 条业务路由及 WSGI 默认行为保留；默认无 Inspector API 或侧栏。只有 `create_local_debug_app()` / 下列独立命令在显式隔离 Runtime 和 Task 白名单下启用。拒绝默认运营 Runtime（含其路径别名），整个调试应用拒绝非 loopback 来源、转发头、外站 Origin 与非本机 Host；Inspector 接口只读，不接受任意文件路径。独立 V0 入口保留。
+- 展开后每 5 秒串行 GET，选择变化最多约 0.5 秒同步；切换时取消旧读取并丢弃过期响应，未变化的证据不重绘。关闭卸载 iframe、停止刷新；后台标签页暂停轮询。独立调试命令显式启用 Flask 线程，查询不获取业务锁；不增加后台 Worker、不声称适用于任意生产 WSGI 并发配置。
+- 修改前离线基线 **296 项通过（15.793 秒）**；最终完整离线回归 **307 项通过（17.798 秒）**，含侧栏前端 9 项交互测试包装及既有生成/编辑/Pass/批次回归。浏览器以匿名临时 Task 与固定 SDK Mock 验证商品包/Quick、选图、历史 Run、原 Pass、失败/缺失、节点与大图、390px 抽屉和收起。测试禁止外部网络及真实 runtime 读写；未调用真实模型、未部署、未 Commit。软件验证不等于真实商品变形诊断或人工验收。
+
+现行可写本地入口如下（V0.5 原 8012 示例仅属历史，不再作为启动说明）：
+
+```bash
+./scripts/start_live_debug.sh
+```
+
+该脚本需现有 `.venv` 和 `.runtime/debug/live-debug-20261023T013447Z/runtime`，只绑定 `127.0.0.1:8013`。CLI 自动安全读取根目录 `.env` 的字面量 `OPENAI_API_KEY`，已有非空进程环境变量优先；不读取 `.env.example`，不执行 source/eval。新 Task 可在该 Runtime 内创建/保存并手动生成、修改；Inspector 只读跟随，无逐 Task 授权要求。无 Key 禁用模型操作，有 Key 不等于认证成功；启动/刷新不调用模型。
+原 8012 Mock、8015 匿名只读预览属于各自历史调试实例，不能把当前 Live CLI 当作 Mock 启动器。主页面可写不改变 Inspector 只读边界；不得指向运营来源原件。正式 `create_app()` 默认不启用 Inspector，独立只读入口及静态 Task 白名单仍见 README。只读挂载、开发者身份系统、完整 Planning 血缘、生产接入与真实模型诊断未由本轮解决。
+
+**LIVE-DEBUG-01（2026-10-23，历史检查点，权限与配置后续已调整）：LOCAL PREPARATION IMPLEMENTED / SECRET CONFIG PENDING / REAL RUN NOT EXECUTED。**
+
+- 保留原 8012 匿名 Mock 进程；独立 8013 通过 `cli.debug_workspace` → `create_local_debug_app()` → 正式 `create_app()` 启动，不导入测试夹具或注入 MockTransport。仅绑定 127.0.0.1，正式运营工厂仍默认无 Inspector。
+- 新 Runtime：`.runtime/debug/live-debug-20261023T013447Z/runtime/`；新 Quick Task：`7ef8f4fb8a72460c84e8ad5cf58b5c75`。经原资料保存 API 导入已授权本地来源 Task `bbf3f10c42ad4a329438222ac1715d39` 的 `product_001`、`reference_001` 及原有文字要求，保留方图 1024×1024；输入哈希一致，来源未改，未复制历史 Run/Pass、未运行 Planning 或生成。首轮只计划人工单张生成，不自动批量或重试。
+- 环境标识由服务端显式配置 MOCK / LIVE DEBUG / UNVERIFIED，不由 `ai_configured` 推断。Live 付费操作默认锁定，需安全配置环境密钥并显式传入 `--allow-paid-actions` 才可由人工触发；本次启动进程的 Key 布尔状态为 false，泄露密钥轮换仍待用户完成，未读取或加载 `.env.example`。
+- Inspector 新增只读授权状态查询；切换 Task 立即卸载旧 iframe、取消旧授权查询并丢弃过期响应，未授权时明确提示。新 Task 不自动获权，仍须服务端 `--task-id` 显式配置。旧进程未提供新配置时标为未核验，不猜测模式或继续读旧证据。
+- 修改前完整离线回归 307 项通过；最终 **315 项通过（17.971 秒）**，含侧栏前端 13 项交互测试包装及既有生成/编辑/Pass 回归。匿名测试覆盖授权切换、过期响应、只读/路径保护、付费门禁及正式工厂导入。浏览器确认 8013 环境标识、真实输入和 Quick 的无 Planning 证据；生成/Review 显示缺失，未伪造结果。未调用模型、未部署或 Commit，真实模型质量与连通性尚未验证。
+
+**FINALIZE LIVE DEBUG（2026-10-23，历史检查点）：ONE-COMMAND SETUP IMPLEMENTED / REAL RUN PENDING。**该阶段创建根目录空 Key 的 `.env`、权限 0600 并确认 Git 忽略；这不是今日文件内容或密钥轮换的核验。现行启动见上方一键命令，Task 范围以后续 FIX 为准。CLI 仅按字面量读取 `OPENAI_API_KEY`（非空进程环境优先），不执行 source/eval、不读取模板、不依赖 python-dotenv，并关闭 Flask 的二次 dotenv 加载。旧 8013 仅在同用户、同项目目录、同正式 CLI、同 Runtime 且空闲等身份核验通过后替换；不停止 8012、未知进程或运行中操作，不强杀。无 Key 禁用模型操作，有 Key 仅表示可人工触发，不表示认证或质量通过。原数据、Prompt、模型、180 秒超时及零重试不变。该阶段完整离线回归 **332 项通过**；未使用真实 Key 测试、未发送模型请求、未清理 Git 快照、未部署或提交。
+
+**FIX LIVE DEBUG（2026-10-23）：IMPLEMENTED / OPERATOR REVIEW PENDING。**本地一键入口改为 Runtime 范围：该独立 Debug Runtime 内真实存在、state 身份匹配且路径安全的 Task 自动可手动生成/修改，Inspector 动态列出并跟随，无需逐 Task 白名单或重启。`--task-id` 只保留为可选初始链接；原 V0 静态白名单和正式运营 `create_app()` 默认关闭 Inspector 的行为不变。仍拒绝越界/符号链接、非 loopback、外站 Host/Origin 和转发头；Inspector 仅 GET/HEAD。模型调用前的明确拒绝标记 `api_call_attempted=false`，前端据此显示未发送，而连接不确定仍保留核对提示，不自动重试。模型、Prompt、版本/锁/去重及 Evidence 格式未变。本轮只读核对到新任务 `2feb571b59c44f419d479d4f992d7ffb` 无 Run，固定获准任务另有成功 Run `20261023T031644Z-0ff4c59d5d18483d8731df2553db1965`（有 request_id/usage）；后者不是本轮调用，且不代表业务质量通过。匿名临时测试覆盖连续新建两个 Task、生成/去重、带图修改、Pass 保留、Inspector 跟随与路径保护；完整离线回归 **340 项通过（17.555 秒）**，独立前端交互 **28 项通过**，`git diff --check` 通过。8013 以正式 CLI 启动，Key 配置布尔值 true，旧/新任务 Inspector 均返回 200；Key 非空不代表账户认证成功。8012 进程不变，Debug Runtime 的 24 个既有文件字节不变；本轮不触发真实模型。
+
+**Workflow Inspector V0.6 — Context Inspector（2026-10-23）：IMPLEMENTED / OPERATOR REVIEW PENDING。**
+
+- 首片覆盖 Quick Redesign 单次 Run：在既有 `InspectorReader` 已读取、脱敏、限域的 documents/assets 上构建纯只读 Context View Model，不引入第二套文件解析器或 AI 分析。六类卡片展示 Product Input、Reference Inputs、Task Requirements、Context Assembly、Actual Model Request、Model Output。
+- 来源指向原文件、JSON pointer 和文件 SHA-256；商品资料使用所选历史快照，本次要求与辅助用途使用身份匹配的 Run Context，实际 Prompt/图片顺序/参数使用 request.json。明确区分已保存 Context 与实际请求；Quick 的 Listing/描述不因保存在快照而被声明为已发送。请求缺失只显示 Run.inputs 留存并标 UNKNOWN，不用当前代码或今日 state 重建。
+- 默认摘要卡片、真实受限图片缩略图；详情按需展开。390px 侧栏可扩展同一 iframe 为大视图，支持 Prompt 全文、图片大图与原图/成图并排对照。原执行节点保留，Raw JSON 移入默认折叠的高级证据；点击字段来源可定位原文件。仅核对保存文字/清单/哈希的 MATCH / MISMATCH / UNKNOWN，不证明模型遵守约束或内部根因。
+- 模型调用、Prompt、Context 组装、生成/审核规则、Task/Run/Evidence 格式均未改；本机、只读、Task/路径及跨站限制保留。验证使用临时匿名资料经正式业务代码加 SDK Mock 写出的 Quick Run，不是付费模型结果；未访问运营 runtime、未调用真实模型、未部署或提交。真实资料效果与运营接受仍待人工评审。
+- 修改前基线 340 项通过；最终完整离线回归 **351 项通过（20.912 秒）**，前端交互 **31 项通过**。11 项新增匿名回归覆盖实际请求字段/角色/顺序、来源与字节只读、缺失清单/Context、历史值隔离、Prompt/哈希差异、带图编辑和失败 Run。浏览器验证默认卡片、390px 摘要、大视图、Prompt 全文、图片对照及来源跳转；截图只含匿名 Mock 样例。`git diff --check` 和新增文件空白检查通过。
+
+**Context Flow Inspector V0.7（2026-10-23）：UI IMPLEMENTED / OFFLINE VERIFIED / HUMAN INTERACTION REVIEW PARTIAL。**
+
+- 复用同一 `InspectorReader` 的已解析 documents/assets/context_view，纯 `inspector_graph.context_graph()` 投影构造 14 个 Artifact（包含缺失/不适用占位）、3 个 Activity 与 21 条关系；ID 绑定完整 Task/Image/revision/Run。来源带文件、JSON Pointer、原文件哈希及必要文字范围；检查结果与证据确定程度分开，不以当前 Prompt Builder 重建历史。
+- 默认五阶段摘要；完整 SVG 图默认 12 节点、12 条主干关系，补充关系按需展开。实现节点/边选择、上下游高亮、缩放/平移/适应、键盘操作、三级详情、Prompt 原文定位和原图/成图对照；保留独立 Inspector、旧投影/缓存模板兼容与本机只读权限。Quick 无独立 Planning；本地尝试、SUCCEEDED、MATCH 均不声明远端执行、质量或人工通过。
+- 修改前离线回归 351 项通过；新增 11 项图投影回归后完整 **362 项通过**，前端交互 **45 项通过**。匿名 HTTP 验证成功、编辑、Pass、第二张图、旧 revision、失败、缺失请求七种场景，受限图片哈希与证据字节未变；无 Run 时不虚构请求图。现有匿名 Quick Run 使用完整副本；新增分支样本明确标为 **NEW FIXTURE / SDK Mock**，不是真实付费结果。生成模型、Prompt、业务规则及 Evidence 格式未改，未访问运营 Runtime、未部署或提交。
+- **人工验收边界**：上述实现检查点的浏览器工具持续返回 `Sky Computer Use native pipe startup failed`，当时未独立完成点击/布局/390px 体验与五张截图核验。用户本轮确认已有截图和部分操作体验，因此当前记 HUMAN INTERACTION REVIEW PARTIAL；不补造截图来源或逐项通过结果。完整浏览器交互清单尚未全部完成，不能由离线测试替代，也不记录整体 UI 或业务验收 PASS。
+
+**FIX V0.7 — Writable Live Debug（2026-10-23，历史运行检查点）：IMPLEMENTED / OPERATOR REVIEW PENDING。** 8015 的 `POST /api/sessions` 405 来自匿名预览统一禁写，保存业务路由未改。新增仅显式 MOCK 白名单实例可用的 `read_only_workspace` 配置：服务端继续拒绝非 GET/HEAD，页面标明“匿名只读预览”、禁用保存/模型/确认/Pass/POST 导出，保留图片及本地历史版本查看和 Inspector。可写入口仍为 `./scripts/start_live_debug.sh` → 8013，正式 SDK、根目录 `.env` 自动加载、本地隔离 Runtime 范围及新 Task 自动授权均沿用现有实现；加载 V0.7，Inspector 本身仍只读。该阶段匿名临时测试完整离线回归 **366 项通过（20.567 秒）**，前端 **46 项通过**。当时 HTTP 核对 8013 为 LIVE DEBUG、可写、Key 配置 true（不代表账户验证），8015 只读且写入仍为 405，8012 未重启；不能当作本轮服务状态核验。未自动调用真实模型、未改历史 Evidence/Prompt/模型参数或部署。完整浏览器验收仍待完成，当前人工体验状态见上一条。
+
+以下沿用此前已记录的核验与人工反馈；本轮本地 Live 准备仅读取上述已授权副本，不访问 Mac mini 或其他运营 Task，也不补写实验结论。
 
 - T01：Run `20261014T052541Z-786016c60ae94a7c9168d74c55d4a36b` 保存真实首图，用户 PASS 见 [实验日志](03_EXPERIMENT_LOG.md)。不推广为其他图或普遍价值通过。
 - T02：Task `7e0c5261dd6b40b9aa81f0750c626517` / Call `47321144e9e649f8bd247e03f3182f65`，reference_001 人工基准为“手持商品＋尺寸/重量信息”，模型却写入来自商品原图的“两种握法＋按钮特写”。既有核验显示身份、顺序、字节和 revision 2 应用正确；最早可观察偏差在模型返回理解。内因 UNKNOWN，结构重构没有修复语义质量。
@@ -101,7 +154,7 @@ Product Brief 与实验日志保留其历史日期口径；其中“候选/未�
 - **单进程协调**：Store / 卡片锁与 active 为进程内状态，没有多进程协调、队列或后台调度；不能据此扩大 worker 数或保证多用户并发。
 - **中断窗口**：快照→state、Run→指针、审核事件→指针均非跨文件事务；没有新增回滚或崩溃恢复策略。部分写入失败可能留下已完成文件。
 - **调用不确定性**：SDK 零自动重试，Planning 超时 120 秒、Images 180 秒。图片链有 operation_id 与状态查询；批次未知即停、刷新不续跑。T02 没有同等持久化去重协议，人工新请求可能重复远端执行/计费。
-- **数据与安全**：Task 路径隔离不构成用户权限；真实资料与 `.runtime/` 不入 Git，须单独备份。密钥不写前端/日志/Evidence；旧 `.env.example` 曾疑似含凭据，不读取或作为配置来源，轮换状态 UNKNOWN。
+- **数据与安全**：Task 路径隔离不构成用户权限；真实资料与 `.runtime/` 不入 Git，须单独备份。`.env` 已忽略，本轮模板及候选提交未发现真实凭据；不读取真实 `.env` 内容或将其作为测试数据。历史模板/聊天密钥与本地 `refs/codex/turn-diffs` 快照风险独立保留，撤销及曾否外泄仍 UNKNOWN；本轮不删除引用或改写历史，不把当前文件安全等同于历史风险消除。
 - **诊断边界**：单文件来源哈希、缺失 HTTP/服务端内部信息、未返回 usage/账单与人工评价缺口仍存在；模型调用成功不能证明商品事实或视觉正确。
 - **线上状态**：Mac mini 实际版本、WSGI 导入/配置、密钥权限/额度、网络、备份现状、登录会话/整机重启及新增运营数据均未核验。不得把本地 Cutover 版本写成已部署。
 
@@ -143,7 +196,7 @@ cd66dad 是原目录内更新，旧代码应从该批 `code.tar.gz` 和原清单
 
 ## 9. 下一阶段
 
-- **P3 学习记录已初始化（2026-10-22）**：P3-01 / L1～L5 与 P3-02～P3-04 均为 NOT_STARTED；见 [P3 源码走读学习主文档](learning/P3_SOURCE_WALKTHROUGH_STUDY_V0.1.md)。下一步审核后从 L1 开始，Mac mini 核验仍 DEFER。
+- **P3 学习状态（2026-10-23）**：P3-01 ACTIVE，第一轮按 A 系统全貌 / B 单图调用链 / C 失败证据三个检查点快速定向。Client/Server、Flask、应用初始化已有 ORIENTED 基础，独立追踪与复述尚未确认完成。主线 A 以商品变形案例学习 Context/Multimodal/Image/Evaluation，主线 B 按需补足 Python 后端、Runtime、Persistence 与调试；Inspector 是证据辅助工具，不替代学习或语义评价。L1～L5 仅后续专题索引，P3-02～04 NOT_STARTED；见 [P3 主文档](learning/P3_SOURCE_WALKTHROUGH_STUDY_V0.1.md)。Mac mini 核验仍 DEFER。
 
 源码组织整理到此结束。后续按人工授权进行走读与诊断，不自动启动重构、付费实验或新业务：
 
@@ -153,4 +206,4 @@ cd66dad 是原目录内更新，旧代码应从该批 `code.tar.gz` 和原清单
 4. 失败诊断及 Evidence：区分最早可观察偏差、软件错误、模型假设与 UNKNOWN。
 5. Mac mini 当前版本、WSGI、安全与备份核验：**DEFER**，需另行授权。
 
-本轮只更新 README 与本文件，并创建独立文档 Commit；不改源码/Prompt/测试/运行数据，不新增实验日志，不 Push 或部署。
+本次收尾仅修正文档并按明确白名单建立 Inspector/Live Debug、工程文档和 P3 学习记录三个独立 Git 检查点；不继续业务开发，不改既有源码/Prompt/测试或真实运行数据，不新增实验日志，不 Push 或部署。历史凭据撤销仍 UNKNOWN；保留本地快照引用，不将本次提交视为历史安全风险已消除。
