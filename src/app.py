@@ -131,6 +131,27 @@ def create_app(runtime_dir=None, case_dir=None):
     return app
 
 
+def create_local_debug_app(runtime_dir, allowed_task_ids=(), case_dir=None, *,
+                           execution_mode='UNVERIFIED', allow_paid_actions=False,
+                           allow_runtime_tasks=False, read_only_workspace=False):
+    """Opt-in local composition; the pilot factory/signature remains unchanged."""
+    if not runtime_dir:
+        raise ValueError('调试侧栏必须显式指定独立 Runtime。')
+    runtime = Path(runtime_dir).absolute()
+    production = (ROOT / '.runtime/prepare-plan').absolute()
+    if runtime == production or production in runtime.parents:
+        raise ValueError('调试侧栏不能使用默认运营 Runtime，请提供隔离副本。')
+    runtime = runtime.resolve()
+    if runtime == production or production in runtime.parents:
+        raise ValueError('调试侧栏不能通过路径别名使用默认运营 Runtime。')
+    from api.inspector import register_inspector_routes
+    app = create_app(runtime, case_dir or runtime / 'case-inputs')
+    register_inspector_routes(app, runtime, allowed_task_ids, integrated=True,
+                              execution_mode=execution_mode, allow_paid_actions=allow_paid_actions,
+                              allow_runtime_tasks=allow_runtime_tasks, read_only_workspace=read_only_workspace)
+    return app
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8010)

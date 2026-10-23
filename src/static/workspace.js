@@ -2,15 +2,22 @@
 (() => {
   let snapshot=null,loadingFor=null,sequence=0,syncing=false,failed=false;
   const prepare=window.PreparePlan,images=window.ImageGeneration;
+  const readOnly=document.body.dataset.workspaceReadOnly==='true';
   const key=state=>state?`${state.id}:${state.revision}`:'';
+  function aiAllowed(){
+    if(readOnly)return false;
+    const element=document.getElementById('local-debug-config');if(!element)return true;
+    try{const config=JSON.parse(element.textContent);return config.mode!=='LIVE DEBUG'||Boolean(config.key_configured&&config.paid_actions_enabled);}
+    catch{return false;}
+  }
   function show(){
     const state=prepare.getState(),status=prepare.getStatus();
     if(!state){images.clear();return;}
     if(!snapshot||key(snapshot.state)!==key(state)){images.lock();return;}
-    const blocked=status.dirty||status.busy||failed;
+    const blocked=readOnly||status.dirty||status.busy||failed;
     images.present(snapshot.generation,{key:key(state),allowed:snapshot.generation_allowed,blocked,historical:snapshot.historical_generation});
     const note=document.getElementById('workspace-note');
-    note.textContent=status.dirty?'共享资料有未保存修改。另存为新任务后继续，旧任务和图片保留；当前禁止模型操作。':!snapshot.generation_allowed?'保存资料并完成理解与规划，在每张卡片确认本图计划后即可生成。刷新、查看历史、保存和确认不产生模型费用。':'各图独立确认与生成；修改本图计划不改变其他有效确认。历史成图保留，批量只处理从未尝试的图片；连接或结果不确定时暂停，不自动付费重试。';
+    note.textContent=readOnly?'匿名只读预览：可切换图片与历史版本查看，不保存选择、不调用模型；新建和制作请进入 8013 Live Debug。':status.dirty?'共享资料有未保存修改。另存为新任务后继续，旧任务和图片保留；当前禁止模型操作。':!snapshot.generation_allowed?'保存资料并完成理解与规划，在每张卡片确认本图计划后即可生成。刷新、查看历史、保存和确认不产生模型费用。':'各图独立确认与生成；修改本图计划不改变其他有效确认。历史成图保留，批量只处理从未尝试的图片；连接或结果不确定时暂停，不自动付费重试。';
   }
   async function refresh(){
     const state=prepare.getState();if(!state){images.clear();return;}
@@ -28,7 +35,7 @@
     }catch(error){failed=true;images.lock();throw error;}
     finally{if(ticket===sequence)loadingFor=null;}
   }
-  window.Workspace={refresh,planningChanged(){
+  window.Workspace={refresh,aiAllowed,planningChanged(){
     if(syncing)return;
     const state=prepare.getState();
     if(!state){images.clear();return;}

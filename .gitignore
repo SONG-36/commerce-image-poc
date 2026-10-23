@@ -1,4 +1,4 @@
-# Secrets — existing .env.example contains a credential and must also stay local
+# Secrets — live credentials remain local and must never enter Git
 .env
 .env.*
 *.key

@@ -8,6 +8,7 @@ const actionNames={understand:'AI 理解与规划',product:'AI 修正商品理�
 function drawProgress(){const box=$('operation-progress');if(!operation){box.hidden=true;return;}box.hidden=false;box.className=operation.status==='RUNNING'?'waiting':'muted';const end=operation.finished_at?Date.parse(operation.finished_at):Date.now();const seconds=Math.max(0,Math.floor((end-Date.parse(operation.started_at))/1000));box.textContent=`${operation.name} · ${operation.status==='RUNNING'?'正在执行':operation.status==='SUCCEEDED'?'已完成':operation.status==='FAILED'?'失败':'执行状态待确认'} · 已等待 ${seconds} 秒${operation.status==='INTERRUPTED'?'；服务曾中断，服务端执行及费用需核对，未自动重试。':''}`;}
 setInterval(drawProgress,1000);
 const $ = id => document.getElementById(id);
+const readOnlyWorkspace=document.body.dataset.workspaceReadOnly==='true';
 const productFields = {identity:"商品识别", claims:"Listing 声称 · 待核验", appearance:"实拍外观 · 候选识别", uncertainties:"冲突与待确认"};
 const referenceFields = {style:"视觉风格", composition:"构图方式", layout:"信息布局", expression:"视觉表达", applicable:"可借鉴的方法", risks:"边界与待确认"};
 const planFields = {goal:"表达目标", selling_points:"主要卖点", design:"设计与构图", scene_style:"场景与风格", risks:"风险与待确认"};
@@ -27,16 +28,16 @@ function renderMode(){
 }
 function element(tag, text, className) {const e=document.createElement(tag); if(text!==undefined)e.textContent=text;if(className)e.className=className;return e;}
 function notify(text, error=false) {$('message').textContent=text;$('message').className=error?'error':'';$('message').hidden=false;}
-async function api(url, options={}) {const response=await fetch(url,{...options,headers:{'X-Local-Action':'prepare-plan',...options.headers}});let body;try{body=await response.json();}catch{throw new Error('服务未返回可读结果，请检查本地服务是否仍在运行。');}if(!response.ok)throw new Error(body.error||'操作失败');return body;}
+async function api(url, options={}) {if(readOnlyWorkspace&&!['GET','HEAD'].includes((options.method||'GET').toUpperCase()))throw new Error('匿名只读预览不能保存或修改；请进入 8013 Live Debug 工作台。');const response=await fetch(url,{...options,headers:{'X-Local-Action':'prepare-plan',...options.headers}});let body;try{body=await response.json();}catch{throw new Error('服务未返回可读结果，请检查本地服务是否仍在运行。');}if(!response.ok)throw new Error(body.error||'操作失败');return body;}
 function updateButtons() {
-  const locked=busy||remoteBusy||imageBusy;
+  const locked=readOnlyWorkspace||busy||remoteBusy||imageBusy;
   document.querySelectorAll('#input-panel button,#input-panel input,#input-panel textarea,#input-panel select,#planning-controls button,.ai-mutation,.feedback textarea').forEach(e=>e.disabled=locked);
   $('task-mode').disabled=locked||Boolean(state);
-  $('understand').disabled=locked||Boolean(state?.product&&!dirty);
-  $('replan').disabled=locked||!state?.product||dirty;
+  $('understand').disabled=locked||window.Workspace?.aiAllowed?.()===false||Boolean(state?.product&&!dirty);
+  $('replan').disabled=locked||window.Workspace?.aiAllowed?.()===false||!state?.product||dirty;
   document.querySelectorAll('.ai-mutation,.feedback textarea').forEach(e=>e.disabled=locked||dirty);
   $('enter-generate').hidden=!(state?.confirmed&&!dirty);
-  document.body.classList.toggle('busy',locked);
+  document.body.classList.toggle('busy',busy||remoteBusy||imageBusy);
   window.Workspace?.planningChanged();
 }
 async function work(fn,propagate=false) {if(busy||remoteBusy||imageBusy){if(propagate)throw new Error('已有操作正在执行，请稍候。');return;}busy=true;operation={name:'读取或保存资料',started_at:new Date().toISOString(),status:'RUNNING'};drawProgress();updateButtons();try{const result=await fn();if(!remoteBusy&&!operation.fromSaved)operation.status='SUCCEEDED';return result;}catch(error){operation.status='FAILED';notify(error.message,true);if(propagate)throw error;}finally{busy=false;if(!remoteBusy&&!operation.fromSaved)operation.finished_at=new Date().toISOString();drawProgress();updateButtons();}}
@@ -59,8 +60,8 @@ function renderHistory(target, action){
 }
 function feedbackBox(action,target,label,buttonText){
   const box=element('div',undefined,'feedback');const id='feedback-'+action+'-'+(target||'product');
-  const lab=element('label',label);lab.htmlFor=id;const row=element('div',undefined,'row');const input=element('textarea');input.id=id;input.value=feedbackDrafts.get(id)||'';input.oninput=()=>feedbackDrafts.set(id,input.value);input.disabled=busy||remoteBusy||imageBusy||dirty;input.rows=2;input.maxLength=12000;input.placeholder=action==='plan'?'例如：不要展示配件，采用浅粉色背景。':action==='product'?'例如：这不是冲击电钻，不要强调冲击功能。':'例如：只参考信息排版，不参考产品使用场景。';
-  const button=element('button',buttonText,'secondary ai-mutation');button.type='button';button.disabled=busy||remoteBusy||imageBusy||dirty;button.onclick=()=>{if(!input.value.trim()){notify('请先填写修改意见。',true);return;}work(()=>runAction(action,target,input.value));};row.append(input,button);box.append(lab,row,renderHistory(target,action));return box;
+  const lab=element('label',label);lab.htmlFor=id;const row=element('div',undefined,'row');const input=element('textarea');input.id=id;input.value=feedbackDrafts.get(id)||'';input.oninput=()=>feedbackDrafts.set(id,input.value);input.disabled=readOnlyWorkspace||busy||remoteBusy||imageBusy||dirty;input.rows=2;input.maxLength=12000;input.placeholder=action==='plan'?'例如：不要展示配件，采用浅粉色背景。':action==='product'?'例如：这不是冲击电钻，不要强调冲击功能。':'例如：只参考信息排版，不参考产品使用场景。';
+  const button=element('button',buttonText,'secondary ai-mutation');button.type='button';button.disabled=readOnlyWorkspace||busy||remoteBusy||imageBusy||dirty;button.onclick=()=>{if(!input.value.trim()){notify('请先填写修改意见。',true);return;}work(()=>runAction(action,target,input.value));};row.append(input,button);box.append(lab,row,renderHistory(target,action));return box;
 }
 function renderCardPlan(image,editable=true){
   const details=element('details',undefined,'card-plan');const plan=state?.plans[image.id];
@@ -84,7 +85,7 @@ function applyState(value,activity=null){if(state?.id!==value.id)feedbackDrafts.
   remoteBusy=activity?.status==='RUNNING';clearTimeout(progressPoll);
   if(activity){operation={...activity,fromSaved:true,name:actionNames[activity.action]||'AI 操作',status:activity.status==='AI_RESULT_RECEIVED'?'SUCCEEDED':activity.status};drawProgress();}
   if(remoteBusy)progressPoll=setTimeout(async()=>{try{const body=await api('/api/sessions/'+state.id);const active=body.activity;if(active?.status!=='RUNNING'){operation={...active,name:actionNames[active?.action]||'AI 操作',status:active?.status==='AI_RESULT_RECEIVED'?'SUCCEEDED':active?.status||'FAILED'};drawProgress();}applyState(body.state,body.activity);}catch(error){notify('状态读取失败：'+error.message+'；未自动重试模型请求。',true);}},2000);
-  renderImages();renderResults();}
+  renderImages();renderResults();window.dispatchEvent?.(new CustomEvent('workspace:task-changed',{detail:{task_id:state.id}}));}
 async function saveInputs(){
   const data=new FormData();for(const key of ['listing','description','requirements'])data.append(key,$(key).value);
   data.append('mode',$('task-mode').value);

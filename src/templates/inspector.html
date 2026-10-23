@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Context Flow Inspector V0.7 · 本地证据调查</title>
+  <link rel="stylesheet" href="{{ url_for('inspector_static', name='inspector.css') }}">
+  <script defer src="{{ url_for('inspector_static', name='inspector.js') }}"></script>
+</head>
+<body {% if embedded %}class="embedded" data-embedded="true"{% endif %}>
+  <header>
+    <div><p class="eyebrow">COMMERCE IMAGE / DEVELOPER TOOL</p><h1>Context Flow Inspector <span>V0.7</span></h1>
+      <p>查看一次 Quick Run 的商品依据、Context 与实际请求。</p></div>
+    <span class="readonly">仅本机 · 只读 · 不调用模型</span>
+  </header>
+  <main>
+    <section class="selectors" aria-label="选择调查对象">
+      <label>获准 Task<select id="task-select"><option value="">加载授权任务…</option></select></label>
+      <label>Image<select id="image-select" disabled></select></label>
+      <label>revision<select id="revision-select" disabled></select></label>
+      <label>Run<select id="run-select" disabled></select></label>
+      <button id="reload" type="button">重新读取证据</button>
+    </section>
+    <p id="message" role="status" aria-live="polite">正在读取授权范围。</p>
+    <div id="evidence" hidden>
+      <p class="environment-notice">{{ execution_notice }} 当前服务：{{ execution_mode }}。历史 Run 的远端执行与费用仍须以其自身证据核实。</p>
+      <div class="section-head"><div><h2>Context 数据流</h2><p id="flow-caption"></p></div>
+        <button id="expand-context" type="button">展开完整调试图</button>
+      </div>
+      <p id="context-note" class="muted"></p><div id="context-warnings" role="status"></div>
+      <nav id="flow-summary" aria-label="五阶段证据摘要"></nav>
+      <section id="flow-workbench" class="flow-workbench" aria-label="交互式 Context 数据流图" hidden>
+        <div class="flow-canvas-panel">
+          <div class="flow-toolbar" role="group" aria-label="画布操作">
+            <button id="flow-zoom-out" type="button" aria-label="缩小画布">−</button>
+            <output id="flow-scale" aria-live="polite">100%</output>
+            <button id="flow-zoom-in" type="button" aria-label="放大画布">＋</button>
+            <button id="flow-fit" type="button">适应画布</button>
+            <button id="flow-more" type="button" aria-pressed="false">展开补充关系</button>
+          </div>
+          <p class="flow-help">矩形＝数据 · 圆角＝活动 · 实线＝已观察 · 虚线＝推断/未知。拖动画布平移；＋/− 缩放，0 适应，方向键平移。节点不可拖改。</p>
+          <svg id="flow-canvas" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Context 有向图，可用 Tab 选择节点和连线" tabindex="0"></svg>
+          <details class="flow-relations"><summary id="flow-relation-count">全部传递关系</summary><div id="flow-relation-list"></div></details>
+        </div>
+        <section id="flow-detail" class="flow-detail" aria-label="所选节点或关系详情" aria-live="polite"></section>
+      </section>
+      <div id="context-cards" class="context-cards" aria-label="Context 来源卡片"></div>
+      <details id="advanced-evidence" class="advanced-evidence"><summary>高级证据 · 原始文件 / JSON / 哈希</summary>
+      <p id="identity"></p>
+      <div class="section-head execution-heading"><h2>已有阶段证据</h2>
+        <div class="legend"><span class="observed">OBSERVED</span><span class="inferred">INFERRED</span><span class="missing">MISSING / UNKNOWN</span></div></div>
+      <nav id="graph" aria-label="工作流证据节点"></nav>
+      <div id="edges" class="edges"></div>
+      <div class="panels">
+        <section class="panel comparison"><div class="section-head"><h2>图片与实际输入</h2><small>点击图片查看大图</small></div>
+          <p class="muted">区分商品依据、设计参考和本次成图。哈希相同只证明字节一致。</p><div id="assets"></div></section>
+        <section class="panel documents"><div class="section-head"><h2 id="node-title">节点详情</h2><span id="node-status" class="badge"></span></div>
+          <p id="node-note"></p><div id="file-list" class="file-list"></div>
+          <p id="file-meta" class="file-meta"></p><pre id="document" tabindex="0">选择一个证据文件。</pre>
+        </section>
+      </div>
+      </details>
+      <aside><h2>调查边界</h2><ul id="limitations"></ul></aside>
+    </div>
+  </main>
+  <dialog id="image-dialog"><button id="close-image" type="button">关闭大图</button><img id="large-image" alt="所选证据原图"><p id="large-caption"></p></dialog>
+  <dialog id="context-dialog" class="context-dialog" aria-labelledby="context-dialog-title"><div class="section-head"><h2 id="context-dialog-title"></h2><button id="close-context" type="button">关闭详情</button></div><div id="context-dialog-body"></div></dialog>
+</body>
+</html>

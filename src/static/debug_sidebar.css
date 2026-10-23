@@ -1,0 +1,17 @@
+body{--debug-sidebar-width:390px}
+body.debug-sidebar-wide{--debug-sidebar-width:min(1280px,100vw)}
+body.debug-sidebar-open{padding-right:var(--debug-sidebar-width)}
+body.debug-sidebar-open.debug-sidebar-wide{padding-right:0}
+#debug-sidebar{position:fixed;inset:0 0 0 auto;width:var(--debug-sidebar-width);height:100dvh;z-index:90;display:flex;flex-direction:column;background:#0c111b;color:#e7edf6;border-left:1px solid #35516b;box-shadow:-12px 0 32px #0006;text-align:left}
+#debug-sidebar .debug-sidebar-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:17px 16px 10px;border-bottom:1px solid #2b3b50}
+#debug-sidebar .debug-sidebar-heading strong{font-size:16px;letter-spacing:0}
+#debug-sidebar .debug-sidebar-heading span{color:#80c9f5;font-size:12px}
+.debug-sidebar-actions{display:flex;flex-wrap:wrap;gap:7px;justify-content:flex-end}.debug-sidebar-actions button{font-size:11px;padding:7px 9px}
+#debug-sidebar .debug-sidebar-heading p{margin:5px 0 0;color:#a9b8cb;font-size:11px}
+#debug-sidebar #close-inspector{margin:0;white-space:nowrap}
+#debug-sidebar-message{padding:10px 16px;margin:0;font-size:11px;line-height:1.6;overflow-wrap:anywhere;color:#a9b8cb}
+#debug-inspector-frame{flex:1;min-height:0;width:100%;border:0;background:#0c111b;color-scheme:dark}
+#debug-sidebar[hidden]{display:none}
+@media(max-width:1050px){body.debug-sidebar-open{padding-right:0}#debug-sidebar{width:min(650px,100vw)}}
+body.debug-sidebar-wide #debug-sidebar{width:var(--debug-sidebar-width)}
+@media(max-width:600px){#debug-sidebar{width:100vw}.debug-sidebar-heading{flex-wrap:wrap}#debug-sidebar .debug-sidebar-heading strong{font-size:14px}}

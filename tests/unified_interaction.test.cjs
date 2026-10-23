@@ -33,13 +33,14 @@ function fixture(quick=false,task='a'.repeat(32)){
   });
   return {state,data:{session_id:task,title:'offline',mode:state.mode,cards,auxiliary_purposes:{product_appearance:'商品外观修正',design_style:'设计风格参考',local_content:'局部内容参考'},auxiliary_max_bytes:20*1024*1024}};
 }
-function harness(initial=fixture(),storage=new Map()){
+function harness(initial=fixture(),storage=new Map(),{readOnly=false}={}){
   const nodes=new Map([...template.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],new Element()]));
   nodes.get('edit-file').type='file';
   const calls=[],actions=[],events={},downloads=[];
   let current=initial,handler=async()=>response({status:'SUCCEEDED'}),planHandler=async()=>{},refreshes=0;
   const document={body:new Element('body'),getElementById(id){assert.ok(nodes.has(id),'Missing DOM '+id);return nodes.get(id);},createElement:tag=>new Element(tag),querySelectorAll:()=>[]};
   document.body.dataset.sessionId=initial.state.id;
+  document.body.dataset.workspaceReadOnly=String(readOnly);
   const window={addEventListener(name,fn){events[name]=fn;},confirm:()=>true,
     PreparePlan:{getState:()=>current.state,getStatus:()=>({busy:false,dirty:false}),setImageBusy(){},
       renderCardPlan(card,editable){assert.equal(editable,false);const details=new Element('details');details.append(Object.assign(new Element('summary'),{textContent:card.plan?.goal||'计划'}));return details;},
@@ -84,6 +85,35 @@ test('one OUTPUT composer, explicit selection, identity and read-only big image'
   assert.equal(h.node('generation-cards').children[1].attributes['aria-pressed'],'true');
   h.detail('查看大图').click();assert.equal(h.node('image-viewer').open,true);assert.equal(h.node('viewer-image').src,'/images/run_reference_002');
   assert.equal(h.calls.length,0);
+});
+test('missing Live Key disables model buttons while review and export remain available',()=>{
+  const h=harness();h.window.Workspace.aiAllowed=()=>false;
+  h.current.data.cards[1].batch_eligible=true;h.present();h.choose(2);h.type('仅测试按钮状态');
+  assert.equal(h.detail('生成图片').disabled,true);assert.equal(h.node('send-edit').disabled,true);
+  assert.equal(h.node('batch-generate').disabled,true);assert.equal(h.detail('Pass · 接受当前版本').disabled,false);
+  assert.equal(h.node('export-experiment').disabled,false);
+  h.detail('生成图片').click();h.node('send-edit').click();assert.equal(h.calls.length,0);
+  h.window.Workspace.aiAllowed=()=>true;h.present();
+  assert.equal(h.detail('生成图片').disabled,false);assert.equal(h.node('send-edit').disabled,false);
+});
+test('Live permission uses server configuration, preserves normal mode and fails closed on corrupt configuration',()=>{
+  let config=null;
+  const window={PreparePlan:{getState:()=>null},ImageGeneration:{clear(){}}};
+  const document={body:{dataset:{}},getElementById:()=>config};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/static/workspace.js'),'utf8'),{window,document,JSON});
+  assert.equal(window.Workspace.aiAllowed(),true);
+  config={textContent:JSON.stringify({mode:'LIVE DEBUG',key_configured:false,paid_actions_enabled:true})};
+  assert.equal(window.Workspace.aiAllowed(),false);
+  config.textContent=JSON.stringify({mode:'LIVE DEBUG',key_configured:true,paid_actions_enabled:true});
+  assert.equal(window.Workspace.aiAllowed(),true);
+  config.textContent=JSON.stringify({mode:'LIVE DEBUG',key_configured:true,paid_actions_enabled:false});
+  assert.equal(window.Workspace.aiAllowed(),false);
+  config.textContent='not-json';assert.equal(window.Workspace.aiAllowed(),false);
+  const previewWindow={PreparePlan:{getState:()=>null},ImageGeneration:{clear(){}}};
+  config.textContent=JSON.stringify({mode:'MOCK',key_configured:true,paid_actions_enabled:true});
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/static/workspace.js'),'utf8'),{
+    window:previewWindow,document:{body:{dataset:{workspaceReadOnly:'true'}},getElementById:()=>config},JSON});
+  assert.equal(previewWindow.Workspace.aiAllowed(),false);
 });
 test('A: switching pictures and actions preserves text, file and role without leaking',()=>{
   const h=harness();h.choose(2);h.type('仅修改 #02');h.file();h.purpose();
@@ -177,6 +207,19 @@ test('failure keeps prior image, disables uncertain retry, and task switching is
   h.present(first);assert.equal(h.node('edit-feedback').value,'失败前的草稿');assert.equal(h.calls.length,1);
   h.events.pagehide();h.events.pageshow({persisted:true});assert.equal(h.calls.length,1);
 });
+test('explicit server rejection before the model reports no request; uncertain failures retain the caution',async()=>{
+  const h=harness();h.choose(2);h.type('保留待发送草稿');
+  h.handler=async()=>response({error:'未配置 OpenAI API Key',code:'LIVE_CALLS_LOCKED',api_call_attempted:false},false);
+  await h.node('send-edit').click();
+  assert.match(h.node('generation-message').textContent,/未发送模型请求/);
+  assert.doesNotMatch(h.node('generation-message').textContent,/远端执行及费用需核对/);
+  assert.equal(h.node('edit-feedback').value,'保留待发送草稿');
+  assert.equal(h.calls.length,1);
+  h.handler=async()=>response({error:'连接中断'},false);
+  await h.node('send-edit').click();
+  assert.match(h.node('generation-message').textContent,/远端执行及费用需核对/);
+  assert.equal(h.calls.length,2); // Two manual clicks, no automatic retry.
+});
 test('export handlers keep task-bound free endpoints and do not invoke generation',async()=>{
   const h=harness();h.choose(1);h.handler=async()=>response({});
   await h.node('export-experiment').click();await h.node('export-passed').click();
@@ -192,4 +235,27 @@ test('a late response from another Task cannot replace its current view or clear
   assert.match(h.node('edit-target').textContent,new RegExp('b'.repeat(32)));
   assert.equal(h.node('edit-feedback').value,'新任务草稿');assert.equal(second.data.cards[1].image_url,image);
   assert.equal(h.refreshes,0);assert.equal(h.calls.length,1);
+});
+test('debug selection uses displayed bucket and actual selected Run, without changing business state',()=>{
+  const h=harness();assert.equal(h.window.ImageGeneration.getDebugSelection(),null);
+  h.choose(2);const card=h.current.data.cards[1];card.confirmed_revision=2;card.generation_revision=5;
+  const before=JSON.stringify(h.current),selection=h.window.ImageGeneration.getDebugSelection();
+  assert.deepEqual(JSON.parse(JSON.stringify(selection)),{task_id:h.current.state.id,image_id:'reference_002',revision:2,run_id:'run_reference_002'});
+  selection.run_id='client-copy-only';assert.equal(card.selected_run,'run_reference_002');
+  assert.equal(JSON.stringify(h.current),before);assert.equal(h.calls.length,0);
+  card.selected_run=null;card.run_id='failed-real-run';assert.equal(h.window.ImageGeneration.getDebugSelection().run_id,'failed-real-run');
+  h.window.ImageGeneration.clear();assert.equal(h.window.ImageGeneration.getDebugSelection(),null);
+});
+test('anonymous read-only workspace disables writes but keeps image selection, historical Run viewing and Inspector identity',async()=>{
+  const h=harness(fixture(true),new Map(),{readOnly:true});h.choose(2);
+  const parent=h.current.data.cards[1].selected_run;addVersion(h,1);h.present();
+  assert.equal(h.detail('生成图片').disabled,true);
+  assert.equal(h.detail('Pass · 接受当前版本').disabled,true);
+  for(const name of ['edit-feedback','edit-file','edit-purpose','send-edit','export-passed','export-experiment','batch-generate'])assert.equal(h.node(name).disabled,true,name);
+  h.versionSelect().value=parent;h.versionSelect().onchange();
+  assert.equal(h.window.ImageGeneration.getDebugSelection().run_id,parent);
+  assert.equal(h.calls.length,0);assert.equal(h.actions.length,0);
+  h.detail('查看大图').click();assert.equal(h.node('image-viewer').open,true);
+  await h.detail('生成图片').onclick();await h.detail('Pass · 接受当前版本').onclick();await h.node('send-edit').onclick();await h.node('export-experiment').onclick();
+  assert.equal(h.calls.length,0);assert.equal(h.actions.length,0);
 });

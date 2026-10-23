@@ -4,6 +4,7 @@ let sessionId=document.body.dataset.sessionId,current=null,poll=null,available=t
 let presentation={blocked:true},selectedTarget=null,localPlanning=false,rendering=false,renderAgain=false;
 let batch=null,batchTask=null,batchStorageError=false,pageActive=true,lastOperation=null;
 const node=id=>document.getElementById(id),batchRunner=window.ImageBatchRunner;
+const readOnlyWorkspace=document.body.dataset.workspaceReadOnly==='true';
 const running=new Set(),jobs=new Map(),drafts=new Map(),choices=new Map(),selections=new Map();
 const statuses={NOT_STARTED:'尚未生成',RUNNING:'正在执行',SUCCEEDED:'图片已生成',FAILED:'本次操作失败',INTERRUPTED:'执行状态待确认'};
 const actionNames={image:'修改图片',plan:'修改计划',reference:'修正参考理解',generate:'生成图片',select:'选择版本',pass:'人工 Pass'};
@@ -13,14 +14,16 @@ const batchKey=id=>'commerce:image-batch:'+id;
 const el=(tag,text,className)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(className)e.className=className;return e;};
 const imageNumber=target=>'#'+String((current?.cards.findIndex(c=>c.id===target)??-1)+1).padStart(2,'0');
 const selectedCard=()=>current?.cards.find(c=>c.id===selectedTarget);
+const aiBlocked=()=>readOnlyWorkspace||window.Workspace?.aiAllowed?.()===false;
 const displayStatus=card=>running.has(key(sessionId,card.id))?'RUNNING':card.status;
 const imageBusy=()=>running.size>0||Boolean(current?.cards.some(c=>c.status==='RUNNING'))||batch?.status==='RUNNING';
 const mutationBusy=()=>imageBusy()||localPlanning||window.PreparePlan.getStatus().busy;
 function message(text,error=false,task=sessionId){if(task!==sessionId)return;node('generation-message').hidden=false;node('generation-message').textContent=text;node('generation-message').className=error?'error':'';}
 async function api(url,options={}){
+  if(readOnlyWorkspace&&!['GET','HEAD'].includes((options.method||'GET').toUpperCase())){const error=new Error('匿名只读预览不能写入，请进入 8013 Live Debug。');error.apiCallAttempted=false;throw error;}
   const response=await fetch(url,{...options,headers:{'X-Local-Action':'prepare-plan',...options.headers}});
   let body;try{body=await response.json();}catch{throw new Error('服务未返回可读结果，请检查连接并查询原请求，不要直接重发。');}
-  if(!response.ok)throw new Error(body.error||'操作失败');return body;
+  if(!response.ok){const error=new Error(body.error||'操作失败');error.apiCallAttempted=body.api_call_attempted;throw error;}return body;
 }
 async function refreshFor(task){if(task===sessionId&&window.PreparePlan.getState()?.id===task)return window.Workspace.refresh();}
 function selectedVersion(card){return card.versions.find(v=>v.run_id===card.selected_run);}
@@ -72,7 +75,7 @@ function loadBatch(id){
 function renderBatch(processing=false){
   const eligible=current?.cards.filter(c=>c.batch_eligible)||[],quick=current?.mode==='quick_redesign';
   const button=node('batch-generate');button.textContent=(quick?'一键生成尚未生成图片':'一键生成已确认图片')+'（'+eligible.length+' 张）';
-  button.disabled=!eligible.length||processing||presentation.blocked||!available||batchStorageError||batchRunner.unresolved(batch);
+  button.disabled=aiBlocked()||!eligible.length||processing||presentation.blocked||!available||batchStorageError||batchRunner.unresolved(batch);
   node('batch-count').textContent=batchStorageError?'浏览器无法读取批次记录，已禁用批量；请先人工核对。':'跳过已生成、已 Pass、曾尝试或状态待确认的图片；顺序执行，不自动重试。';
   const progress=node('batch-progress');progress.hidden=!batch;
   if(batch){
@@ -141,14 +144,14 @@ function renderDetail(card){
   if(card.accepted_result&&card.accepted_result.revision!==card.confirmed_revision)box.append(el('p','最终导出继续使用先前明确 Pass 的版本，不被当前未通过图片替换。','muted'));
   if(card.error)box.append(el('p',card.error+(card.request_uncertain?'；执行或计费仍不确定，请人工核对，未自动重试。':''),'generation-error'));
   if(card.status==='INTERRUPTED')box.append(el('p','服务曾中断，远端执行结果待核对；现有成图保留，不自动重发。','generation-error'));
-  const controls=el('div',undefined,'generation-actions'),busy=mutationBusy(),blocked=presentation.blocked||!available;
+  const controls=el('div',undefined,'generation-actions'),busy=mutationBusy(),blocked=readOnlyWorkspace||presentation.blocked||!available;
   if(!quick){
     const confirm=el('button',card.plan_status?.confirmed?'本图计划已确认':'确认本图计划','secondary');
     confirm.disabled=busy||blocked||card.plan_status?.confirmed||!state.plans[card.id]||state.stale_plans.includes(card.id);
     confirm.onclick=()=>window.PreparePlan.confirmPlan(card.id);controls.append(confirm);
   }
   const generate=el('button','生成图片','primary');
-  generate.disabled=busy||blocked||!card.generation_allowed||card.request_uncertain;
+  generate.disabled=aiBlocked()||busy||blocked||!card.generation_allowed||card.request_uncertain;
   generate.onclick=()=>generateOne(card.id);controls.append(generate);box.append(controls);
   const history=el('div',undefined,'version-controls'),select=el('select');select.setAttribute('aria-label','当前图片的历史版本');
   card.versions.forEach(version=>{const option=el('option','V'+version.version+' · '+(version.action==='revise_image'?'修改':'生成'));option.value=version.run_id;select.append(option);});
@@ -168,11 +171,11 @@ function renderComposer(card){
   for(const [value,label] of options){const option=el('option',label);option.value=value;select.append(option);}select.value=action;
   node('edit-target').textContent='Task ID: '+sessionId+'\nImage ID: '+card.id+'（'+imageNumber(card.id)+'）\nImage Version: '+versionLabel(card)+(card.selected_run?' · Run ID: '+card.selected_run:'');
   if(node('edit-feedback').value!==draft.text)node('edit-feedback').value=draft.text;
-  node('edit-feedback').disabled=false;node('edit-file').value='';
+  node('edit-feedback').disabled=readOnlyWorkspace;node('edit-file').value='';node('edit-file').disabled=readOnlyWorkspace;select.disabled=readOnlyWorkspace;node('remove-edit-file').disabled=readOnlyWorkspace;
   node('edit-auxiliary').hidden=action!=='image';
   const purpose=node('edit-purpose');purpose.replaceChildren();const empty=el('option','请选择本次图片用途');empty.value='';purpose.append(empty);
   for(const [value,label] of Object.entries(current.auxiliary_purposes)){const option=el('option',label);option.value=value;purpose.append(option);}
-  purpose.value=draft.purpose;purpose.disabled=!draft.file;
+  purpose.value=draft.purpose;purpose.disabled=readOnlyWorkspace||!draft.file;
   node('edit-preview').hidden=!draft.file;node('edit-preview-image').src=draft.url||'';node('edit-filename').textContent=draft.file?.name||'';
   const stale=hasContent(draft)&&!matchesBase(card,action,draft);
   node('rebase-draft').hidden=!stale;node('rebase-draft').disabled=mutationBusy();
@@ -182,7 +185,7 @@ function renderComposer(card){
   updateSend(card,action,draft);renderHistory(card);
 }
 function updateSend(card=selectedCard(),action=card&&actionFor(card),draft=card&&draftFor(card,action)){
-  node('send-edit').disabled=!card||mutationBusy()||presentation.blocked||!available||!draft.text.trim()||!matchesBase(card,action,draft)||
+  node('send-edit').disabled=aiBlocked()||!card||mutationBusy()||presentation.blocked||!available||!draft.text.trim()||!matchesBase(card,action,draft)||
     (action==='image'?(!card.selected_run||!card.generation_allowed||card.historical_generation||card.request_uncertain||Boolean(draft.file&&!current.auxiliary_purposes[draft.purpose])):
       (!window.PreparePlan.getState().product||!window.PreparePlan.getState().plans[card.id]));
 }
@@ -205,8 +208,8 @@ function render(){
     const card=selectedCard();node('image-workspace').hidden=!card;node('select-image-note').hidden=Boolean(card);
     if(card){renderDetail(card);renderComposer(card);}else{node('edit-feedback').disabled=true;node('send-edit').disabled=true;}
     const busy=mutationBusy();
-    node('export-passed').disabled=presentation.blocked||busy||!available||!current.cards.some(c=>c.has_passed_history);
-    node('export-experiment').disabled=presentation.blocked||busy||!available;
+    node('export-passed').disabled=readOnlyWorkspace||presentation.blocked||busy||!available||!current.cards.some(c=>c.has_passed_history);
+    node('export-experiment').disabled=readOnlyWorkspace||presentation.blocked||busy||!available;
     window.PreparePlan.setImageBusy(imageBusy());renderBatch(busy);drawOperation();
   }finally{rendering=false;if(renderAgain){renderAgain=false;render();}}
 }
@@ -235,7 +238,8 @@ async function runImage(op){
     message('图片 '+op.number+' 的'+actionNames[op.action]+'已保存，其他图片及既有 Pass 未替换。',false,op.taskId);
     return result;
   }catch(error){
-    finishOperation(job,'FAILED');message('图片 '+op.number+'：'+error.message+' 若请求已发出，远端执行及费用需核对，未自动重试。',true,op.taskId);throw error;
+    const note=error.apiCallAttempted===false?' 未发送模型请求，未自动重试。':' 若请求已发出，远端执行及费用需核对，未自动重试。';
+    finishOperation(job,'FAILED');message('图片 '+op.number+'：'+error.message+note,true,op.taskId);throw error;
   }finally{
     running.delete(jobId);jobs.delete(jobId);
     try{await refreshFor(op.taskId);const card=current?.session_id===op.taskId&&current.cards.find(c=>c.id===op.imageId);if(job.status==='FAILED'&&card?.request_uncertain)finishOperation(job,'UNCERTAIN');}
@@ -246,7 +250,7 @@ async function runImage(op){
 async function generateOne(target,revise=false,batchItem=null){
   if(revise)return sendModification();
   const card=current?.cards.find(c=>c.id===target);
-  if(!card||presentation.blocked||!available||running.size||localPlanning||window.PreparePlan.getStatus().busy||
+  if(aiBlocked()||!card||presentation.blocked||!available||running.size||localPlanning||window.PreparePlan.getStatus().busy||
     !card.generation_allowed||card.request_uncertain||batch?.status==='RUNNING'&&!batchItem){
     if(batchItem)throw new Error('本图状态已改变，未发送模型请求。');return;
   }
@@ -267,7 +271,7 @@ async function sendModification(){
   finally{localPlanning=false;try{await refreshFor(op.taskId);}catch(error){if(sessionId===op.taskId){available=false;message(error.message,true);}}render();}
 }
 async function reviewOne(target,action,runId){
-  const card=current?.cards.find(c=>c.id===target);if(!card||mutationBusy()||presentation.blocked||!card.generation_allowed||card.historical_generation)return;
+  const card=current?.cards.find(c=>c.id===target);if(readOnlyWorkspace||!card||mutationBusy()||presentation.blocked||!card.generation_allowed||card.historical_generation)return;
   const op=freezeOperation(card,action),jobId=key(op.taskId,op.imageId),job=startOperation(op);running.add(jobId);render();
   try{await api('/api/sessions/'+op.taskId+'/review/'+op.imageId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed_revision:op.reviewRevision,card_revision:op.cardRevision,action,run_id:runId})});finishOperation(job,'SUCCEEDED');}
   catch(error){finishOperation(job,'FAILED');message(error.message,true,op.taskId);}
@@ -308,6 +312,7 @@ node('check-batch').onclick=async()=>{
   try{await batchRunner.inspect(batch,batchPorts());await refreshFor(sessionId);}catch(error){message('查询失败：'+error.message+'；未重试模型请求。',true);}finally{render();}
 };
 async function downloadPackage(kind){
+  if(readOnlyWorkspace)return;
   const button=node('export-'+kind);if(button.disabled)return;button.disabled=true;const label=button.textContent,task=sessionId;button.textContent='正在打包…';
   try{
     const response=await fetch('/api/sessions/'+task+'/export-'+kind,{method:'POST',headers:{'X-Local-Action':'prepare-plan'}});
@@ -328,6 +333,12 @@ setInterval(()=>{
   document.querySelectorAll('#selected-image-detail .waiting').forEach(e=>{const seconds=Math.max(0,Math.floor((Date.now()-Date.parse(e.dataset.started||new Date().toISOString()))/1000));e.textContent=e.dataset.operation+'正在执行 · 已等待 '+seconds+' 秒；不确定进度，未自动重试。';});
 },1000);
 window.ImageGeneration={
+  getDebugSelection(){
+    const card=selectedCard();
+    // Read the displayed bucket, including historical images; never its V label.
+    return card?{task_id:sessionId,image_id:card.id,revision:card.confirmed_revision,
+      run_id:card.selected_run||card.run_id||null}:null;
+  },
   present(data,options){
     const changed=current?.session_id!==data.session_id;current=data;sessionId=data.session_id;presentation=options;available=true;
     if(changed){let saved=selections.get(sessionId);if(!saved){try{saved=sessionStorage.getItem('commerce:selected-image:'+sessionId);}catch{}}selectedTarget=saved||null;}
