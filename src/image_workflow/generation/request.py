@@ -55,10 +55,24 @@ Listing 和运营意见不是已验证事实，不补写或夸大未经核验的
 
 
 
-def parameters_for(state, defaults):
+def validate_image_sizes(values, targets, allowed_sizes):
+    """Validate task-owned output parameters without IO or state changes."""
+    if not isinstance(values, dict) or any(not isinstance(key, str) or key not in targets or
+            not isinstance(size, str) or size not in allowed_sizes for key, size in values.items()):
+        raise ValueError('逐图尺寸必须绑定本任务输出，且使用支持的尺寸。')
+    return dict(values)
+
+
+def parameters_for(state, defaults, target=None):
     parameters = dict(defaults)
     if state.get('mode') == 'quick_redesign':
         parameters['size'] = state.get('output_size', defaults['size'])
+    if target is not None and target in state.get('image_sizes', {}):
+        from .quick_prompt import SIZES
+        size = state['image_sizes'][target]
+        if size not in SIZES:
+            raise ValueError('本图输出尺寸无效；未调用模型。')
+        parameters['size'] = size
     return parameters
 
 
@@ -74,6 +88,7 @@ def initial_context(state, target, parameters):
                 'input_revision': state['revision'], 'original_inputs': copy.deepcopy(state['inputs']),
                 'output_size': parameters['size']}
     return {'session_id': state['id'], 'confirmed_revision': state['revision'], 'reference_id': target,
+            **({'output_size': parameters['size']} if target in state.get('image_sizes', {}) else {}),
             'original_inputs': copy.deepcopy(state['inputs']),
             'product_understanding': copy.deepcopy(state['product']),
             'reference_understanding': copy.deepcopy(state['references'][target]),

@@ -6,6 +6,7 @@ use cases are provided by the composition root; this module never imports it.
 
 import io
 import os
+from urllib.parse import urlsplit
 
 from flask import jsonify, render_template, request, send_file, redirect
 from werkzeug.exceptions import HTTPException
@@ -15,6 +16,15 @@ from image_workflow import Problem
 
 
 def register_routes(app, *, store, generation, tasks, queries, images, case, safe_text, auxiliary_uploads):
+
+    @app.context_processor
+    def local_developer_entry():
+        # Navigation only: full Evidence remains opt-in on the isolated app.
+        local = (request.remote_addr in ('127.0.0.1', '::1') and
+                 urlsplit(request.host_url).hostname in ('localhost', '127.0.0.1', '::1') and
+                 not any(name in request.headers for name in
+                         ('Forwarded', 'X-Forwarded-For', 'X-Real-IP', 'X-Forwarded-Host')))
+        return {'local_live_debug_hint': local}
 
     @app.before_request
     def local_action():

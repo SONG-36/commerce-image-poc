@@ -173,7 +173,7 @@ def execute_generation(state, target, parent_run_id=None, feedback='', operation
                'card_revision': old_pointer.get('card_revision', 0) + 1}
     model = environment.get('OPENAI_IMAGE_MODEL', models[0])
     quick = state.get('mode') == 'quick_redesign'
-    parameters = parameters_for(state, defaults)
+    parameters = parameters_for(state, defaults, target)
     record = {
         'run_id': run_id, 'session_id': state['id'], 'reference_id': target, 'confirmed_revision': revision,
         'case_id': access.case_id(), 'action': 'revise_image' if parent_run_id else 'generate_image',

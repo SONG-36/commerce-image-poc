@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>任务中心 · 商品图制作</title><link rel="stylesheet" href="/static/prepare.css"><link rel="stylesheet" href="/static/visual.css"><script src="/static/tasks.js" defer></script></head>
 <body class="visual-prototype task-home">
-  <header class="topbar"><a class="brand" href="/"><span class="workspace-mark" aria-hidden="true">图</span>商品图工作台</a><nav><strong>任务中心</strong><span>内部试用</span></nav></header>
+  <header class="topbar"><a class="brand" href="/"><span class="workspace-mark" aria-hidden="true">图</span>商品图工作台</a><nav><strong>任务中心</strong><span>内部试用</span>{% if local_debug_enabled and not workspace_read_only %}<a href="/workspace/new">开发者工作台 / {{ local_debug_config.mode }}</a>{% elif local_live_debug_hint %}<a href="http://127.0.0.1:8013/">开发者视图 / Live Debug</a>{% endif %}</nav></header>
   <main>
     {% if workspace_read_only %}<section class="notice" role="status"><strong>匿名只读预览</strong> · 仅查看已有任务及 Evidence。<a href="http://127.0.0.1:8013/">进入可写 Live Debug 工作台</a></section>{% endif %}
     <div class="heading task-hero"><div><p class="eyebrow">COMMERCE IMAGE WORKSPACE</p><h1>让商品图片，进入下一版。</h1><p>从商品图包到快速重设计，在独立任务中完成制作、修改与审核。</p></div>{% if not workspace_read_only %}<a class="primary button-link" href="/workspace/new"><span aria-hidden="true">＋</span> 创建新任务</a>{% endif %}</div>

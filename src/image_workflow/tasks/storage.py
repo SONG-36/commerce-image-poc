@@ -11,6 +11,8 @@ from file_ops import safe_path
 from image_workflow import Problem
 from persistence import task_state
 import image_workflow.generation.quick_v1 as quick_v1
+from image_workflow.generation.request import validate_image_sizes
+from image_workflow.generation.quick_prompt import SIZES
 
 
 class TaskFiles:
@@ -39,6 +41,10 @@ class TaskFiles:
         try:
             if quick_v1.is_v1(state):
                 quick_v1.slots_for(state)
+            if 'image_sizes' in state:
+                targets = {slot['id'] for slot in state['quick_slots']} if quick_v1.is_v1(state) else {
+                    image['id'] for image in state['images'] if image['role'] == ('product' if state.get('mode') == 'quick_redesign' else 'reference')}
+                validate_image_sizes(state['image_sizes'], targets, SIZES)
         except ValueError as error:
             raise Problem(str(error), 409) from error
         return state

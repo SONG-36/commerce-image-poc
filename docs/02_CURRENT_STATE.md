@@ -1,18 +1,25 @@
 # Current State
 
-> 同步日期：2026-10-24（Asia/Shanghai）；当前本地 Git 基线：`main` / `a3485c51773149c59915c1d4b4db431793c2c712`。已提交的 Inspector 基线之外，Quick V1 CP1、CP2 当前仍在工作树中，均未提交。此前文档同步起点 `cb8ec3944c5df5473d5e1a6b404cc1a9c6a717e8` 为历史检查点。
+> 同步日期：2026-10-26（Asia/Shanghai）；当前本地 Git 基线：`main` / `b508c27889e4c1fedfc577ec2f2efeed11920646`，`feat: implement Quick V1 slot-based image workflow`；CP1+CP2 已提交。本次动态图位、逐图尺寸和开发者入口修复仍未提交。此前文档同步起点 `cb8ec3944c5df5473d5e1a6b404cc1a9c6a717e8` 为历史检查点。
 > FINAL CUTOVER `78c68f9f25639d77abfdc3792a36541912f8af09` 是历史源码检查点；其后 Inspector/Live Debug 实现不包含在该 SHA 中。已提交的 Inspector 源码与文档检查点见第 5 节。Mac mini 线上状态 **UNKNOWN / UNVERIFIED**，核验 **DEFER**。
 
-**当前摘要**：Inspector V0～V0.7 与本地 Live Debug 已实现；其历史完整离线回归为 366 项、Node 前端 46 项（Python 包含 Node 包装，不累加）。Quick V1 最新工程与浏览器验证见下述 CP2 记录；不将其扩大为整个 Inspector 交互清单或真实模型验收。已有人工截图和部分体验，完整运营交互与真实图片质量仍待验收。第 6 节保留历史记录，现行状态以上述摘要和最新检查点为准。
+**当前摘要**：Inspector V0～V0.7 与本地 Live Debug 已实现；Quick V1 CP1+CP2 已提交，最新三项修复及匿名浏览器验证见下。最新完整离线回归 393 项、独立 Node 56 项（Python 包含 Node 包装，不累加）。不将本轮验证扩大为整个 Inspector 交互清单或真实模型验收；完整运营交互与真实图片质量仍待验收。第 6 节保留历史记录，现行状态以上述摘要和最新检查点为准。
 
 **当前核心问题**：用户/运营反馈的商品主体变形及商品身份保持；这是待逐 Run 核验的业务问题，不是已证明的模型根因。近期停止扩张 Inspector UI，以现有证据工具推进 Context、图片角色与人工 Evaluation；具体案例差异见第 6 节，下一会话交接见 [P3 主文档](learning/P3_SOURCE_WALKTHROUGH_STUDY_V0.1.md#10-下一会话接续2026-10-23)。
 
-**Quick V1 CP1（2026-10-24）：CORE ENGINEERING IMPLEMENTED / BUSINESS VALIDATION PENDING。** 本地未提交的首片通过现有保存 API 显式接收 `quick_business_version=v1` 与图位配置，按启用图位建立稳定输出，校验 1/1/1/3/2 上限、参考归属及可选要求。CP1 使用共同商品素材与本图位主参考，暂不使用全局风格图片，不执行 Planning；三素材全量发送仅为本片策略，不冻结为长期素材选择规则。新 Context、实际 Prompt、输入顺序及 Run 保存输出身份和绑定，编辑沿用父 Run、锁、去重、版本、Pass 与 ZIP；无显式新版的历史 Quick、功能 B 和 CLI 保持原行为，不迁移历史数据。
+**Quick V1 CP1（2026-10-24）：CORE ENGINEERING IMPLEMENTED / BUSINESS VALIDATION PENDING。** 首片（现已与 CP2 一并提交）通过现有保存 API 显式接收 `quick_business_version=v1` 与图位配置，按启用图位建立稳定输出，校验 1/1/1/3/2 上限、参考归属及可选要求。CP1 使用共同商品素材与本图位主参考，暂不使用全局风格图片，不执行 Planning；三素材全量发送仅为本片策略，不冻结为长期素材选择规则。新 Context、实际 Prompt、输入顺序及 Run 保存输出身份和绑定，编辑沿用父 Run、锁、去重、版本、Pass 与 ZIP；无显式新版的历史 Quick、功能 B 和 CLI 保持原行为，不迁移历史数据。
 CP1 隔离环境修改前 366 项通过，新增 15 项 Quick V1 测试通过，最终完整回归 **381 项通过（19.459 秒）**；原测试和历史行为指纹未修改，未调用真实模型或操作真实 runtime。该检查点当时仅支持保存 API，页面与 Inspector 适配由下述 CP2 完成。Mac mini 未核验、未部署；工程通过不代表商品身份、事实、视觉质量或运营接受通过。
 
-**Quick V1 CP2（2026-10-24）：ENGINEERING VERIFIED / BROWSER VERIFIED（匿名 SDK Mock 范围）；REAL IMAGE GENERATED = 0；BUSINESS ACCEPTED = PENDING。** 新建 Quick 页面提供同 SKU 商品素材、1/1/1/3/2 八个可选图位、单张主参考预览/替换/移除和可空补充要求；显式提交 CP1 `v1` 与图位契约。商品素材数量不决定卡片数；新 V1 隐藏全局风格图片入口，整体要求继续适用。刷新恢复绑定；资料改动只另存新任务，并重映射参考资产编号、保留输出身份，原 Task/Run/Pass 不改写。历史 Quick 和商品图包保留原入口与业务语义。
+**Quick V1 CP2（2026-10-24）：ENGINEERING VERIFIED / BROWSER VERIFIED（匿名 SDK Mock 范围）；REAL IMAGE GENERATED = 0；BUSINESS ACCEPTED = PENDING。** 当时新建 Quick 页面提供同 SKU 商品素材、固定展开的 1/1/1/3/2 八个可选图位（动态操作由下述修复取代）、单张主参考预览/替换/移除和可空补充要求；显式提交 CP1 `v1` 与图位契约。商品素材数量不决定卡片数；新 V1 隐藏全局风格图片入口，整体要求继续适用。刷新恢复绑定；资料改动只另存新任务，并重映射参考资产编号、保留输出身份，原 Task/Run/Pass 不改写。历史 Quick 和商品图包保留原入口与业务语义。
 输出选择/详情展示图位、主参考与本图要求；生成、顺序批量、修改、历史版本、Pass 和两种 ZIP 复用原流程。Inspector 只读投影识别 V1 输出身份，按实际清单区分共同商品素材和当前图位参考；缺少 Context 或有歧义的文字来源仍为 UNKNOWN，不重建历史 Prompt、不改变 Evidence。
 本轮修改前 **381 项通过（18.935 秒）**；最终完整隔离回归 **387 项通过（18.986 秒）**，独立 Node **53 项通过**，均零跳过，二者不累加。真实 Edge 浏览器使用 NEW FIXTURE / SDK Mock：三素材三图位创建、第四素材另存仍三卡、刷新恢复、尺寸图生成与修改、父 Run、选 V1 Pass 后看 V2、两种 ZIP、Inspector 随 Run 读取，以及 390px 上传布局通过；最终图片 ZIP 核对仅含明确 Pass 的 V1。浏览器两次 SDK Mock（一次生成、一次修改），不是付费调用。截图、下载和原始验证日志只在仓库外临时目录，未加入 Git；未验证真实商品质量、生产环境或 Mac mini。
+
+**Quick V1 真实使用问题修复（2026-10-26，未提交）：ENGINEERING VERIFIED / BROWSER VERIFIED（匿名 SDK Mock）；REAL IMAGE GENERATED = 0；BUSINESS ACCEPTED = PENDING。**
+- 主图/尺寸/对比固定显示；卖点、场景使用虚线添加框，按 3/2 上限动态增删。输出 ID 独立于显示序号，删除中间项不重编号其他绑定；刷新/另存恢复数量、顺序、参考、要求和尺寸。旧 CP2 未使用的空占位仅在页面收起，不改历史文件。
+- Quick V1 和 Listing 参考均可设置 `1024x1024` / `1024x1536` / `1536x1024`；复用当前客户端尺寸枚举。任务新增可选 `image_sizes` 输出 ID 映射，创建及读取时校验归属/尺寸；单图配置优先于任务默认，旧任务无该字段仍用原默认。生成/批量/修改使用本图尺寸，实际参数沿用原 request.json / Run Evidence。输入尺寸修改仍另存新 Task，不原地改历史 Run 或确认记录，Listing 保留理解及逐图确认流程。
+- Inspector 未被 Quick 移除：原本只在显式隔离调试工厂启用。工作台按钮改为「开发者视图 / Inspector」；普通本机工作台提供 Live Debug 导航和现有一键命令，仍不开放运营 Inspector API。无 Run 显示真实空状态，已有 Run 可看 Context、Prompt、角色、实际请求尺寸及输出；继续复用 V0.7 和原权限校验。
+- 修改前隔离回归 **387 项通过（20.516 秒）**；新增 [逐图参数/兼容测试](../tests/test_quick_operational_fixes.py) 6 项，更新并补充 [上传交互测试](../tests/quick_v1_upload.test.cjs)。最终完整回归 **393 项通过（20.014 秒）**；独立 Node **56 项通过，零失败/跳过**，不重复累加。旧 Quick、功能 B、CLI、锁/去重、失败保留、父 Run、Pass、ZIP 及历史请求/Evidence 指纹回归通过。
+- Edge 真实浏览器使用 NEW FIXTURE / 匿名 SDK Mock，验证两类动态图位增删/再添/上限、中间删除不串参考、保存/刷新/第四素材另存仍三输出；Quick 三图批量尺寸依次为方/竖/横，修改继承竖图，V1 Pass 不被 V2 替换，最终 ZIP 仅含 V1；Listing 经原理解和逐图确认后同样按方/竖/横生成。共 **7 次 Images SDK Mock**，请求尺寸为 `1024x1024, 1024x1536, 1536x1024, 1024x1536, 1024x1024, 1024x1536, 1536x1024`；另有匿名 Responses Mock，不是真实模型请求。Inspector 无 Run/随 Task 和 Run 更新、图片加载、Prompt/模型/尺寸、390px 上传与抽屉已核验，无浏览器脚本异常。截图和 JSON 报告仅存仓库外临时目录；真实 `.env`、运营 runtime、Mac mini 和现有 8012/8013 未访问或重启，不证明真实模型质量或账户尺寸可用性。
 
 ## 1. 定位与当前阶段
 
@@ -75,7 +82,7 @@ Web 默认使用 `.runtime/prepare-plan/sessions/<task-id>/`；`create_app(runti
 - T01 / Quick CLI 分别使用 `.runtime/evidence/case-001/`、`.runtime/evidence/i01-quick-redesign/`，图片在对应 `.runtime/outputs/`；每次独立 Run，不覆盖原始资料。
 
 代码默认配置（本轮未调用模型）：Planning 为 `gpt-5.4-mini`，允许显式回退 `gpt-4.1-mini` 或其 `2025-04-14` 快照；Responses 使用 instructions、JSON Context、图片标签与 data URL。
-Images 默认 `gpt-image-2.5-sunburst`，另允许 `gpt-image-2.5-flare`；`images.edit`、n=1、low、PNG。默认竖图，Quick 支持已有方图/横图尺寸。
+Images 默认 `gpt-image-2.5-sunburst`，另允许 `gpt-image-2.5-flare`；`images.edit`、n=1、low、PNG。默认竖图；Quick V1 和 Listing 可逐输出配置已有方图/竖图/横图尺寸，历史 Quick 保留任务默认尺寸。
 商品资料决定事实依据，参考只借鉴设计；图片编辑先送当前选中成图，再送必要原始依据、本图参考和本次辅助图/意见，不重跑完整规划或无条件携带全部历史。
 源码依据：[Planning request](../src/image_workflow/planning/request.py)、[Generation request](../src/image_workflow/generation/request.py)、[Quick Prompt](../src/image_workflow/generation/quick_prompt.py)、[Images 配置](../src/infrastructure/openai_images.py)。
 

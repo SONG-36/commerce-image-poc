@@ -93,7 +93,7 @@ function renderChoices(){
     const image=el('img');image.src=card.image_url||card.reference.url;image.alt=card.image_url?'已保存的生成图缩略图':'尚未生成，显示参考或原图';
     const badge=card.has_passed_history?'已有 Pass':'待审核';
     button.append(image,el('strong','#'+String(index+1).padStart(2,'0')+' · '+(card.output_slot?slotLabel(card.output_slot)+' · ':'')+versionLabel(card)),
-      el('span',statuses[displayStatus(card)]||'状态待确认'),el('small',badge+(card.passed_run&&card.passed_run!==card.selected_run?' · 查看其他版本':'')));
+      el('span',statuses[displayStatus(card)]||'状态待确认'),el('small','输出尺寸：'+card.output_size),el('small',badge+(card.passed_run&&card.passed_run!==card.selected_run?' · 查看其他版本':'')));
     button.onclick=()=>chooseImage(card.id);grid.append(button);
   });
 }
@@ -126,6 +126,7 @@ function renderDetail(card){
   const large=el('button','查看大图','secondary');large.type='button';large.onclick=()=>showLarge(image.src,image.alt);
   box.append(image,large,el('p','当前版本：'+versionLabel(card)+' · '+(statuses[displayStatus(card)]||'状态待确认')+
     (card.passed_run===card.selected_run&&card.selected_run?' · 已 Pass':' · 当前版本未 Pass'),'image-caption'));
+  box.append(el('p','本图配置尺寸：'+card.output_size+'；实际 Run 尺寸见 Inspector 请求参数。','muted'));
   const source=el('details',undefined,'history');source.append(el('summary',card.output_slot?'查看本图位的主要设计参考':current.mode==='quick_redesign'?'查看原始待重设计图片':'查看对应设计参考图'));
   source.open=Boolean(card.output_slot);
   const reference=el('img');reference.src=card.reference.url;reference.alt=card.reference.name;reference.className='reference-preview';

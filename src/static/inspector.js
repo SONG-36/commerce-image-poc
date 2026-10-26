@@ -236,6 +236,7 @@
   }
   function render(){
     const s=view.selection;node('identity').textContent='Task '+s.task_id+' / '+s.image_id+' / revision '+s.revision+' / Run '+(s.run_id||'未保存');
+    if(node('selection-summary'))node('selection-summary').textContent=node('identity').textContent+(s.run_id?'':' · 尚无 Run；未创建模型 Context 或请求。原始资料及输入快照可在高级证据查看。');
     options('image-select',view.images.map(i=>({label:i.id,value:i.id})),s.image_id);
     options('revision-select',view.revisions.map(i=>({label:'revision '+i,value:i})),s.revision);
     options('run-select',view.runs.map(i=>({label:i,value:i})),s.run_id);

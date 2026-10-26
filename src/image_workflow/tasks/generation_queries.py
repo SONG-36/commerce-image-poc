@@ -4,6 +4,7 @@ import re
 
 from file_ops import safe_path
 import image_workflow.generation.quick_v1 as quick_v1
+from image_workflow.generation.request import parameters_for
 
 
 def request_uncertain(record, status=None):
@@ -39,7 +40,7 @@ def generation_card(service, state, target, *, reader, safe_text, defaults, revi
     return {
         "id": target, "plan": state["plans"].get(target), "confirmed_revision": revision,
         "requirements": state["inputs"]["requirements"], "product_facts": state["inputs"].get("product_facts", ""),
-        "output_size": state.get("output_size", defaults["size"]),
+        "output_size": parameters_for(state, defaults, target)['size'],
         "style_references": [{"name": image["name"], "url": f"/api/sessions/{state['id']}/images/{image['id']}"}
                              for image in state["images"] if state.get("mode") == "quick_redesign" and not slot and image["role"] == "reference"],
         "reference": {"name": reference["name"], "url": f"/api/sessions/{state['id']}/images/{reference_id}"},
