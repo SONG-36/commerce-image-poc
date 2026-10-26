@@ -10,6 +10,7 @@ import re
 from file_ops import safe_path
 from image_workflow import Problem
 from persistence import task_state
+import image_workflow.generation.quick_v1 as quick_v1
 
 
 class TaskFiles:
@@ -35,6 +36,11 @@ class TaskFiles:
             if not re.fullmatch(r'inputs/(?:product|reference)_[0-9]+\.(?:jpg|jpeg|png|webp)', image['file']):
                 raise Problem('任务图片路径不在本任务允许范围内。', 409)
             safe_path(self.folder(session_id), image['file'])
+        try:
+            if quick_v1.is_v1(state):
+                quick_v1.slots_for(state)
+        except ValueError as error:
+            raise Problem(str(error), 409) from error
         return state
 
     def read_snapshot(self, session_id, revision):

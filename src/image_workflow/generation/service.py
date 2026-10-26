@@ -16,6 +16,7 @@ from file_ops import safe_path, sha256
 from .request import (PromptBuilders, build_generation_request, initial_context,
                       original_input, parameters_for, parent_input, redesign_order, select_images)
 from .validation import decode_response, validate_image
+import image_workflow.generation.quick_v1 as quick_v1
 
 
 @dataclass(frozen=True)
@@ -56,7 +57,11 @@ def prepare_context(folder, state, target, parameters, record, io):
     quick = state.get('mode') == 'quick_redesign'
     context = initial_context(state, target, parameters)
     if quick:
-        record['source_image_id'] = target
+        if quick_v1.is_v1(state):
+            record.update(quick_business_version=quick_v1.VERSION, output_id=target,
+                          output_slot=copy.deepcopy(context['output_slot']))
+        else:
+            record['source_image_id'] = target
         record['quick_redesign_source_sha256'] = sha256(io.quick_source_file.read_bytes())
     io.write_json(folder / 'plan.json', context)
     record['plan_sha256'] = sha256(json.dumps(context if quick else state['plans'][target],
@@ -96,7 +101,11 @@ def prepare_images(folder, state, target, context, record, parent_run_id, feedba
         payload, identity = original_input(image, data, len(order) + 1)
         images.append(payload)
         order.append(identity)
-    if state.get('mode') == 'quick_redesign':
+    if quick_v1.is_v1(state):
+        for item in order:
+            if item['role'] == 'reference':
+                item['role'] = 'design_reference'
+    elif state.get('mode') == 'quick_redesign':
         order = redesign_order(order, target)
     if auxiliary:
         metadata = record['auxiliary_reference']

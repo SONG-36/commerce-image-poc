@@ -2,6 +2,8 @@
 "use strict";
 let state = null, dirty = false, busy = false;
 let kept = [], pending = {product: [], reference: []};
+const slotTypes=[['main','主图',1],['dimensions','尺寸图',1],['comparison','同类商品对比图',1],['selling_point','卖点图',3],['scene','使用场景图',2]];
+let quickSlots=[];
 let operation=null,remoteBusy=false,progressPoll=null,imageBusy=false;
 const feedbackDrafts=new Map();
 const actionNames={understand:'AI 理解与规划',product:'AI 修正商品理解',reference:'AI 修正参考理解',plan:'AI 修改本张计划',replan:'AI 重新规划',confirm:'确认计划'};
@@ -14,13 +16,46 @@ const referenceFields = {style:"视觉风格", composition:"构图方式", layou
 const planFields = {goal:"表达目标", selling_points:"主要卖点", design:"设计与构图", scene_style:"场景与风格", risks:"风险与待确认"};
 const redesignDefault='提升商业设计质量、排版与信息层级、光影与背景、场景表现及原有卖点的视觉表达。';
 function isQuick(){return $('task-mode').value==='quick_redesign';}
+function isQuickV1(){return isQuick()&&(!state||state.quick_business_version==='v1');}
+function resetSlots(){
+  quickSlots.forEach(slot=>{if(slot.reference?.localFile)URL.revokeObjectURL(slot.reference.url);});
+  const saved=state?.quick_business_version==='v1'?state.quick_slots:[],used=new Set(saved.map(slot=>slot.id));let serial=101;
+  quickSlots=slotTypes.flatMap(([type,label,count])=>Array.from({length:count},(_,index)=>{
+    const original=saved.filter(slot=>slot.type===type)[index];
+    while(used.has('reference_'+serial))serial++;
+    const id=original?.id||'reference_'+serial++;used.add(id);
+    return {id,type,label:label+(count>1?' '+(index+1):''),enabled:original?.enabled||false,
+      requirements:original?.requirements||'',reference:kept.find(image=>image.id===original?.reference_id)||null};
+  }));
+}
+function renderSlots(){
+  const box=$('quick-slots');box.replaceChildren();
+  quickSlots.forEach((slot,index)=>{
+    const row=element('article',undefined,'quick-slot'),prefix='quick-slot-'+index;
+    const label=element('label',undefined,'quick-slot-toggle'),enabled=element('input');enabled.type='checkbox';enabled.id=prefix+'-enabled';enabled.checked=slot.enabled;
+    enabled.onchange=()=>{slot.enabled=enabled.checked;renderSlots();markDirty();};label.append(enabled,element('strong',slot.label));row.append(label);
+    if(slot.reference){const image=element('img');image.src=slot.reference.url;image.alt=slot.label+'主要设计参考';row.append(image,element('small',slot.reference.name));}
+    const upload=element('label',slot.reference?'替换主要参考':'添加一张主要参考','upload'),file=element('input');file.type='file';file.id=prefix+'-file';file.accept='image/jpeg,image/png,image/webp';file.setAttribute('aria-label',slot.label+'主要参考');
+    file.onchange=()=>{
+      const selected=Array.from(file.files||[]);if(!selected.length)return;
+      if(selected.length!==1||!['image/jpeg','image/png','image/webp'].includes(selected[0].type)||selected[0].size>20*1024*1024){notify('每个图位只允许一张 JPG、PNG 或 WebP 参考，最大 20 MB。',true);file.value='';return;}
+      if(slot.reference?.localFile)URL.revokeObjectURL(slot.reference.url);
+      slot.reference={localFile:selected[0],name:selected[0].name,url:URL.createObjectURL(selected[0]),role:'reference'};slot.enabled=true;renderSlots();markDirty();
+    };upload.append(file);row.append(upload);
+    const remove=element('button','移除参考','secondary');remove.type='button';remove.id=prefix+'-remove';remove.disabled=!slot.reference;remove.dataset.emptyReference=String(!slot.reference);
+    remove.onclick=()=>{if(slot.reference?.localFile)URL.revokeObjectURL(slot.reference.url);slot.reference=null;slot.enabled=false;renderSlots();markDirty();};row.append(remove);
+    const requirementLabel=element('label','补充制作要求（选填）'),requirements=element('textarea');requirements.id=prefix+'-requirements';requirements.rows=2;requirements.maxLength=12000;requirements.value=slot.requirements;requirements.oninput=()=>{slot.requirements=requirements.value;markDirty();};requirementLabel.append(requirements);row.append(requirementLabel);
+    row.append(element('p',slot.enabled?'已启用 · 保存后建立输出项':slot.reference?'未启用 · 仅保存参考，不产生输出':'未启用 · 不产生输出','muted'));box.append(row);
+  });
+}
 function renderMode(){
-  const quick=isQuick();
+  const quick=isQuick(),v1=isQuickV1();
+  $('shared-reference-field').hidden=v1;$('quick-slots-field').hidden=!v1;
   for(const id of ['listing-field','description-field','understanding-section','planning-controls'])$(id).hidden=quick;
   $('redesign-fields').hidden=!quick;$('load-case').hidden=quick;
-  $('mode-note').textContent=quick?'每张原图独立重设计；风格参考可选。Amazon 商业信息图是视觉偏好，不代表平台合规。':'商品实拍是外观依据；设计参考只提供设计方法。保存不调用 AI。';
-  $('input-title').textContent=quick?'待重设计图片与整体要求':'商品资料与参考图';
-  $('product-label').textContent=quick?'待重设计原图':'商品原图';
+  $('mode-note').textContent=v1?'Quick V1：同一 SKU 的共同商品素材＋按图位绑定参考；无需 AI Planning。参考不提供未经确认的商品事实。':quick?'历史 Quick：每张原图独立重设计；保留原有风格参考行为。':'商品实拍是外观依据；设计参考只提供设计方法。保存不调用 AI。';
+  $('input-title').textContent=v1?'同 SKU 商品素材与图位参考':quick?'待重设计图片与整体要求':'商品资料与参考图';
+  $('product-label').textContent=v1?'同 SKU 商品素材（白底、尺寸、细节等）':quick?'待重设计原图':'商品原图';
   $('reference-label').textContent=quick?'风格参考图（可选）':'设计参考图';
   $('save-inputs').textContent=state?'另存为新任务':'保存资料';
   $('input-summary').textContent=(state?.title||'新建任务')+' · '+(quick?'快速重设计':'商品图包制作');
@@ -32,6 +67,7 @@ async function api(url, options={}) {if(readOnlyWorkspace&&!['GET','HEAD'].inclu
 function updateButtons() {
   const locked=readOnlyWorkspace||busy||remoteBusy||imageBusy;
   document.querySelectorAll('#input-panel button,#input-panel input,#input-panel textarea,#input-panel select,#planning-controls button,.ai-mutation,.feedback textarea').forEach(e=>e.disabled=locked);
+  document.querySelectorAll('#quick-slots button[data-empty-reference="true"]').forEach(e=>e.disabled=true);
   $('task-mode').disabled=locked||Boolean(state);
   $('understand').disabled=locked||window.Workspace?.aiAllowed?.()===false||Boolean(state?.product&&!dirty);
   $('replan').disabled=locked||window.Workspace?.aiAllowed?.()===false||!state?.product||dirty;
@@ -82,6 +118,7 @@ function renderResults(){
   updateButtons();
 }
 function applyState(value,activity=null){if(state?.id!==value.id)feedbackDrafts.clear();state=value;dirty=false;window.history.replaceState(null,'','/workspace/'+state.id);$('task-mode').value=state.mode||'product_pack';$('task-title').value=state.title;releasePending();kept=state.images.map(i=>({...i}));for(const key of ['listing','description','requirements','product_facts'])$(key).value=state.inputs[key]||'';$('output-size').value=state.output_size||'1024x1536';$('product-files').value='';$('reference-files').value='';$('saved-status').textContent=isQuick()?'重设计资料已保存':state.confirmed?'计划已确认':'资料与修改已保存';$('input-note').textContent=state.title+' · 当前任务已保存，刷新后可恢复。';
+  resetSlots();renderSlots();
   remoteBusy=activity?.status==='RUNNING';clearTimeout(progressPoll);
   if(activity){operation={...activity,fromSaved:true,name:actionNames[activity.action]||'AI 操作',status:activity.status==='AI_RESULT_RECEIVED'?'SUCCEEDED':activity.status};drawProgress();}
   if(remoteBusy)progressPoll=setTimeout(async()=>{try{const body=await api('/api/sessions/'+state.id);const active=body.activity;if(active?.status!=='RUNNING'){operation={...active,name:actionNames[active?.action]||'AI 操作',status:active?.status==='AI_RESULT_RECEIVED'?'SUCCEEDED':active?.status||'FAILED'};drawProgress();}applyState(body.state,body.activity);}catch(error){notify('状态读取失败：'+error.message+'；未自动重试模型请求。',true);}},2000);
@@ -91,8 +128,21 @@ async function saveInputs(){
   data.append('mode',$('task-mode').value);
   if(isQuick()){data.append('product_facts',$('product_facts').value);data.append('output_size',$('output-size').value);}
   data.append('title',$('task-title').value);
-  if(state){data.append('from_session',state.id);data.append('keep_images',JSON.stringify(kept.map(i=>i.id)));}
-  for(const role of ['product','reference'])pending[role].forEach(item=>data.append(role,item.file,item.file.name));
+  let keep=kept;
+  if(isQuickV1()){
+    if(!quickSlots.some(slot=>slot.enabled))throw new Error('请至少启用一个图位，并绑定主要设计参考。');
+    if(quickSlots.some(slot=>slot.enabled&&!slot.reference))throw new Error('已启用图位必须绑定一张主要设计参考。');
+    const used=new Set(quickSlots.map(slot=>slot.reference?.id).filter(Boolean));
+    keep=kept.filter(image=>image.role==='product'||used.has(image.id));
+    const references=[...keep.filter(image=>image.role==='reference'),...quickSlots.map(slot=>slot.reference).filter(image=>image?.localFile)];
+    const referenceId=image=>'reference_'+String(references.indexOf(image)+1).padStart(3,'0');
+    data.append('quick_business_version','v1');
+    data.append('quick_slots',JSON.stringify(quickSlots.map(slot=>({id:slot.id,type:slot.type,enabled:slot.enabled,
+      reference_id:slot.reference?referenceId(slot.reference):null,requirements:slot.requirements}))));
+    references.filter(image=>image.localFile).forEach(image=>data.append('reference',image.localFile,image.localFile.name));
+  }else pending.reference.forEach(item=>data.append('reference',item.file,item.file.name));
+  if(state){data.append('from_session',state.id);data.append('keep_images',JSON.stringify(keep.map(i=>i.id)));}
+  pending.product.forEach(item=>data.append('product',item.file,item.file.name));
   const body=await api('/api/sessions',{method:'POST',body:data});applyState(body.state);
 }
 async function runAction(action,target=null,feedback='',expected=null){
@@ -114,9 +164,9 @@ $('input-form').onsubmit=event=>{event.preventDefault();work(async()=>{await sav
 $('understand').onclick=()=>work(async()=>{if(dirty||!state)await saveInputs();await runAction('understand');});
 $('replan').onclick=()=>work(()=>runAction('replan'));
 for(const key of ['listing','description','requirements','task-title','product_facts','output-size'])$(key).addEventListener('input',markDirty);
-$('task-mode').onchange=()=>{if(isQuick()&&!$('requirements').value.trim())$('requirements').value=redesignDefault;renderMode();markDirty();};
+$('task-mode').onchange=()=>{if(!isQuick()&&quickSlots.some(slot=>slot.reference)&&!state){$('task-mode').value='quick_redesign';notify('请先移除图位参考，再切换工作模式；当前输入已保留。',true);return;}if(isQuickV1()&&pending.reference.length){$('task-mode').value='product_pack';notify('请先移除商品图包的共享设计参考，再切换 Quick；Quick V1 请在对应图位上传参考。',true);return;}if(isQuick()&&!$('requirements').value.trim())$('requirements').value=redesignDefault;renderMode();markDirty();};
 for(const role of ['product','reference'])$(role+'-files').onchange=event=>{for(const file of event.target.files)pending[role].push({file,name:file.name,url:URL.createObjectURL(file),role});event.target.value='';renderImages();markDirty();};
-work(async()=>{const session=document.body.dataset.sessionId;if(session){const body=await api('/api/sessions/'+encodeURIComponent(session));$('config-note').hidden=body.ai_configured;applyState(body.state,body.activity);}else renderResults();});
+work(async()=>{const session=document.body.dataset.sessionId;if(session){const body=await api('/api/sessions/'+encodeURIComponent(session));$('config-note').hidden=body.ai_configured;applyState(body.state,body.activity);}else{resetSlots();renderSlots();renderResults();}});
 
 window.PreparePlan={getState:()=>state,getStatus:()=>({dirty,busy:busy||remoteBusy}),api,applyState,renderCardPlan,
   modifyTarget(action,target,feedback,expected){if(!['plan','reference'].includes(action))throw new Error('无效的计划操作。');return work(()=>runAction(action,target,feedback,expected),true);},

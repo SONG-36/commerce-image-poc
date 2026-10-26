@@ -13,7 +13,7 @@ from PIL import Image
 
 from file_ops import read_json, safe_path, sha256
 from infrastructure.evidence import clean_record, contains_private
-from image_workflow.inspector_graph import context_graph
+from image_workflow.inspector_graph import context_graph, prompt_segments
 from persistence import task_state
 
 
@@ -85,8 +85,13 @@ def context_view(selection, mode, nodes, assets):
                 'fields': list(fields), 'images': list(images), 'checks': list(checks), 'note': note}
 
     context = value('plan.json')
+    quick_v1 = any(value(key, ('quick_business_version',)) == 'v1' for key in ('request.json', 'run.json', 'plan.json'))
+    output_matches = (isinstance(context, dict) and context.get('output_id') == selection['image_id'] and
+                      isinstance(context.get('output_slot'), dict) and
+                      context['output_slot'].get('id') == selection['image_id']) if quick_v1 else (
+                          isinstance(context, dict) and context.get('source_image_id') == selection['image_id'])
     context_matches = (isinstance(context, dict) and context.get('session_id') == selection['task_id'] and
-                       context.get('mode') == 'quick_redesign' and context.get('source_image_id') == selection['image_id'] and
+                       context.get('mode') == 'quick_redesign' and output_matches and
                        context.get('input_revision') == selection['revision'])
     warnings = []
     if isinstance(context, dict) and not context_matches:
@@ -111,11 +116,12 @@ def context_view(selection, mode, nodes, assets):
             'expected_sha256': item.get('sha256'), 'hash_matches': asset.get('hash_matches'),
             'sources': [source(order_key, order_path + '/' + str(index))],
             'note': '' if isinstance(request_order, list) else '仅 Run.inputs 留存；原 request.json 图片清单 UNKNOWN。'})
-    original = [item for item in image_inputs if item['role'] in ('original', 'product') and item['id'] == selection['image_id']]
+    original = [item for item in image_inputs if item['role'] in ('original', 'product') and
+                (quick_v1 or item['id'] == selection['image_id'])]
     if not original:
         # Snapshot assets may be viewed, but are NOT silently promoted to actual inputs.
         for asset in assets:
-            if asset['key'].startswith('original-') and asset['label'] == selection['image_id']:
+            if asset['key'].startswith('original-') and (asset['role'] == 'product' if quick_v1 else asset['label'] == selection['image_id']):
                 original.append({**asset, 'asset_key': asset['key'], 'id': asset['label'],
                     'sources': [source('snapshot', '/images', 'confirmation')],
                     'note': '任务资料图片；缺少本次图片清单，是否实际发送 UNKNOWN。'})
@@ -133,9 +139,11 @@ def context_view(selection, mode, nodes, assets):
     for item, tag in ((requirements, 'operator_design_requirements'), (facts, 'product_constraints_from_operator'),
                       (feedback, 'revision_feedback')):
         # Exact tag/value equality, not substring coincidence elsewhere in the Prompt.
-        segments = re.findall(r'<' + tag + r'>\n?(.*?)\n?</' + tag + '>', actual_prompt, re.S) if isinstance(actual_prompt, str) else []
+        segments = [match.group(1) for match in prompt_segments(actual_prompt, tag, quick_v1=quick_v1)]
         known = item['status'] == 'OBSERVED' and isinstance(item['value'], str) and item['value'] != ''
         result = ('MATCH' if len(segments) == 1 and segments[0] == item['value'] else 'MISMATCH') if known and isinstance(actual_prompt, str) else 'UNKNOWN'
+        if quick_v1 and len(segments) != 1:
+            result = 'UNKNOWN'  # A missing/ambiguous saved heading is not a rebuilt request.
         checks.append(check(item['label'] + ' → 请求标签', result, item['sources'] + [source('request.json', '/prompt')],
                             '只核对已保存文字；空值、历史标签缺失或缺少请求时不重建默认内容。'))
     same_prompt = (actual_prompt == prompt_file['value']) if isinstance(actual_prompt, str) and isinstance(prompt_file['value'], str) else None
@@ -170,6 +178,8 @@ def context_view(selection, mode, nodes, assets):
     request_fields = [model, *parameter_fields, *ids]
     # Run settings are displayed as Run settings, not used to fabricate request.json.
     request_fields += [field('记录的超时秒数', 'run.json', ('timeout_seconds',)), field('记录的重试上限', 'run.json', ('max_retries',))]
+    slot_fields = [context_field(label, ('output_slot', key)) for key, label in
+                   [('type', '输出图位'), ('reference_id', '图位主要参考身份'), ('requirements', '本图补充要求')]] if quick_v1 else []
     cards = [
         card('product', 'Product Input · 商品依据', str(len(original)) + ' 张本图商品依据',
              [field('输入快照 revision', 'snapshot', ('revision',), 'confirmation'),
@@ -181,9 +191,9 @@ def context_view(selection, mode, nodes, assets):
               context_field('辅助图片作用范围', ('auxiliary_reference', 'scope'))], references,
              note='角色来自本次图片清单；用途是运营声明，不自动确认同 SKU 或商品事实。'),
         card('requirements', 'Task Requirements · 本次要求', '整体要求、商品约束与本次修改分别保留',
-             [requirements, facts, feedback]),
+             [requirements, facts, feedback, *slot_fields]),
         card('assembly', 'Context Assembly · 组装核对', '资料快照 ≠ 整份已发送 Context',
-             [context_field('Context Task', ('session_id',)), context_field('Context Image', ('source_image_id',)),
+             [context_field('Context Task', ('session_id',)), context_field('Context Image', ('output_id',) if quick_v1 else ('source_image_id',)),
               context_field('Context 输入 revision', ('input_revision',))], checks=checks,
              note='只检查保存的 Context、Prompt、清单与字节；不调用当前 Prompt 构建器重建历史。'),
         card('request', 'Actual Model Request · 实际请求', summary, request_fields, image_inputs,
@@ -292,6 +302,9 @@ class InspectorReader:
         role = 'product' if state.get('mode') == 'quick_redesign' else 'reference'
         images = [item for item in state.get('images', []) if IMAGE_ID.fullmatch(item.get('id', ''))]
         targets = [item for item in images if item.get('role') == role]
+        if state.get('mode') == 'quick_redesign' and state.get('quick_business_version') == 'v1':
+            targets = [slot for slot in state.get('quick_slots', []) if isinstance(slot, dict) and
+                       slot.get('enabled') is True and IMAGE_ID.fullmatch(slot.get('id', ''))]
         if not targets:
             raise InspectorError('任务没有可选择的图片身份。')
         image_id = image_id or targets[0]['id']

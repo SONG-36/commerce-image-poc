@@ -3,6 +3,7 @@
 import re
 
 from file_ops import safe_path
+import image_workflow.generation.quick_v1 as quick_v1
 
 
 def request_uncertain(record, status=None):
@@ -31,15 +32,18 @@ def generation_card(service, state, target, *, reader, safe_text, defaults, revi
         saved = service.run_folder(state["id"], revision, target, successful)
         if reader(saved / "run.json").get("status") == "SUCCEEDED" and (saved / "image.png").is_file():
             image_url = f"/api/sessions/{state['id']}/generated-images/{revision}/{target}/{successful}"
-    reference = next(image for image in state["images"] if image["id"] == target)
+    slot = quick_v1.output_slot(state, target) if quick_v1.is_v1(state) else None
+    reference_id = slot['reference_id'] if slot else target
+    reference = next(image for image in state["images"] if image["id"] == reference_id)
     error = record.get("error")
     return {
         "id": target, "plan": state["plans"].get(target), "confirmed_revision": revision,
         "requirements": state["inputs"]["requirements"], "product_facts": state["inputs"].get("product_facts", ""),
         "output_size": state.get("output_size", defaults["size"]),
         "style_references": [{"name": image["name"], "url": f"/api/sessions/{state['id']}/images/{image['id']}"}
-                             for image in state["images"] if state.get("mode") == "quick_redesign" and image["role"] == "reference"],
-        "reference": {"name": reference["name"], "url": f"/api/sessions/{state['id']}/images/{target}"},
+                             for image in state["images"] if state.get("mode") == "quick_redesign" and not slot and image["role"] == "reference"],
+        "reference": {"name": reference["name"], "url": f"/api/sessions/{state['id']}/images/{reference_id}"},
+        **({'output_slot': slot, 'quick_business_version': quick_v1.VERSION} if slot else {}),
         "status": status, "run_id": latest, "image_url": image_url,
         "image_is_latest": bool(successful and successful == latest),
         "error": safe_text(error.get("message", "")) if error else None,

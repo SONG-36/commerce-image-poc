@@ -92,7 +92,7 @@ function renderChoices(){
     button.setAttribute('aria-label','选择图片 #'+String(index+1).padStart(2,'0'));
     const image=el('img');image.src=card.image_url||card.reference.url;image.alt=card.image_url?'已保存的生成图缩略图':'尚未生成，显示参考或原图';
     const badge=card.has_passed_history?'已有 Pass':'待审核';
-    button.append(image,el('strong','#'+String(index+1).padStart(2,'0')+' · '+versionLabel(card)),
+    button.append(image,el('strong','#'+String(index+1).padStart(2,'0')+' · '+(card.output_slot?slotLabel(card.output_slot)+' · ':'')+versionLabel(card)),
       el('span',statuses[displayStatus(card)]||'状态待确认'),el('small',badge+(card.passed_run&&card.passed_run!==card.selected_run?' · 查看其他版本':'')));
     button.onclick=()=>chooseImage(card.id);grid.append(button);
   });
@@ -118,14 +118,16 @@ function renderHistory(card){
   if(card.error)records.append(el('p','最近一次错误：'+card.error+'；失败的完整历史未通过此列表提供。','generation-error'));
   if(!rows.length&&!card.error)records.append(el('p','当前没有可展示的已保存操作记录。','muted'));
 }
+function slotLabel(slot){return ({main:'主图',dimensions:'尺寸图',comparison:'同类商品对比图',selling_point:'卖点图',scene:'使用场景图'})[slot.type]||'图位';}
 function renderDetail(card){
-  node('selected-image-title').textContent='当前图片 '+imageNumber(card.id);
+  node('selected-image-title').textContent='当前图片 '+imageNumber(card.id)+(card.output_slot?' · '+slotLabel(card.output_slot):'');
   const box=node('selected-image-detail');box.replaceChildren();
   const image=el('img');image.src=card.image_url||card.reference.url;image.alt=card.image_url?'当前选中的生成图片':'尚未生成，显示对应参考或原图';image.className='selected-result';
   const large=el('button','查看大图','secondary');large.type='button';large.onclick=()=>showLarge(image.src,image.alt);
   box.append(image,large,el('p','当前版本：'+versionLabel(card)+' · '+(statuses[displayStatus(card)]||'状态待确认')+
     (card.passed_run===card.selected_run&&card.selected_run?' · 已 Pass':' · 当前版本未 Pass'),'image-caption'));
-  const source=el('details',undefined,'history');source.append(el('summary',current.mode==='quick_redesign'?'查看原始待重设计图片':'查看对应设计参考图'));
+  const source=el('details',undefined,'history');source.append(el('summary',card.output_slot?'查看本图位的主要设计参考':current.mode==='quick_redesign'?'查看原始待重设计图片':'查看对应设计参考图'));
+  source.open=Boolean(card.output_slot);
   const reference=el('img');reference.src=card.reference.url;reference.alt=card.reference.name;reference.className='reference-preview';
   const sourceLarge=el('button','查看参考大图','secondary');sourceLarge.onclick=()=>showLarge(reference.src,reference.alt);
   source.append(reference,el('p',card.reference.name,'muted'),sourceLarge);box.append(source);
@@ -134,6 +136,9 @@ function renderDetail(card){
     const plan=state.plans[card.id];if(plan)box.append(el('p','计划摘要：'+plan.goal,'plan-summary'));
     const details=window.PreparePlan.renderCardPlan(card,false);details.open=false;box.append(details);
     if(state.references[card.id]){const correction=el('button','修正本图参考理解','secondary');correction.onclick=()=>chooseAction('reference');box.append(correction);}
+  }else if(card.output_slot){
+    box.append(el('p','本图补充要求：'+(card.output_slot.requirements||'未填写，按图位目标和整体要求制作。'),'plan-summary'),
+      el('p','同 SKU 商品素材见 INPUT；本卡仅使用绑定的主要设计参考，不执行 AI Planning。','muted'));
   }else{
     const details=el('details',undefined,'history');details.append(el('summary','查看整体要求和商品依据'),el('p',card.requirements),
       el('p',card.product_facts||'未提供额外商品事实说明。'),el('p','Amazon 风格仅为设计偏好，不代表平台合规认证。','muted'));

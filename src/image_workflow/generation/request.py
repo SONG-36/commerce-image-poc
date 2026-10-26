@@ -11,6 +11,7 @@ from pathlib import PurePath
 from typing import Callable
 
 from file_ops import sha256
+import image_workflow.generation.quick_v1 as quick_v1
 
 
 # Product-pack Prompt builders are copied verbatim from the compatibility entry.
@@ -62,6 +63,12 @@ def parameters_for(state, defaults):
 
 
 def initial_context(state, target, parameters):
+    if quick_v1.is_v1(state):
+        return {'session_id': state['id'], 'mode': 'quick_redesign', 'quick_business_version': quick_v1.VERSION,
+                'output_id': target, 'output_slot': quick_v1.output_slot(state, target),
+                'product_inputs': copy.deepcopy([image for image in state['images'] if image['role'] == 'product']),
+                'input_revision': state['revision'], 'original_inputs': copy.deepcopy(state['inputs']),
+                'output_size': parameters['size']}
     if state.get('mode') == 'quick_redesign':
         return {'session_id': state['id'], 'mode': 'quick_redesign', 'source_image_id': target,
                 'input_revision': state['revision'], 'original_inputs': copy.deepcopy(state['inputs']),
@@ -75,7 +82,13 @@ def initial_context(state, target, parameters):
 
 def select_images(state, target):
     quick = state.get('mode') == 'quick_redesign'
-    if quick:
+    if quick_v1.is_v1(state):
+        reference_id = quick_v1.output_slot(state, target)['reference_id']
+        # CP1 deliberately uses the saved product set. This is not an asset
+        # selection engine or a permanent promise to send every future asset.
+        selected = [image for image in state['images'] if image['role'] == 'product']
+        selected += [image for image in state['images'] if image['id'] == reference_id and image['role'] == 'reference']
+    elif quick:
         selected = [image for image in state['images'] if image['id'] == target and image['role'] == 'product']
         selected += [image for image in state['images'] if image['role'] == 'reference']
     else:
@@ -131,7 +144,9 @@ def build_generation_request(state, context, order, images, model, parameters, p
     The saved request intentionally contains image identities/hashes, not bytes;
     service.py snapshots those bytes before calling this pure builder.
     """
-    if state.get('mode') == 'quick_redesign':
+    if quick_v1.is_v1(state):
+        prompt = quick_v1.build_prompt(context, order, editing=editing, feedback=feedback)
+    elif state.get('mode') == 'quick_redesign':
         texts = {'requirements': state['inputs']['requirements'],
                  'product_facts': state['inputs'].get('product_facts', '') or '未提供额外商品事实说明；不得补充未经确认的宣称。'}
         prompt = prompts.quick_edit(texts, order, feedback) if editing else prompts.quick_generate(texts, order)
@@ -145,4 +160,7 @@ def build_generation_request(state, context, order, images, model, parameters, p
     evidence = {'model': model, 'prompt': prompt, **parameters, 'image_order': order,
                 'plan_sha256': plan_sha256, 'context_sha256': context_sha256,
                 'confirmed_revision': state['revision']}
+    if quick_v1.is_v1(state):
+        evidence.update(quick_business_version=quick_v1.VERSION, output_id=context['output_id'],
+                        output_slot=copy.deepcopy(context['output_slot']))
     return arguments, evidence

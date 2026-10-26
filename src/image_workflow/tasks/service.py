@@ -13,6 +13,7 @@ from PIL import Image
 from file_ops import sha256
 from image_workflow import Problem
 from image_workflow.planning.request import reference_ids
+import image_workflow.generation.quick_v1 as quick_v1
 from .rules import apply_planning_result, confirm_plan, plan_status, stale_ids
 
 
@@ -26,9 +27,15 @@ def save_task(store, state, event, *, clock):
 
 
 def create_task(store, text, uploads, title, case_id=None, mode="product_pack", output_size="1024x1536", *,
-                clock, new_id, contains_private, sizes, default_requirements):
+                clock, new_id, contains_private, sizes, default_requirements,
+                quick_business_version=None, quick_slots=None):
     if mode not in ("product_pack", "quick_redesign"):
         raise Problem("请选择有效的工作模式。")
+    if quick_business_version is not None or quick_slots is not None:
+        if mode != "quick_redesign" or quick_business_version not in (quick_v1.LEGACY, quick_v1.VERSION):
+            raise Problem("请显式指定有效的 Quick 业务版本。")
+        if quick_business_version != quick_v1.VERSION and quick_slots is not None:
+            raise Problem("图位配置仅适用于 Quick V1。")
     if mode == "quick_redesign" and output_size not in sizes:
         raise Problem("请选择支持的输出比例。")
     if not any(role == "product" for role, _, _ in uploads):
@@ -58,6 +65,19 @@ def create_task(store, text, uploads, title, case_id=None, mode="product_pack", 
         except Exception as error:
             raise Problem("无法读取上传图片，请使用有效的 JPG、PNG 或 WebP。") from error
         checked.append((role, Path(name).name, data, ext, mime, width, height))
+    # Resolve upload-local asset IDs before any writes. References can only name
+    # these assets, never a server path or another task's asset.
+    identities, counts = [], {"product": 0, "reference": 0}
+    for role, *_ in checked:
+        counts[role] += 1
+        identities.append({"id": f"{role}_{counts[role]:03}", "role": role})
+    if quick_business_version == quick_v1.VERSION:
+        try:
+            quick_slots = quick_v1.validate_slots(quick_slots, identities)
+        except ValueError as error:
+            raise Problem(str(error)) from error
+        if contains_private(quick_slots):
+            raise Problem("图位资料包含疑似认证信息，请移除后重新保存；未发送模型。")
     session_id = new_id().hex
     folder = store.begin_inputs(session_id)
     state = {
@@ -68,6 +88,10 @@ def create_task(store, text, uploads, title, case_id=None, mode="product_pack", 
         "product_version": 0, "reference_versions": {}, "plan_context": {},
         "corrections": {"product": [], "references": {}}, "events": [], "confirmed": False,
     }
+    if quick_business_version is not None:
+        state["quick_business_version"] = quick_business_version
+    if quick_business_version == quick_v1.VERSION:
+        state["quick_slots"] = quick_slots
     counts = {"product": 0, "reference": 0}
     for role, name, data, ext, mime, width, height in checked:
         counts[role] += 1
@@ -120,7 +144,18 @@ class TaskApplication:
             title = form.get('title', '新商品资料').strip()
             if not title or len(title) > 120:
                 raise Problem('请填写任务名称（最多 120 字）。')
-            state = self.store.create(text, uploads, title, mode=mode, output_size=form.get("output_size", "1024x1536"))
+            options = {}
+            version = form.get("quick_business_version")
+            if previous_id and previous.get("quick_business_version") == quick_v1.VERSION:
+                if version != quick_v1.VERSION:
+                    raise Problem("复制 Quick V1 必须显式保留业务版本并重新提交图位绑定。")
+            if version is not None or "quick_slots" in form:
+                try:
+                    slots = json.loads(form["quick_slots"]) if "quick_slots" in form else None
+                except (TypeError, ValueError) as error:
+                    raise Problem("图位配置不是有效的 JSON。") from error
+                options = {"quick_business_version": version, "quick_slots": slots}
+            state = self.store.create(text, uploads, title, mode=mode, output_size=form.get("output_size", "1024x1536"), **options)
             return state
 
     def action(self, session_id, read_command):

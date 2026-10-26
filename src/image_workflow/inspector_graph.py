@@ -9,6 +9,25 @@ import json
 import re
 
 
+def prompt_segments(prompt, tag, *, quick_v1=False):
+    """Locate saved literal sections, without rebuilding a historical Prompt."""
+    if not isinstance(prompt, str):
+        return []
+    if quick_v1:
+        labels = {'operator_design_requirements': ('整体要求：', '商品事实说明：'),
+                  'product_constraints_from_operator': ('商品事实说明：', '本图可选补充要求：'),
+                  'revision_feedback': ('本次修改意见：', None),
+                  'slot_requirements': ('本图可选补充要求：', '本次修改意见：')}
+        start, end = labels[tag]
+        # Repeated headings are ambiguous data, not proof of a unique section.
+        if prompt.count('\n' + start + '\n') != 1 or (end and prompt.count('\n' + end + '\n') != 1):
+            return []
+        expression = re.escape(start) + r'\n(.*?)\n' + (re.escape(end) if end else r'\Z')
+    else:
+        expression = r'<' + tag + r'>\n?(.*?)\n?</' + tag + '>'
+    return list(re.finditer(expression, prompt, re.S))
+
+
 def context_graph(selection, mode, documents, assets, context):
     if mode != 'quick_redesign':
         return {'supported': False, 'nodes': [], 'edges': [],
@@ -55,7 +74,7 @@ def context_graph(selection, mode, documents, assets, context):
     def identifier(key):
         return graph_id + ':' + key
 
-    requirements, facts, feedback = cards['requirements']['fields']
+    requirements, facts, feedback = cards['requirements']['fields'][:3]
     order = cards['request']['images']
     product = cards['product']['images']
     reference = [image for image in order if image.get('role') not in ('original', 'product', 'current_image')]
@@ -98,7 +117,7 @@ def context_graph(selection, mode, documents, assets, context):
                'MISSING' if reference and all(image['status'] == 'MISSING' for image in reference) else
                'OBSERVED' if reference else 'UNKNOWN',
         refs=[ref('request.json', '/image_order')], note='角色及顺序来自保存清单；不证明模型采用了参考图的视觉特征。')
-    add('N03', '运营设计要求', fields=[requirements], refs=[ref('plan.json', '/original_inputs/requirements')],
+    add('N03', '运营设计要求', fields=[requirements, *cards['requirements']['fields'][3:]], refs=[ref('plan.json', '/original_inputs/requirements')],
         note='本次 Context 留存的整体要求，不用当前任务要求补写。')
     add('N04', '商品事实约束', fields=[facts], refs=[ref('plan.json', '/original_inputs/product_facts')],
         note='运营提供的来源陈述，不等于已核实事实。')
@@ -197,7 +216,8 @@ def context_graph(selection, mode, documents, assets, context):
     for key, source, field, tag, index in [('E11', 'N03', requirements, 'operator_design_requirements', 0),
                                            ('E12', 'N04', facts, 'product_constraints_from_operator', 1)]:
         refs = [ref('plan.json', '/original_inputs/' + ('requirements' if index == 0 else 'product_facts')), ref('request.json', '/prompt')]
-        match = re.search(r'<' + tag + r'>\n?(.*?)\n?</' + tag + '>', prompt, re.S) if isinstance(prompt, str) else None
+        matches = prompt_segments(prompt, tag, quick_v1=snapshot.get('quick_business_version') == 'v1')
+        match = matches[0] if len(matches) == 1 else None
         if match:
             refs[-1].update(text_span={'start': match.start(1), 'end': match.end(1), 'unit': 'unicode_code_points'},
                             line_range=[prompt[:match.start(1)].count('\n') + 1, prompt[:match.end(1)].count('\n') + 1])

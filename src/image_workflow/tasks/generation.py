@@ -14,6 +14,7 @@ from typing import Callable, Mapping
 from file_ops import safe_path
 from image_workflow.generation import GenerationIO, RunAccess
 from image_workflow.generation.request import PromptBuilders
+import image_workflow.generation.quick_v1 as quick_v1
 from .generation_queries import generation_card, generation_operation, request_uncertain
 
 
@@ -45,6 +46,8 @@ class GenerationService:
         self._path = path_checker
 
     def targets(self, state):
+        if quick_v1.is_v1(state):
+            return [slot['id'] for slot in quick_v1.slots_for(state) if slot['enabled']]
         role = "product" if state.get("mode") == "quick_redesign" else "reference"
         return [image["id"] for image in state["images"] if image["role"] == role]
 

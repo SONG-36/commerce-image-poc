@@ -77,6 +77,16 @@ function addVersion(h,index,feedback=''){
   card.versions.push({version:card.versions.length+1,run_id:run,created_at:'2026-10-16T02:00:00Z',action:'revise_image',parent_run_id:card.selected_run,feedback,url:'/images/'+run});
   card.selected_run=run;card.image_url='/images/'+run;card.card_revision+=2;return run;
 }
+test('Quick V1 cards show slot/reference/requirements and keep actual output and Run identities',async()=>{
+  const f=fixture(true);f.state.quick_business_version='v1';
+  f.data.cards.forEach((card,index)=>{card.id='reference_'+(101+index);card.output_slot={id:card.id,type:['main','dimensions','scene'][index],reference_id:'reference_00'+(index+1),requirements:index===1?'只用自家尺寸':''};card.reference={url:'/bound/reference_00'+(index+1),name:'bound-'+index};});
+  const h=harness(f);h.choose(2);assert.match(h.node('generation-cards').children[1].textContent,/尺寸图/);
+  assert.match(h.node('selected-image-title').textContent,/尺寸图/);assert.match(h.node('selected-image-detail').textContent,/只用自家尺寸/);
+  assert.equal(walk(h.node('selected-image-detail'),e=>e.tag==='img'&&e.src==='/bound/reference_002').src,'/bound/reference_002');
+  h.type('只改本图');h.handler=async(url,options)=>{assert.ok(url.endsWith('/revise/reference_102'));assert.equal(JSON.parse(options.body).parent_run_id,'run_product_002');addVersion(h,1);return response({status:'SUCCEEDED'});};
+  await h.node('send-edit').click();assert.equal(h.calls.length,1);assert.equal(h.current.data.cards[0].passed_run,'run_product_001');
+  assert.equal(h.window.ImageGeneration.getDebugSelection().image_id,'reference_102');
+});
 test('one OUTPUT composer, explicit selection, identity and read-only big image',()=>{
   const output=template.slice(template.indexOf('<section id="output"'));
   assert.equal((output.match(/<textarea/g)||[]).length,1);assert.equal((output.match(/type="file"/g)||[]).length,1);

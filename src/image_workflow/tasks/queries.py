@@ -11,6 +11,7 @@ import re
 from file_ops import safe_path, sha256
 from image_workflow import Problem
 from image_workflow.planning.request import reference_ids
+import image_workflow.generation.quick_v1 as quick_v1
 from persistence import task_state
 from .rules import context_version, plan_status, stale_ids
 
@@ -61,7 +62,10 @@ def image_history(store, state, target):
         if not re.fullmatch(r'[0-9]{6}', folder.name) or not (folder / target).is_dir():
             continue
         saved = store.version(state, int(folder.name))
-        if target in reference_ids(saved) or saved.get('mode') == 'quick_redesign' and target in [i['id'] for i in saved['images'] if i['role'] == 'product']:
+        if quick_v1.is_v1(saved):
+            if target in [slot['id'] for slot in quick_v1.slots_for(saved) if slot['enabled']]:
+                yield saved
+        elif target in reference_ids(saved) or saved.get('mode') == 'quick_redesign' and target in [i['id'] for i in saved['images'] if i['role'] == 'product']:
             yield saved
 
 
