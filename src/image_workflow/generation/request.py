@@ -83,6 +83,7 @@ def parameters_for(state, defaults, target=None):
 def initial_context(state, target, parameters):
     if quick_v1.is_v1(state):
         return {'session_id': state['id'], 'mode': 'quick_redesign', 'quick_business_version': quick_v1.VERSION,
+                **({'quick_scenario': state['quick_scenario']} if 'quick_scenario' in state else {}),
                 'output_id': target, 'output_slot': quick_v1.output_slot(state, target),
                 'product_inputs': copy.deepcopy([image for image in state['images'] if image['role'] == 'product']),
                 'input_revision': state['revision'], 'original_inputs': copy.deepcopy(state['inputs']),
@@ -164,6 +165,11 @@ def build_generation_request(state, context, order, images, model, parameters, p
     service.py snapshots those bytes before calling this pure builder.
     """
     if quick_v1.is_v1(state):
+        blocked = quick_v1.generation_block_reason(state, context['output_id'])
+        if blocked:
+            raise ValueError(blocked)
+        if 'quick_scenario' in state and context.get('quick_scenario') != state['quick_scenario']:
+            raise ValueError('生成 Context 与当前 Quick 场景不一致，已停止调用。')
         prompt = quick_v1.build_prompt(context, order, editing=editing, feedback=feedback)
     elif state.get('mode') == 'quick_redesign':
         texts = {'requirements': state['inputs']['requirements'],
@@ -182,4 +188,6 @@ def build_generation_request(state, context, order, images, model, parameters, p
     if quick_v1.is_v1(state):
         evidence.update(quick_business_version=quick_v1.VERSION, output_id=context['output_id'],
                         output_slot=copy.deepcopy(context['output_slot']))
+        if 'quick_scenario' in context:
+            evidence['quick_scenario'] = context['quick_scenario']
     return arguments, evidence

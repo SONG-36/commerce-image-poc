@@ -1,6 +1,14 @@
 # Current State
 
-**E1-02｜2026-10-28：动态 N ENGINEERING VERIFIED / BUSINESS ACCEPTANCE PENDING。** 当前 `main` 为 E1-01 独立检查点 `c93bd900eb5aa530436b3bc2ea61a07fdb67cdc8`（14 文件，阶段 A 本轮复核 403 项通过）；以下 E1-02 改动尚未暂存、未提交。未 Push、部署、读取 `.env`、访问真实 Runtime 或调用真实模型。
+**E1-03｜2026-10-28：场景请求策略 ENGINEERING VERIFIED / BUSINESS ACCEPTANCE PENDING；尺寸专项能力 ENGINEERING PARTIAL。** 当前 `main` 为 E1-02 独立检查点 `4e42f17d76cef156826edfaae8324621a3d0caab`（8 文件，阶段 A 本轮完整回归 410 项通过）；本节 E1-03 改动尚未暂存、未提交。未 Push、部署、读取 `.env`、访问真实 Runtime 或调用真实模型。
+
+- 仅显式 `quick_scenario=quick_a|quick_b` 启用新策略，Context 与保存的请求均记录场景。Quick-A 以实际商品素材决定外观，允许沿用适用的同款参考营销信息，保留差异化再设计及必保留卖点约束；Quick-B 要求替换主视觉、局部特写、结构及场景中的全部相关参考商品主体，禁止混合两款外观/结构，并按目标商品形态调整布局。关系声明与营销信息均不等于独立检测认证，明显矛盾/不可读/不适用内容不得猜补，候选结果仍需运营审核。
+- 生成与修改复用同一场景策略，不强制独立 Planning。商品素材、当前绑定主参考、整体/逐图要求、父 Run 候选图及本次辅助素材的权限在实际 Prompt 中区分；`design_reference` 文件同时携带适用营销信息与设计表达，不再对新 A/B 使用旧的“一律不可继承参考参数/功能”规则。历史未分类 Quick、旧 Quick V1 和 Listing 继续走原请求策略，不改写历史 Evidence 或既有确认、版本、Pass。
+- 先在全局阻断仍保留时通过 4 项 SDK Mock 请求策略测试，再开放 A/B 的非尺寸图位。dimensions 继续在 Task 协调入口（创建 Run 前）和纯请求构建边界（SDK 前）阻断生成/修改；页面禁用对应动作并显示 E1-04 原因，普通文字声明不能绕过。这里只按明确图位类型保护，未实施尺寸专项素材识别/绑定/校验，也没有自动商品事实裁决或 Listing 冲突处理。
+- 本轮完整隔离 Python 回归 **420 项通过（21.685 秒）**；独立 Node **62 项通过**，零失败/跳过，Python 含 Node 包装，不累加。新增 10 项 Python 测试核对实际 SDK Mock 序列化、图片字节/顺序、场景一致性、父 Run/旧 Pass/去重、错误不伪装成功及 dimensions 双重门控；动态 N、Listing Planning、旧 Prompt/请求/Evidence 指纹和 CLI 回归通过。保护性断言仅按本轮授权将“全场景阻断”收窄为“dimensions 阻断”，未放宽身份、参考、锁、版本或重试保护。
+- 测试使用匿名临时目录、假 Key、SDK Mock 并禁止网络及项目 `.env` / `.runtime` 访问。浏览器交互 **NOT TESTED**；`REAL IMAGE GENERATED = 0`，商品真实性、视觉质量、Quick-B 完整主体替换效果及运营接受 **PENDING**。Prompt 约束不是已验证的模型行为；未实施 E1-04、Agent、Knowledge/Skills 或新的模型调用。Mac mini 当前状态继续 **UNKNOWN / DEFER**。
+
+**E1-02 历史检查点｜2026-10-28：动态 N ENGINEERING VERIFIED / BUSINESS ACCEPTANCE PENDING。** 实施基线为 E1-01 `c93bd900eb5aa530436b3bc2ea61a07fdb67cdc8`，已于 `4e42f17d76cef156826edfaae8324621a3d0caab` 归档；下述 A/B 全局阻断为该阶段当时范围，已由上方 E1-03 待审改动收窄为 dimensions 专项阻断。未 Push、部署、读取 `.env`、访问真实 Runtime 或调用真实模型。
 
 - 三个入口共用的卖点、场景图位支持持续增删，不再使用 3/2/8 业务上限；主图、尺寸、对比各 max1。前端分别定义可多项与数量上限，类型分组及组内顺序用于展示和保存；删除中间项不重编号其他身份，恢复/另存保留参考、要求和尺寸。服务端创建与读取共用原校验，保留 ID 唯一性、参考归属、启用状态、绑定唯一性、尺寸及文本校验，不迁移历史数据。
 - Listing 仍通过 `listing_slots` 关联 reference ID，沿用原 Planning、逐图确认和生成快照。匿名 SDK Mock 验证 4 卖点＋3 场景＋3 单项共 10 个启用图位，以及更大的 24 项配置；不完整或缺项 Planning 显式失败，保留请求/响应/错误，不覆盖原计划或确认，不自动重试。10 图按各自尺寸生成，修改保留父 Run 和旧 Pass，最终 ZIP 顺序/数量/文件名及实验 ZIP 完整性通过。

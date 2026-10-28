@@ -76,7 +76,8 @@ def card_view(store, card_reader, state, target):
     card = card_reader(current, target)
     history = [card_reader(saved, target) for saved in image_history(store, state, target)]
     older = next((old for old in history if old['versions'] and old['confirmed_revision'] != current['revision']), None)
-    allowed = (quick or status['confirmed']) and not quick_v1.scenario_pending(state)
+    blocked = quick_v1.generation_block_reason(state, target)
+    allowed = (quick or status['confirmed']) and not blocked
     historical = False
     if not allowed and older and not card['versions']:
         card = copy.deepcopy(older)
@@ -95,6 +96,8 @@ def card_view(store, card_reader, state, target):
     if passed:
         card['accepted_result'] = {'revision': passed['confirmed_revision'], 'run_id': passed['passed_run']}
     card['batch_eligible'] = bool(allowed and not has_history and not passed and not attempted and card['status'] == 'NOT_STARTED')
+    if blocked:
+        card['generation_block_reason'] = blocked
     return card
 
 

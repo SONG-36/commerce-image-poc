@@ -269,3 +269,22 @@ test('anonymous read-only workspace disables writes but keeps image selection, h
   await h.detail('生成图片').onclick();await h.detail('Pass · 接受当前版本').onclick();await h.node('send-edit').onclick();await h.node('export-experiment').onclick();
   assert.equal(h.calls.length,0);assert.equal(h.actions.length,0);
 });
+
+test('new Quick scenario shows the E1-04 dimensions block while other output actions stay available',async()=>{
+  for(const scenario of ['quick_a','quick_b']){
+    const initial=fixture(true);initial.state.quick_scenario=scenario;initial.state.quick_business_version='v1';
+    initial.data.cards.forEach((card,index)=>{card.id='reference_'+(101+index);card.output_slot={id:card.id,
+      type:index===1?'dimensions':'selling_point',enabled:true,reference_id:'reference_00'+(index+1),requirements:'本图要求'};});
+    const dimensions=initial.data.cards[1];Object.assign(dimensions,{generation_allowed:false,batch_eligible:false,
+      generation_block_reason:'ENGINEERING PARTIAL：尺寸图专项素材校验待 E1-04；未调用模型。',
+      versions:[],selected_run:null,passed_run:null,image_url:null,status:'NOT_STARTED'});
+    const h=harness(initial);h.choose(2);
+    assert.match(h.node('selected-image-detail').textContent,/E1-04.*未调用模型/);
+    assert.equal(h.detail('生成图片').disabled,true);assert.equal(h.node('send-edit').disabled,true);
+    await h.detail('生成图片').onclick();assert.equal(h.calls.length,0);
+    h.choose(1);h.type('只改善当前卖点图背景');
+    assert.equal(h.detail('生成图片').disabled,false);assert.equal(h.node('send-edit').disabled,false);
+    assert.doesNotMatch(h.node('selected-image-detail').textContent,/E1-04/);
+    assert.equal(h.calls.length,0);
+  }
+});

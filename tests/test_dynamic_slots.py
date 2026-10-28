@@ -156,20 +156,23 @@ class DynamicSlotTests(unittest.TestCase):
             self.assertEqual(restarted.get('/api/sessions/' + clone['id']).json['state'][key], config)
             self.assertEqual(len(self.cards(clone, restarted)), 9)
 
-    def test_new_quick_scenarios_remain_blocked_even_after_former_eighth_output(self):
+    def test_new_quick_dimensions_remain_blocked_even_after_former_eighth_output(self):
         for mode in ('quick_a', 'quick_b'):
-            state = self.state(self.create(mode))
+            config = rows()
+            config[1]['type'], config[-1]['type'] = config[-1]['type'], 'dimensions'
+            state = self.state(self.create(mode, config))
             before = self.files(state)
             for card in self.cards(state):
-                self.assertFalse(card['generation_allowed'])
-                self.assertFalse(card['batch_eligible'])
-            for target in ('reference_209', 'reference_210'):
+                self.assertEqual(card['generation_allowed'], card['id'] != 'reference_210')
+                self.assertEqual(card['batch_eligible'], card['id'] != 'reference_210')
+            for target in ('reference_210',):
                 for verb in ('generate', 'revise'):
                     response = self.client.post(f"/api/sessions/{state['id']}/{verb}/{target}",
                         headers=generation_fixture.HEADERS, json=dict(confirmed_revision=1, card_revision=0,
                             operation_id=uuid4().hex, parent_run_id='20261028T000000Z-'+'a'*32, feedback='仅改背景'))
                     self.assertEqual(response.status_code, 409, response.json)
                     self.assertIn('ENGINEERING PARTIAL', response.json['error'])
+                    self.assertIn('E1-04', response.json['error'])
             self.assertEqual(self.files(state), before)
         self.assertEqual(self.fx.requests, [])
 

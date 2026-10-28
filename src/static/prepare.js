@@ -19,7 +19,7 @@ const redesignDefault='提升商业设计质量、排版与信息层级、光影
 function isQuick(){return ['quick_redesign','quick_a','quick_b'].includes($('task-mode').value);}
 function isQuickV1(){return isQuick()&&(!state||state.quick_business_version==='v1');}
 function usesSlots(){return isQuickV1()||(!isQuick()&&(!state||Array.isArray(state.listing_slots)));}
-function scenePending(){return ['quick_a','quick_b'].includes($('task-mode').value);}
+function hasQuickScenario(){return ['quick_a','quick_b'].includes($('task-mode').value);}
 function defaultSize(){return isQuick()?state?.output_size||$('output-size').value||'1024x1536':'1024x1536';}
 function sizeControl(value,change,id){
   const label=element('label','输出尺寸'),select=element('select');if(id)select.id=id;
@@ -82,12 +82,12 @@ function renderMode(){
   $('output-size-field').hidden=v1;$('shared-reference-field').hidden=slotted;$('quick-slots-field').hidden=!slotted;
   for(const id of ['listing-field','description-field','understanding-section','planning-controls'])$(id).hidden=quick;
   $('redesign-fields').hidden=!quick;$('load-case').hidden=quick;
-  $('mode-note').textContent=scenePending()?'ENGINEERING PARTIAL：当前仅保存 Quick-A/B 场景、素材和图位；场景事实权限与制作策略待 E1-03，暂不开放生成或修改，不执行 AI Planning。':v1?'历史 Quick V1（未分类）：保留既有商品素材与图位策略；不自动归为 Quick-A/B。':quick?'历史 Quick：每张原图独立重设计；保留原有风格参考行为。':slotted?'Listing：图位分类、要求和尺寸进入原有 AI 规划；仍需逐图人工确认，分类不代表规划质量已通过。':'历史 Listing：保留原参考身份、规划与确认流程；保存不调用 AI。';
+  $('mode-note').textContent=hasQuickScenario()?($('task-mode').value==='quick_a'?'Quick-A：运营声明同款同外观；实际商品图决定外观，可沿用适用参考营销信息。':'Quick-B：运营声明相关营销信息适用；参考中全部相关商品主体须替换为实际商品，不是简单风格迁移。')+'无需独立 Planning，生成结果待人工审核。ENGINEERING PARTIAL：尺寸图专项校验待 E1-04，暂不允许生成或修改尺寸图。':v1?'历史 Quick V1（未分类）：保留既有商品素材与图位策略；不自动归为 Quick-A/B。':quick?'历史 Quick：每张原图独立重设计；保留原有风格参考行为。':slotted?'Listing：图位分类、要求和尺寸进入原有 AI 规划；仍需逐图人工确认，分类不代表规划质量已通过。':'历史 Listing：保留原参考身份、规划与确认流程；保存不调用 AI。';
   $('input-title').textContent=slotted?'同 SKU 商品素材与图位参考':quick?'待重设计图片与整体要求':'商品资料与参考图';
   $('product-label').textContent=slotted?'同 SKU 商品素材（白底、尺寸、细节等）':quick?'待重设计原图':'商品原图';
   $('reference-label').textContent=quick?'风格参考图（可选）':'设计参考图';
   $('save-inputs').textContent=state?'另存为新任务':'保存资料';
-  $('input-summary').textContent=(state?.title||'新建任务')+' · '+(scenePending()?($('task-mode').value==='quick_a'?'Quick-A｜同款快速改版':'Quick-B｜换主体快速改版'):quick?'历史 Quick（未分类）':'Listing｜商品资料制图');
+  $('input-summary').textContent=(state?.title||'新建任务')+' · '+(hasQuickScenario()?($('task-mode').value==='quick_a'?'Quick-A｜同款快速改版':'Quick-B｜换主体快速改版'):quick?'历史 Quick（未分类）':'Listing｜商品资料制图');
   $('workspace-title').textContent=state?.title||'新建商品图任务';
 }
 function element(tag, text, className) {const e=document.createElement(tag); if(text!==undefined)e.textContent=text;if(className)e.className=className;return e;}
@@ -155,7 +155,7 @@ function applyState(value,activity=null){if(state?.id!==value.id)feedbackDrafts.
 async function saveInputs(){
   const data=new FormData();for(const key of ['listing','description','requirements'])data.append(key,$(key).value);
   data.append('mode',isQuick()?'quick_redesign':'product_pack');
-  if(scenePending())data.append('quick_scenario',$('task-mode').value);
+  if(hasQuickScenario())data.append('quick_scenario',$('task-mode').value);
   if(isQuick()){data.append('product_facts',$('product_facts').value);data.append('output_size',$('output-size').value);}
   data.append('title',$('task-title').value);
   let keep=kept;const imageSizes={};

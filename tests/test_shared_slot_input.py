@@ -85,20 +85,25 @@ class SharedSlotInputTests(unittest.TestCase):
                 self.assertEqual(clone['quick_slots'], state['quick_slots'])
                 self.assertEqual(self.files(state), before)
 
-    def test_new_scenarios_cannot_silently_execute_legacy_policy_or_create_runs(self):
+    def test_new_scenario_dimensions_remain_blocked_without_creating_runs(self):
         for scenario in quick_v1.SCENARIOS:
             state = self.saved(self.create(scenario))
             before = self.files(state)
             cards = self.client.get(f"/api/sessions/{state['id']}/generation").json['cards']
             self.assertTrue(cards)
-            self.assertTrue(all(not card['generation_allowed'] and not card['batch_eligible'] for card in cards))
+            dimensions = next(card for card in cards if card['id'] == 'reference_102')
+            self.assertFalse(dimensions['generation_allowed'])
+            self.assertFalse(dimensions['batch_eligible'])
+            self.assertIn('E1-04', dimensions['generation_block_reason'])
+            self.assertTrue(all(card['generation_allowed'] for card in cards if card['id'] != 'reference_102'))
             with patch.object(generation_fixture.generation, 'make_client', side_effect=AssertionError('No SDK')):
                 for action in ('generate', 'revise'):
-                    result = self.client.post(f"/api/sessions/{state['id']}/{action}/reference_101",
+                    result = self.client.post(f"/api/sessions/{state['id']}/{action}/reference_102",
                         headers=generation_fixture.HEADERS, json=dict(confirmed_revision=1, card_revision=0,
                             operation_id=uuid4().hex, parent_run_id='20261028T000000Z-' + 'a' * 32, feedback='只改背景'))
                     self.assertEqual(result.status_code, 409, result.json)
                     self.assertIn('ENGINEERING PARTIAL', result.json['error'])
+                    self.assertIn('E1-04', result.json['error'])
             self.assertEqual(self.files(state), before)
 
     def test_historical_quick_and_listing_never_gain_inferred_classification(self):

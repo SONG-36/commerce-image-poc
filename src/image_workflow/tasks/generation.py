@@ -100,8 +100,9 @@ class GenerationService:
     def generate(self, state, target, parent_run_id=None, feedback="", expected_revision=None, operation_id=None, auxiliary=None):
         if target not in self.targets(state):
             raise ValueError("图片不属于当前工作模式的制作任务。")
-        if quick_v1.scenario_pending(state):
-            raise ValueError(quick_v1.SCENARIO_PENDING)
+        blocked = quick_v1.generation_block_reason(state, target)
+        if blocked:
+            raise ValueError(blocked)
         if auxiliary is not None:
             if not parent_run_id:
                 raise ValueError("辅助参考图片只用于修改已生成的当前版本。")

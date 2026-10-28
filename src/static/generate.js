@@ -127,6 +127,7 @@ function renderDetail(card){
   box.append(image,large,el('p','当前版本：'+versionLabel(card)+' · '+(statuses[displayStatus(card)]||'状态待确认')+
     (card.passed_run===card.selected_run&&card.selected_run?' · 已 Pass':' · 当前版本未 Pass'),'image-caption'));
   box.append(el('p','本图配置尺寸：'+card.output_size+'；实际 Run 尺寸见 Inspector 请求参数。','muted'));
+  if(card.generation_block_reason)box.append(el('p',card.generation_block_reason,'notice'));
   const source=el('details',undefined,'history');source.append(el('summary',card.output_slot?'查看本图位的主要设计参考':current.mode==='quick_redesign'?'查看原始待重设计图片':'查看对应设计参考图'));
   source.open=Boolean(card.output_slot);
   const reference=el('img');reference.src=card.reference.url;reference.alt=card.reference.name;reference.className='reference-preview';

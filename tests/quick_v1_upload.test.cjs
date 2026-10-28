@@ -139,7 +139,8 @@ test('three visible choices persist two backend modes; new Quick scenarios expli
     assert.equal(data.get('mode'),'quick_redesign');assert.equal(data.get('quick_scenario'),scenario);
     assert.equal(data.get('quick_business_version'),'v1');assert.equal(data.get('listing_slots'),null);
     assert.equal(JSON.parse(data.get('quick_slots')).filter(row=>row.enabled)[0].type,'dimensions');
-    assert.match(h.node('mode-note').textContent,/ENGINEERING PARTIAL.*E1-03/);
+    assert.match(h.node('mode-note').textContent,/ENGINEERING PARTIAL.*E1-04.*不允许生成或修改尺寸图/);
+    assert.match(h.node('mode-note').textContent,scenario==='quick_a'?/同款同外观.*可沿用适用参考营销信息/:/全部相关商品主体须替换.*不是简单风格迁移/);
     assert.equal(h.node('planning-controls').hidden,true);
   }
 });
