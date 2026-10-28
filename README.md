@@ -8,7 +8,7 @@
 
 - 任务中心与独立任务资料：商品图、Listing、描述、整体要求及设计参考图。
 - 商品图包：AI 商品/参考理解与逐图规划 → 人工逐图确认 → 单图或显式顺序批量生成。
-- Quick Redesign：历史 Quick 按原图建立输出；当前 Quick V1 按启用图位输出，无需 Listing 或强制 Planning。Quick-A / Quick-B 两个业务子场景以 [V0.2 业务基线](docs/02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.2.md)为准，工程符合性与业务效果仍待验证。
+- Quick Redesign：历史 Quick 按原图建立输出；当前 Quick V1 按启用图位输出，无需 Listing 或强制 Planning。Quick-A / Quick-B 两个业务子场景以 [V0.3 业务基线](docs/02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.3.md)为准，工程符合性与业务效果仍待验证。
 - 统一工作台：选图、计划/成图查看、文字加一张辅助图修改、历史版本和指定版本 Pass。
 - 最终通过图片 ZIP、完整实验 ZIP，以及实际请求、响应、输入身份和失败 Evidence。
 
@@ -80,7 +80,7 @@ PYTHONPATH=src .venv/bin/python -B -m api.inspector \
 ## 文档入口
 
 - [文档导航：Enterprise AI 六步流程](docs/README.md)：现有文档位置、阶段状态与权威边界。
-- [V1 业务基线 V0.2](docs/02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.2.md)：Quick-A / Quick-B 与 Listing 业务边界；不代表现有工程已全部符合。
+- [V1 业务基线 V0.3](docs/02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.3.md)：Quick-A / Quick-B 与 Listing 业务边界；不代表现有工程已全部符合。
 - [当前工程状态](docs/00_PROJECT/02_CURRENT_STATE.md)：代码基线、模块职责、已知限制、历史部署与下一阶段。
 - [Product Brief](docs/00_PROJECT/01_PRODUCT_BRIEF.md)：业务目标与历史产品决策；其中候选/未实现描述按原日期理解，当前状态以上一份为准。
 - [实验日志](docs/00_PROJECT/03_EXPERIMENT_LOG.md)：真实实验与人工评价记录；旧 Next Action 不作为当前任务。

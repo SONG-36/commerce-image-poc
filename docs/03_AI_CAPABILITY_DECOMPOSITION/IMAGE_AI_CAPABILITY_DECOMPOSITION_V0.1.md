@@ -5,7 +5,7 @@
 > **日期**：2026-10-28\
 > **文档状态**：`CANDIDATE / READY FOR BUSINESS & TECHNICAL REVIEW`\
 > **建议仓库路径**：`docs/03_AI_CAPABILITY_DECOMPOSITION/IMAGE_AI_CAPABILITY_DECOMPOSITION_V0.1.md`\
-> **业务依据**：`docs/02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.2.md`（已确认业务事实的权威基线）；`docs/02_BUSINESS_MODELING/IMAGE_CREATION_WORKFLOWS_V0.1.md`（Quick-A / Quick-B / Listing 的目标业务 Workflow）。\
+> **业务依据**：`docs/02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.3.md`（已确认业务事实的权威基线）；`docs/02_BUSINESS_MODELING/IMAGE_CREATION_WORKFLOWS_V0.1.md`（Quick-A / Quick-B / Listing 的目标业务 Workflow）。\
 > **重要限制**：本文件从已讨论的三个场景做横向能力分析。Quick-B 的最新 Codex 文档更新报告来自用户转述；Listing 的最新本地文档内容未在本轮重新读取、比对，因此不声称本文件与本地 Git HEAD 完成逐字同步。**不授权 Coding、付费模型实验、Agent 架构实施、Commit 或 Push。**
 
 ## 0. 目的、范围与标记
@@ -37,6 +37,13 @@
 | 最终交付 | 运营逐图审核、修改、选择版本、Pass、导出 | 同左，额外重点检查主体完整替换 | 同左，额外重点检查方案和商品事实一致 |
 
 **共同业务规则**：卖点必须有据、不得改变语义，运营指定必保留信息不能擅自删除；可以按图位选择突出部分适用卖点。尺寸图仅在运营提供**已标注目标商品真实尺寸**的白底尺寸素材时制作，未提供即不制作。实际产品图决定外观，生成成功不等于业务验收成功。
+
+**E0 输入增量（2026-10-28 / USER-CONFIRMED，工程待实施）：**
+
+- 三个工作入口共享基础商品/参考上传与图位关系：任务内商品素材共享，`product` / `reference` 角色分离；图位采用 `main`、`dimensions`、`comparison`、`selling_point`、`scene`，保留主要参考绑定、启用状态、可选逐图要求和逐图尺寸。当前未实现完整商品素材子分类，不把白底、细节、配件、包装等候选名称当作既有分类系统。
+- 当前图位类型、制作目标和对应参考是 **S3 参考适配 / S5 制作判断**的输入；共享分类不合并 Quick-A / Quick-B / Listing 的事实权限，也不改变既有卖点取舍规则。
+- 卖点/场景按需动态 N，主图/尺寸/对比各 max1，无固定业务总数。**S6** 需保持每个图位的稳定身份、顺序、参考/商品角色、要求、尺寸和版本可追溯；商品素材张数不决定输出数，N 不等于每次生成必须发送 N 张参考。
+- Listing 多图位 Planning 保留原有人工确认，并维护图位—参考 ID—逐图计划—确认版本的兼容关联。全量 Planning 的 Context、参考数量和输出预算是技术容量问题，不承诺任意 N 一次完成。本增量不新增能力编号、独立模型服务或强制 Agent。
 
 ## 2. 横向能力地图：共享什么，不共享什么（PROPOSED）
 
@@ -240,4 +247,4 @@
 
 ---
 
-**版本说明**：V0.1 记录 2026-10-28 基于 Quick-A、Quick-B、Listing 的首次横向能力拆解；既有业务事实以 Business Baseline V0.2 为准。本文不覆盖现有 Workflow 文档，不声称已写入用户本地仓库或完成 Git 提交。
+**版本说明**：V0.1 记录 2026-10-28 基于 Quick-A、Quick-B、Listing 的首次横向能力拆解；当前业务事实以 Business Baseline V0.3 为准，并补充 E0 共享输入与动态图位要求。本文不覆盖现有 Workflow 文档，能力研究仍为候选，不因文档归档宣称已实现或获 Coding 授权。

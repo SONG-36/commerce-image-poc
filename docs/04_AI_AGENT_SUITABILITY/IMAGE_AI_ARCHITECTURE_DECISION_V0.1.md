@@ -8,7 +8,7 @@
 
 建议路径：`docs/04_AI_AGENT_SUITABILITY/IMAGE_AI_ARCHITECTURE_DECISION_V0.1.md`
 
-业务规则以 [Business Baseline V0.2](../02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.2.md)为权威依据，目标流程参照[三场景 Workflow](../02_BUSINESS_MODELING/IMAGE_CREATION_WORKFLOWS_V0.1.md)。本次只澄清 AI Decision 与 Agent 的定位，不新增事实权限或实施授权。
+业务规则以 [Business Baseline V0.3](../02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.3.md)为权威依据，目标流程参照[三场景 Workflow](../02_BUSINESS_MODELING/IMAGE_CREATION_WORKFLOWS_V0.1.md)。既有 AI Decision / Agent 收口结论不变，本次仅同步 E0 共享输入与动态图位要求，不新增事实权限或实施授权。
 
 ## 1. 架构目标
 
@@ -19,6 +19,8 @@
 - Listing：商品资料制图
 
 内部业务分类仍为 Quick 与 Listing 两种模式，Quick 包含 A/B 两个子场景；不据此创建三套独立生成系统。入口由运营选择，AI/Agent 不自行重新决定业务模式。
+
+**E0 输入边界同步（2026-10-28）：**三个入口共享商品/参考角色、任务内商品素材和五类图位的基础输入能力，保留主要参考绑定、启用状态、逐图要求与尺寸；共享输入 UI 不代表采用相同 Planning 或合并事实权限。Quick 不强制独立 Planning，Listing 保留商品文字资料、逐图规划及人工确认。卖点/场景动态 N、主图/尺寸/对比各 max1、无固定业务总数，属于业务与任务管理能力，不构成开发 Agent Runtime 的理由；容量和执行预算按技术约束处理。现有 Generation / Review / Evidence 继续作为共同执行及交付基础，不因新增图位建立独立服务。以下一期默认 L1～L3、L4 按实际任务单独授权的可选边界及 PROPOSED 状态保持不变。
 
 一期优先解决实际商品外观保真、商品事实权限、参考图适配、制作决策、图片生成和人工审核问题。
 

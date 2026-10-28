@@ -6,7 +6,7 @@
 
 - **Git：** `main / 36251cc386233a5a8c76177818dd831174f0014b`，2026-10-26 的 `fix: support dynamic Quick slots, per-image sizes and inspector entry`。CP1+CP2 已在 `b508c27889e4c1fedfc577ec2f2efeed11920646` 提交；动态图位、逐图尺寸、Inspector 入口修复已包含于当前 HEAD，不再是未提交源码。
 - **待审工作树：** 当前待提交的是文档目录整理、语义同步及已有 V0.1 删除/V0.2 替代稿。三个 `git mv` 重命名已在上一轮暂存，其余文档改动尚未完整暂存；本轮不自动 add / commit / push。
-- **业务与研究：** 当前业务权威是 [V1 Business Baseline V0.2](../02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.2.md)。Quick-A / Quick-B 是 Quick 的子场景，Listing 为另一模式；新信息沿用、主体替换及尺寸素材规则不因业务确认就视为代码已实现。工程符合性与真实质量仍待验证；[能力与技术适配研究](../04_AI_AGENT_SUITABILITY/IMAGE_AI_DECISION_STUDY_V0.1.md)为 ACTIVE，未授权新的 AI 决策增强 Coding。
+- **业务与研究：** 当前业务权威是 [V1 Business Baseline V0.3（本条历史记录原引 V0.2）](../02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.3.md)。Quick-A / Quick-B 是 Quick 的子场景，Listing 为另一模式；新信息沿用、主体替换及尺寸素材规则不因业务确认就视为代码已实现。工程符合性与真实质量仍待验证；[能力与技术适配研究](../04_AI_AGENT_SUITABILITY/IMAGE_AI_DECISION_STUDY_V0.1.md)为 ACTIVE，未授权新的 AI 决策增强 Coding。
 - **验证边界：** 下文 393 项 Python / 56 项 Node 是 2026-10-26 已记录结果，Python 包含 Node 包装，不累加；不是本轮执行结果。历史工程验收中的 `REAL IMAGE GENERATED = 0` 只指该轮匿名 Mock 验证，不表示项目没有真实 Run。模型质量、运营接受与新 SOP / Agent 增益不能由这些数字证明。
 - **UNKNOWN｜当前运行：** 本轮未连接本地服务或 Mac mini，当前 Pilot 在线 SHA、WSGI、进程、数据及备份状态未核验。已有部署/运行观察保留其日期和范围，不推断今日已部署或未部署；不将本地 HEAD 当成线上版本。
 

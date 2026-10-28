@@ -5,7 +5,7 @@
 **性质：** Business-Driven AI Capability / Agent Suitability 研究台账\
 **状态：** RESEARCH ACTIVE / NO CODING AUTHORIZATION
 
-**语义对齐：** 2026-10-27，依据 [Business Baseline V0.2](../02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.2.md)及本次用户明确要求。业务基线负责业务定义，本文件负责候选能力及技术适配；本轮不重读 Runtime、不复跑实验，不改变历史 Evidence 或批准状态。
+**语义对齐：** 2026-10-27，依据 [Business Baseline V0.2（历史版本；现行 V0.3）](../02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.3.md)及本次用户明确要求。业务基线负责业务定义，本文件负责候选能力及技术适配；本轮不重读 Runtime、不复跑实验，不改变历史 Evidence 或批准状态。
 
 ## 1. 本轮研究目标
 
@@ -43,7 +43,7 @@ Agent 是否必要仍需评价。
 
 ## 3. 真实运营业务规则
 
-本节是对 [业务基线 V0.2](../02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.2.md)的研究适用性说明，不建立第二份业务规范。下列已确认事项为 **OPERATOR_CONFIRMED（经用户转述）/ DECIDED**，不等于已由代码实现或独立完成事实认证。
+本节是对 [业务基线 V0.3](../02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.3.md)的研究适用性说明，不建立第二份业务规范。下列已确认事项为 **OPERATOR_CONFIRMED（经用户转述）/ DECIDED**，不等于已由代码实现或独立完成事实认证。
 
 ### 已确认
 
@@ -119,7 +119,7 @@ Review / Evaluation 贯穿全部业务环节，不提前定义为独立 Agent。
 
 ### 2026-10-27 A/B 方案及成图实验｜业务适用性限制
 
-依据 [V0.2 的历史实验记录](../02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.2.md#82-observed--historical有时间与证据边界)及本次用户确认：共同提示词以参考商品信息不能沿用为前提，将两组目标收缩为外观细节展示。该前提不符合真实 Quick-A / Quick-B 的适用信息沿用业务，不能据此充分评价真实 Quick 的成图效果或 S3/S5 SOP 的增益。
+依据 [历史实验记录（V0.3 保留）](../02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.3.md#82-observed--historical有时间与证据边界)及本次用户确认：共同提示词以参考商品信息不能沿用为前提，将两组目标收缩为外观细节展示。该前提不符合真实 Quick-A / Quick-B 的适用信息沿用业务，不能据此充分评价真实 Quick 的成图效果或 S3/S5 SOP 的增益。
 
 - 原始实验 Evidence、图片、请求、方案与输出全部保留，不改写或重新标成生产验收。
 - 已有排版、引线、商品印字失真等技术观察可以保留，但不能自动解释为符合真实 Quick 业务的效果验证。
@@ -193,7 +193,7 @@ S2 先保持模型原生理解基线；S6 Context 优化应根据实际决策结
 
 ## 9. 决策与更新纪律
 
-- 新业务事实进入 [V1 Business Baseline V0.2](../02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.2.md)。
+- 新业务事实进入 [V1 Business Baseline V0.3](../02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.3.md)。
 - 工程实施进度进入现有 [Current State](../00_PROJECT/02_CURRENT_STATE.md)。
 - 长期跨业务架构选择进入 Blueprint。
 - 本文件只记录 AI 决策增强研究、能力适配、评价结论与下一步问题。
