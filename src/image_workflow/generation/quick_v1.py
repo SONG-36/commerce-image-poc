@@ -1,4 +1,4 @@
-"""Quick V1 slot inputs and request policy; pure, scoped to this business slice.
+"""Quick V1 policy and shared Listing slot-input validation; no IO.
 
 Only an explicit business version enables V1. Pre-versioning Quick tasks and
 the experiment CLI keep the existing single-original redesign policy.
@@ -10,6 +10,8 @@ import re
 
 VERSION = "v1"
 LEGACY = "legacy"
+SCENARIOS = ("quick_a", "quick_b")
+SCENARIO_PENDING = "ENGINEERING PARTIAL：Quick-A/B 场景制作策略尚未实现（E1-03）；当前仅可保存输入，未调用模型。"
 SLOT_TYPES = {
     "main": (1, "主图", "清楚展示实际售卖商品"),
     "dimensions": (1, "尺寸图", "表达自家商品有依据的真实尺寸"),
@@ -65,6 +67,37 @@ def validate_slots(slots, images):
 
 def slots_for(state):
     return validate_slots(state.get("quick_slots"), state["images"])
+
+
+def validate_scenario(state):
+    """Missing is historical, never an inferred Quick-A/Quick-B assignment."""
+    if "quick_scenario" in state and (state["quick_scenario"] not in SCENARIOS or not is_v1(state)):
+        raise ValueError("Quick 子场景仅适用于显式 Quick V1；请选择 Quick-A 或 Quick-B。")
+
+
+def scenario_pending(state):
+    return state.get("quick_scenario") in SCENARIOS
+
+
+def validate_listing_slots(slots, images, sizes):
+    """Reuse slot rules while keeping Listing outputs keyed by reference ID.
+
+    The row ID is only an input-form identity, never a plan/generation target.
+    Size lives on this association; historical Listing still uses image_sizes.
+    """
+    if not isinstance(slots, list) or any(not isinstance(slot, dict) or
+            set(slot) - {"id", "type", "enabled", "reference_id", "requirements", "output_size"} for slot in slots):
+        raise ValueError("Listing 图位配置包含无效字段。")
+    normalized = validate_slots([{key: value for key, value in slot.items() if key != "output_size"}
+                                 for slot in slots], images)
+    if not any(slot["enabled"] for slot in normalized):
+        raise ValueError("请至少启用一个 Listing 图位并绑定主要参考。")
+    for slot, original in zip(normalized, slots):
+        size = original.get("output_size", "1024x1536")
+        if not isinstance(size, str) or size not in sizes:
+            raise ValueError("Listing 图位输出尺寸无效。")
+        slot["output_size"] = size
+    return normalized
 
 
 def output_slot(state, target):

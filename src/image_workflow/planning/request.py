@@ -16,6 +16,8 @@ RULES = """你是电商商品图制作助手。只理解与规划，不生成图
 
 
 def reference_ids(state):
+    if state.get('mode') == 'product_pack' and 'listing_slots' in state:
+        return [slot['reference_id'] for slot in state['listing_slots'] if slot['enabled']]
     return [image["id"] for image in state["images"] if image["role"] == "reference"]
 
 
@@ -23,7 +25,7 @@ def planning_images(state, action, target):
     """Select input identities in saved order without reading their files."""
     return [image for image in state["images"]
             if not (image["role"] == "reference" and
-                    (action == "product" or target and image["id"] != target))]
+                    (image['id'] not in reference_ids(state) or action == "product" or target and image["id"] != target))]
 
 
 def build_planning_request(state, action, target, feedback, model, image_bytes, *, reasoning_model, instructions=RULES):
@@ -50,6 +52,10 @@ def build_planning_request(state, action, target, feedback, model, image_bytes, 
                "current": current, "operator_feedback": feedback,
                "required_reference_ids": ids if action in ["understand", "replan"] else [],
                "return_json": response_shape(action, ids)}
+    if 'listing_slots' in state and action != 'product':
+        context['output_slot_inputs'] = {slot['reference_id']: slot for slot in state['listing_slots']
+                                        if slot['enabled'] and (not target or slot['reference_id'] == target)}
+        context['task'] += " 按 output_slot_inputs 中本图类型、补充要求和尺寸制定计划；结果仍以 reference ID 关联，图位 id 不是计划身份。"
     prompt = json.dumps(context, ensure_ascii=False, indent=2)
     content = [{"type": "input_text", "text": prompt}]
     image_order = []

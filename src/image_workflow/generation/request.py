@@ -67,6 +67,10 @@ def parameters_for(state, defaults, target=None):
     parameters = dict(defaults)
     if state.get('mode') == 'quick_redesign':
         parameters['size'] = state.get('output_size', defaults['size'])
+    if state.get('mode') == 'product_pack' and 'listing_slots' in state:
+        slot = next((slot for slot in state['listing_slots'] if slot['enabled'] and slot['reference_id'] == target), None)
+        if slot is not None:
+            parameters['size'] = slot.get('output_size', defaults['size'])
     if target is not None and target in state.get('image_sizes', {}):
         from .quick_prompt import SIZES
         size = state['image_sizes'][target]

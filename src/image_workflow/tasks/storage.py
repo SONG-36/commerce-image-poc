@@ -39,8 +39,13 @@ class TaskFiles:
                 raise Problem('任务图片路径不在本任务允许范围内。', 409)
             safe_path(self.folder(session_id), image['file'])
         try:
+            quick_v1.validate_scenario(state)
             if quick_v1.is_v1(state):
                 quick_v1.slots_for(state)
+            if 'listing_slots' in state:
+                if state.get('mode') != 'product_pack' or 'image_sizes' in state:
+                    raise ValueError('Listing 图位模式或尺寸关联无效。')
+                quick_v1.validate_listing_slots(state['listing_slots'], state['images'], SIZES)
             if 'image_sizes' in state:
                 targets = {slot['id'] for slot in state['quick_slots']} if quick_v1.is_v1(state) else {
                     image['id'] for image in state['images'] if image['role'] == ('product' if state.get('mode') == 'quick_redesign' else 'reference')}

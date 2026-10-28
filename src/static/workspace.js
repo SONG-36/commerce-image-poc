@@ -18,7 +18,7 @@
     images.present(snapshot.generation,{key:key(state),allowed:snapshot.generation_allowed,blocked,historical:snapshot.historical_generation});
     const note=document.getElementById('workspace-note');
     note.textContent=readOnly?'匿名只读预览：可切换图片与历史版本查看，不保存选择、不调用模型；新建和制作请进入 8013 Live Debug。':status.dirty?'共享资料有未保存修改。另存为新任务后继续，旧任务和图片保留；当前禁止模型操作。':!snapshot.generation_allowed?'保存资料并完成理解与规划，在每张卡片确认本图计划后即可生成。刷新、查看历史、保存和确认不产生模型费用。':'各图独立确认与生成；修改本图计划不改变其他有效确认。历史成图保留，批量只处理从未尝试的图片；连接或结果不确定时暂停，不自动付费重试。';
-    if(!readOnly&&!status.dirty&&state.mode==='quick_redesign')note.textContent='Quick 无需 AI Planning 或计划确认。仅主动点击生成或修改才调用模型；保留历史版本和 Pass，连接或结果不确定时暂停，不自动重试。';
+    if(!readOnly&&!status.dirty&&state.mode==='quick_redesign')note.textContent=state.quick_scenario?'ENGINEERING PARTIAL：Quick-A/B 当前仅完成输入与图位保存；制作策略待 E1-03，生成和修改保持禁用，未调用模型。':'Quick 无需 AI Planning 或计划确认。仅主动点击生成或修改才调用模型；保留历史版本和 Pass，连接或结果不确定时暂停，不自动重试。';
   }
   async function refresh(){
     const state=prepare.getState();if(!state){images.clear();return;}

@@ -29,7 +29,8 @@ def save_task(store, state, event, *, clock):
 
 def create_task(store, text, uploads, title, case_id=None, mode="product_pack", output_size="1024x1536", *,
                 clock, new_id, contains_private, sizes, default_requirements,
-                quick_business_version=None, quick_slots=None, image_sizes=None):
+                quick_business_version=None, quick_slots=None, image_sizes=None,
+                quick_scenario=None, listing_slots=None):
     if mode not in ("product_pack", "quick_redesign"):
         raise Problem("请选择有效的工作模式。")
     if quick_business_version is not None or quick_slots is not None:
@@ -37,6 +38,14 @@ def create_task(store, text, uploads, title, case_id=None, mode="product_pack", 
             raise Problem("请显式指定有效的 Quick 业务版本。")
         if quick_business_version != quick_v1.VERSION and quick_slots is not None:
             raise Problem("图位配置仅适用于 Quick V1。")
+    if quick_scenario is not None:
+        try:
+            quick_v1.validate_scenario({"mode": mode, "quick_business_version": quick_business_version,
+                                        "quick_scenario": quick_scenario})
+        except ValueError as error:
+            raise Problem(str(error)) from error
+    if listing_slots is not None and (mode != "product_pack" or image_sizes is not None):
+        raise Problem("Listing 图位仅用于商品资料制图，逐图尺寸请保存在图位内。")
     if mode == "quick_redesign" and output_size not in sizes:
         raise Problem("请选择支持的输出比例。")
     if not any(role == "product" for role, _, _ in uploads):
@@ -79,6 +88,13 @@ def create_task(store, text, uploads, title, case_id=None, mode="product_pack", 
             raise Problem(str(error)) from error
         if contains_private(quick_slots):
             raise Problem("图位资料包含疑似认证信息，请移除后重新保存；未发送模型。")
+    if listing_slots is not None:
+        try:
+            listing_slots = quick_v1.validate_listing_slots(listing_slots, identities, sizes)
+        except ValueError as error:
+            raise Problem(str(error)) from error
+        if contains_private(listing_slots):
+            raise Problem("图位资料包含疑似认证信息，请移除后重新保存；未发送模型。")
     if image_sizes is not None:
         targets = {slot['id'] for slot in quick_slots} if quick_business_version == quick_v1.VERSION else {
             image['id'] for image in identities if image['role'] == ('product' if mode == 'quick_redesign' else 'reference')}
@@ -100,6 +116,10 @@ def create_task(store, text, uploads, title, case_id=None, mode="product_pack", 
         state["quick_business_version"] = quick_business_version
     if quick_business_version == quick_v1.VERSION:
         state["quick_slots"] = quick_slots
+    if quick_scenario is not None:
+        state["quick_scenario"] = quick_scenario
+    if listing_slots is not None:
+        state["listing_slots"] = listing_slots
     if image_sizes is not None:
         state['image_sizes'] = image_sizes
     counts = {"product": 0, "reference": 0}
@@ -165,6 +185,20 @@ class TaskApplication:
                 except (TypeError, ValueError) as error:
                     raise Problem("图位配置不是有效的 JSON。") from error
                 options = {"quick_business_version": version, "quick_slots": slots}
+            scenario = form.get("quick_scenario")
+            if previous_id and scenario != previous.get("quick_scenario"):
+                raise Problem("另存任务须保留原 Quick 子场景；请从任务中心新建其他场景。")
+            if scenario is not None:
+                options["quick_scenario"] = scenario
+            if previous_id and "listing_slots" in previous and "listing_slots" not in form:
+                raise Problem("另存 Listing 请显式保留图位分类并重新提交参考绑定。")
+            if "listing_slots" in form:
+                try:
+                    options["listing_slots"] = json.loads(form["listing_slots"])
+                except (TypeError, ValueError) as error:
+                    raise Problem("Listing 图位配置不是有效的 JSON。") from error
+                if options["listing_slots"] is None:
+                    raise Problem("Listing 图位配置必须为列表。")
             if previous_id and previous.get('image_sizes') and 'image_sizes' not in form:
                 raise Problem('另存任务请显式提交逐图尺寸，以保持输出绑定。')
             if 'image_sizes' in form:

@@ -76,7 +76,7 @@ def card_view(store, card_reader, state, target):
     card = card_reader(current, target)
     history = [card_reader(saved, target) for saved in image_history(store, state, target)]
     older = next((old for old in history if old['versions'] and old['confirmed_revision'] != current['revision']), None)
-    allowed = quick or status['confirmed']
+    allowed = (quick or status['confirmed']) and not quick_v1.scenario_pending(state)
     historical = False
     if not allowed and older and not card['versions']:
         card = copy.deepcopy(older)

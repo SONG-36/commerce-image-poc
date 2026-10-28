@@ -15,6 +15,7 @@ from file_ops import safe_path
 from image_workflow.generation import GenerationIO, RunAccess
 from image_workflow.generation.request import PromptBuilders
 import image_workflow.generation.quick_v1 as quick_v1
+from image_workflow.planning.request import reference_ids
 from .generation_queries import generation_card, generation_operation, request_uncertain
 
 
@@ -48,6 +49,8 @@ class GenerationService:
     def targets(self, state):
         if quick_v1.is_v1(state):
             return [slot['id'] for slot in quick_v1.slots_for(state) if slot['enabled']]
+        if state.get('mode') == 'product_pack':
+            return reference_ids(state)
         role = "product" if state.get("mode") == "quick_redesign" else "reference"
         return [image["id"] for image in state["images"] if image["role"] == role]
 
@@ -97,6 +100,8 @@ class GenerationService:
     def generate(self, state, target, parent_run_id=None, feedback="", expected_revision=None, operation_id=None, auxiliary=None):
         if target not in self.targets(state):
             raise ValueError("图片不属于当前工作模式的制作任务。")
+        if quick_v1.scenario_pending(state):
+            raise ValueError(quick_v1.SCENARIO_PENDING)
         if auxiliary is not None:
             if not parent_run_id:
                 raise ValueError("辅助参考图片只用于修改已生成的当前版本。")

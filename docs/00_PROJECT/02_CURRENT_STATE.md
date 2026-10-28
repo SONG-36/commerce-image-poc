@@ -1,8 +1,17 @@
 # Current State
 
+**E1-01｜2026-10-28：输入基础 ENGINEERING VERIFIED；Quick-A/B 制作策略 ENGINEERING PARTIAL。** 本轮基线 `main / 4b19fd7c97800549bbf0a0fcefb8bf3752fc6593`，下列改动尚未提交；未访问 Pilot 或真实 Runtime、未读取 `.env`、未调用真实模型。
+
+- 三个入口 Quick-A / Quick-B / Listing 保留 `quick_redesign` / `product_pack` 两类后端；新增显式 `quick_scenario=quick_a|quick_b`，缺失字段的历史任务不自动归类。复用商品/参考上传与现有五类图位，仍保留本阶段 1/1/1/3/2、总计 8 的限制；动态 N 待 E1-02。
+- 新 Listing 保存 `listing_slots` 分类、启用状态、参考绑定、补充要求和尺寸；图位表单 ID 不替代 reference ID。分类信息进入既有 Planning 请求，仍需逐图人工确认；生成及确认沿用 reference ID 和原快照。逐图尺寸保存在该关联中，历史 Listing 仍沿用原 `image_sizes` / 默认规则。创建、读取、刷新恢复与另存参考重映射通过离线验证，不迁移历史文件。
+- 新 Quick-A/B 暂仅保存输入；页面明确提示策略未完成，服务端在创建 Run / SDK 调用前拒绝生成与修改。事实权限、Quick-B 主体替换策略待 E1-03；历史 Quick 和既有未分类 Quick V1 保持原执行行为。此检查点不代表 Quick-A/B 可运营使用或 BUSINESS ACCEPTED。
+- 本轮基线回归 **393 项通过（18.680 秒）**；修改后完整隔离 Python 回归 **403 项通过（19.388 秒）**，独立 Node **59 项通过**，零失败/跳过，Python 含 Node 包装，不累加。测试使用匿名临时目录、假 Key 和 SDK Mock，并禁止网络及项目 `.env` / `.runtime` 访问；macOS 临时路径统一为真实路径后执行，未修改旧断言或历史指纹。真实浏览器交互本轮 **NOT RUN**；`REAL IMAGE GENERATED = 0`，`BUSINESS ACCEPTED = PENDING`。Mac mini 当前版本与运行状态仍 **UNKNOWN / DEFER**。
+
+以下为历史工程状态，旧 SHA、测试与待审工作树描述保留其所属日期，不代表本轮工作区状态。
+
 > 语义同步：2026-10-27（Asia/Shanghai）。本轮仅核对本地 Git、现有文档和引用；未访问 Pilot Runtime、启动服务、读取密钥、运行模型或重跑工程测试。
 
-**CURRENT VERIFIED STATE｜2026-10-27 本地核验**
+**HISTORICAL VERIFIED STATE｜2026-10-27 本地核验**
 
 - **Git：** `main / 36251cc386233a5a8c76177818dd831174f0014b`，2026-10-26 的 `fix: support dynamic Quick slots, per-image sizes and inspector entry`。CP1+CP2 已在 `b508c27889e4c1fedfc577ec2f2efeed11920646` 提交；动态图位、逐图尺寸、Inspector 入口修复已包含于当前 HEAD，不再是未提交源码。
 - **待审工作树：** 当前待提交的是文档目录整理、语义同步及已有 V0.1 删除/V0.2 替代稿。三个 `git mv` 重命名已在上一轮暂存，其余文档改动尚未完整暂存；本轮不自动 add / commit / push。
