@@ -270,21 +270,33 @@ test('anonymous read-only workspace disables writes but keeps image selection, h
   assert.equal(h.calls.length,0);assert.equal(h.actions.length,0);
 });
 
-test('new Quick scenario shows the E1-04 dimensions block while other output actions stay available',async()=>{
+test('dimensions material block is visible while other output actions stay available',async()=>{
   for(const scenario of ['quick_a','quick_b']){
     const initial=fixture(true);initial.state.quick_scenario=scenario;initial.state.quick_business_version='v1';
     initial.data.cards.forEach((card,index)=>{card.id='reference_'+(101+index);card.output_slot={id:card.id,
       type:index===1?'dimensions':'selling_point',enabled:true,reference_id:'reference_00'+(index+1),requirements:'本图要求'};});
     const dimensions=initial.data.cards[1];Object.assign(dimensions,{generation_allowed:false,batch_eligible:false,
-      generation_block_reason:'ENGINEERING PARTIAL：尺寸图专项素材校验待 E1-04；未调用模型。',
+      generation_block_reason:'尺寸图须绑定已标注真实尺寸的白底 product 素材，并由运营明确声明；未调用模型。',
       versions:[],selected_run:null,passed_run:null,image_url:null,status:'NOT_STARTED'});
     const h=harness(initial);h.choose(2);
-    assert.match(h.node('selected-image-detail').textContent,/E1-04.*未调用模型/);
+    assert.match(h.node('selected-image-detail').textContent,/尺寸图.*未调用模型/);
     assert.equal(h.detail('生成图片').disabled,true);assert.equal(h.node('send-edit').disabled,true);
     await h.detail('生成图片').onclick();assert.equal(h.calls.length,0);
     h.choose(1);h.type('只改善当前卖点图背景');
     assert.equal(h.detail('生成图片').disabled,false);assert.equal(h.node('send-edit').disabled,false);
-    assert.doesNotMatch(h.node('selected-image-detail').textContent,/E1-04/);
+    assert.doesNotMatch(h.node('selected-image-detail').textContent,/尺寸图须绑定/);
     assert.equal(h.calls.length,0);
   }
+});
+
+
+test('blocked legacy execution still permits reviewing an existing valid Run without a model call',async()=>{
+  const initial=fixture(),card=initial.data.cards[1];card.generation_allowed=false;card.review_allowed=true;
+  card.generation_block_reason='历史 Listing 未分类，新增执行已阻断';
+  const h=harness(initial);h.choose(2);
+  assert.equal(h.detail('生成图片').disabled,true);
+  h.handler=async(url,options)=>{assert.ok(url.endsWith('/review/reference_002'));const body=JSON.parse(options.body);assert.equal(body.action,'pass');assert.equal(body.run_id,card.selected_run);return response({event:{}});};
+  assert.equal(h.detail('Pass · 接受当前版本').disabled,false);
+  await h.detail('Pass · 接受当前版本').click();
+  assert.equal(h.calls.length,1);assert.ok(h.calls[0].url.includes('/review/'));
 });

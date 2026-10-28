@@ -72,6 +72,9 @@ class TaskFiles:
     def read_input(self, session_id, relative):
         return (self.folder(session_id) / relative).read_bytes()
 
+    def input_exists(self, session_id, relative):
+        return safe_path(self.folder(session_id), relative).is_file()
+
     def write_texts(self, folder, text):
         self.write_json(folder / "inputs" / "texts.json", text, exclusive=True)
 

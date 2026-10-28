@@ -57,6 +57,7 @@ class GenerationPackageTests(unittest.TestCase):
             (self.task / relative).write_bytes(data)
             self.state['images'].append({'id': identity, 'role': identity.split('_')[0], 'name': identity,
                                          'file': relative, 'sha256': sha256(data), 'mime': 'image/png'})
+        self.state['listing_slots'] = [dict(id='reference_102', type='selling_point', enabled=True, reference_id='reference_002', requirements='')]
         self.inputs_before = {path: path.read_bytes() for path in (self.task / 'inputs').iterdir()}
         self.sources = []
         for name in ('legacy.py', 't01.py', 'quick.py'):

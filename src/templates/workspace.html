@@ -23,6 +23,7 @@
     <details id="input-panel" class="panel" {% if not session_id %}open{% endif %}>
       <summary><span class="eyebrow">INPUT</span><strong id="input-summary">共享资料与商品理解</strong><span class="muted">按需展开 · 修改后保存为新任务</span></summary>
       <div class="input-content"><div class="section-head"><h2 id="input-title">商品资料与参考图</h2><button id="load-case" class="secondary" {% if workspace_read_only %}disabled{% endif %}>加载 case-001 示例资料</button></div><p id="mode-note" class="muted"></p>
+      <button id="classify-listing" type="button" class="secondary" hidden>为历史资料分类并另存新任务（不修改原任务）</button>
       <form id="input-form">
         <fieldset class="input-fields" {% if workspace_read_only %}disabled{% endif %}>
         <label>工作模式<select id="task-mode"><option value="product_pack">Listing｜商品资料制图</option><option value="quick_a">Quick-A｜同款快速改版</option><option value="quick_b">Quick-B｜换主体快速改版</option><option value="quick_redesign" hidden disabled>历史 Quick（未分类）</option></select></label>

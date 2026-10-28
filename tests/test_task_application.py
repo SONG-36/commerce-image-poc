@@ -334,8 +334,24 @@ def task_fingerprint():
                 'requirements':'anonymous copied requirement','mode':'product_pack'})
             assert response.status_code == 200, response.get_data(as_text=True)
             outcomes.append(['copy', response.status_code, response.json])
-            outcomes.append(['tasks', fx.client.get('/api/tasks').json])
-            outcomes.append(['workspace', fx.client.get('/api/sessions/'+state['id']+'/workspace').json])
+            tasks = fx.client.get('/api/tasks').json
+            workspace = fx.client.get('/api/sessions/'+state['id']+'/workspace').json
+            # E1-04 intentionally blocks NEW execution of unclassified historical
+            # Listing. Assert that exact delta, then retain the pre-migration
+            # golden for every other HTTP field, saved byte and write ordering.
+            for card in workspace['generation']['cards']:
+                assert card['generation_allowed'] is False and card['batch_eligible'] is False
+                assert '历史 Listing 未保存图位分类' in card.pop('generation_block_reason')
+                assert card.pop('review_allowed') == card['plan_status']['confirmed']
+                card['generation_allowed'] = card['plan_status']['confirmed']
+                card['batch_eligible'] = card['generation_allowed']
+            workspace['generation_allowed'] = any(card['generation_allowed'] for card in workspace['generation']['cards'])
+            task_rows = tasks['tasks'] if isinstance(tasks, dict) else tasks
+            row = next(row for row in task_rows if row['id'] == state['id'])
+            assert row['status'] == '计划待确认'
+            row['status'] = '部分或全部计划已确认，待生图'
+            outcomes.append(['tasks', tasks])
+            outcomes.append(['workspace', workspace])
         files = {}
         source_hash = hashlib.sha256(Path(web.__file__).read_bytes()).hexdigest()
         for path in sorted(fx.runtime.rglob('*')):

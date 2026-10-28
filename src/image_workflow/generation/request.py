@@ -92,7 +92,11 @@ def initial_context(state, target, parameters):
         return {'session_id': state['id'], 'mode': 'quick_redesign', 'source_image_id': target,
                 'input_revision': state['revision'], 'original_inputs': copy.deepcopy(state['inputs']),
                 'output_size': parameters['size']}
+    from image_workflow.planning.conflicts import generation_dispositions
+    slot = next((row for row in state.get('listing_slots', []) if row['enabled'] and row['reference_id'] == target), None)
     return {'session_id': state['id'], 'confirmed_revision': state['revision'], 'reference_id': target,
+            **({'output_slot': copy.deepcopy(slot)} if slot and slot['type'] == 'dimensions' else {}),
+            **({'operator_fact_review': generation_dispositions(state, target)} if state.get('fact_issues') else {}),
             **({'output_size': parameters['size']} if target in state.get('image_sizes', {}) else {}),
             'original_inputs': copy.deepcopy(state['inputs']),
             'product_understanding': copy.deepcopy(state['product']),
@@ -164,10 +168,15 @@ def build_generation_request(state, context, order, images, model, parameters, p
     The saved request intentionally contains image identities/hashes, not bytes;
     service.py snapshots those bytes before calling this pure builder.
     """
+    target = context.get('output_id') if quick_v1.is_v1(state) else context.get('reference_id')
+    blocked = quick_v1.generation_block_reason(state, target)
+    if blocked:
+        raise ValueError(blocked)
+    if state.get('mode', 'product_pack') == 'product_pack':
+        from image_workflow.planning.conflicts import blockers
+        if blockers(state, target):
+            raise ValueError('本图存在未处理的事实争议，未调用模型。')
     if quick_v1.is_v1(state):
-        blocked = quick_v1.generation_block_reason(state, context['output_id'])
-        if blocked:
-            raise ValueError(blocked)
         if 'quick_scenario' in state and context.get('quick_scenario') != state['quick_scenario']:
             raise ValueError('生成 Context 与当前 Quick 场景不一致，已停止调用。')
         prompt = quick_v1.build_prompt(context, order, editing=editing, feedback=feedback)
@@ -177,6 +186,14 @@ def build_generation_request(state, context, order, images, model, parameters, p
         prompt = prompts.quick_edit(texts, order, feedback) if editing else prompts.quick_generate(texts, order)
     else:
         prompt = prompts.product_edit(context, order, feedback) if editing else prompts.product_generate(context, order)
+    slot = context.get('output_slot', {})
+    if slot.get('type') == 'dimensions':
+        source = slot['dimension_source_product_id']
+        if not any(item['id'] == source and item['role'] == 'product' for item in order):
+            raise ValueError('实际请求缺少尺寸专项 product 素材，未调用模型。')
+        prompt += f'\n尺寸专项依据：{source}。运营声明此白底素材已标注目标商品真实尺寸；非独立认证。忠实保留其数值及对应位置，不从参考图、比例或外观猜测补数。\n'
+    if context.get('operator_fact_review'):
+        prompt += '\n人工事实处理：operator_fact_review 中当前有效的保留、修正或移除决定用于处理已报告争议，优先于原始资料和旧理解。按本图修订计划与人工说明制作；明确保留的宣称作为运营提供的信息使用，不是独立认证，不恢复已移除的宣称。\n'
     if auxiliary:
         prompt += prompts.auxiliary(auxiliary, len(order))
         if len(images) > 16:

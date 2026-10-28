@@ -72,7 +72,7 @@ class QuickRedesignIntegrationTests(unittest.TestCase):
         self.assertEqual(self.fx.requests, [])
 
     def test_reload_and_legacy_mode_remain_read_only(self):
-        legacy = self.fx.state
+        legacy = self.fx.confirmed(3, classified=False)
         path = self.store.folder(legacy["id"]) / "state.json"
         saved = json.loads(path.read_text())
         saved.pop("mode")

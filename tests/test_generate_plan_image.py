@@ -48,10 +48,15 @@ class GenerationPageTests(unittest.TestCase):
         self.addCleanup(self.no_network.stop)
         self.requests = []
 
-    def confirmed(self, count):
+    def confirmed(self, count, *, classified=True):
         uploads = [("product", f"p-{i}.png", png()) for i in range(2)]
         uploads += [("reference", f"r-{i}.png", png()) for i in range(count)]
         state = self.store.create({"listing": "原始 Listing：参数待核实。", "description": "当前商品描述。", "requirements": "淡粉色杂志风。"}, uploads, "离线测试资料")
+        # Current execution fixture explicitly classifies non-dimension outputs.
+        # Historical unclassified tasks are covered by E1-04's rejection test.
+        if classified:
+            state['listing_slots'] = [dict(id=f'reference_{101+i}', type='selling_point', enabled=True,
+                reference_id=f'reference_{i+1:03}', requirements='', output_size='1024x1536') for i in range(count)]
         ids = web.reference_ids(state)
         state["product"] = {key: "商品候选理解，未经核验" for key in web.PRODUCT_FIELDS}
         state["product_version"] = 1

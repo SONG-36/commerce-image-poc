@@ -163,7 +163,7 @@ function renderDetail(card){
   const history=el('div',undefined,'version-controls'),select=el('select');select.setAttribute('aria-label','当前图片的历史版本');
   card.versions.forEach(version=>{const option=el('option','V'+version.version+' · '+(version.action==='revise_image'?'修改':'生成'));option.value=version.run_id;select.append(option);});
   select.value=card.selected_run||'';select.disabled=!card.versions.length||busy||!available;
-  const readOnly=!card.generation_allowed||card.historical_generation||blocked||card.request_uncertain;
+  const readOnly=!(card.review_allowed??card.generation_allowed)||card.historical_generation||blocked||card.request_uncertain;
   select.onchange=()=>{if(readOnly){card.selected_run=select.value;card.image_url=card.versions.find(v=>v.run_id===select.value).url;render();}else reviewOne(card.id,'select',select.value);};
   const pass=el('button','Pass · 接受当前版本','secondary');pass.disabled=select.disabled||readOnly||card.passed_run===card.selected_run;
   pass.onclick=()=>reviewOne(card.id,'pass',card.selected_run);history.append(select,pass);box.append(history);
@@ -278,7 +278,7 @@ async function sendModification(){
   finally{localPlanning=false;try{await refreshFor(op.taskId);}catch(error){if(sessionId===op.taskId){available=false;message(error.message,true);}}render();}
 }
 async function reviewOne(target,action,runId){
-  const card=current?.cards.find(c=>c.id===target);if(readOnlyWorkspace||!card||mutationBusy()||presentation.blocked||!card.generation_allowed||card.historical_generation)return;
+  const card=current?.cards.find(c=>c.id===target);if(readOnlyWorkspace||!card||mutationBusy()||presentation.blocked||!(card.review_allowed??card.generation_allowed)||card.historical_generation)return;
   const op=freezeOperation(card,action),jobId=key(op.taskId,op.imageId),job=startOperation(op);running.add(jobId);render();
   try{await api('/api/sessions/'+op.taskId+'/review/'+op.imageId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed_revision:op.reviewRevision,card_revision:op.cardRevision,action,run_id:runId})});finishOperation(job,'SUCCEEDED');}
   catch(error){finishOperation(job,'FAILED');message(error.message,true,op.taskId);}

@@ -156,6 +156,7 @@ class ScenarioExecutionTests(ScenarioFixture):
 
     def test_http_all_non_dimension_types_use_scenario_policy_without_planning(self):
         configuration = cp1.slots()
+        configuration[1].pop('dimension_source_product_id'); configuration[1].pop('dimension_source_confirmed')
         configuration[3].update(enabled=True, reference_id='reference_004')
         configuration.append(dict(id='reference_105', type='selling_point', enabled=True,
                                   reference_id='reference_005', requirements='必须保留本图适用卖点'))
@@ -212,25 +213,27 @@ class ScenarioExecutionTests(ScenarioFixture):
 
     def test_dimensions_http_and_executor_guards_prevent_sdk_even_with_operator_claim(self):
         for scenario in quick_v1.SCENARIOS:
-            state = self.create(scenario, product_facts='匿名夹具：运营声明已有尺寸标注；不能绕过尚未完成的专项校验')
+            config = cp1.slots()
+            config[1].pop('dimension_source_product_id'); config[1].pop('dimension_source_confirmed')
+            state = self.create(scenario, configuration=config, product_facts='匿名夹具：运营声明已有尺寸标注；不能绕过尚未完成的专项校验')
             before = {str(p): p.read_bytes() for p in self.store.folder(state['id']).rglob('*') if p.is_file()}
             card = self.fx.card('reference_102', state)
             self.assertFalse(card['generation_allowed'])
             self.assertFalse(card['batch_eligible'])
-            self.assertIn('E1-04', card['generation_block_reason'])
+            self.assertIn('尺寸', card['generation_block_reason'])
             with patch.object(cp1.fixtures.generation, 'make_client', side_effect=AssertionError('No SDK before E1-04')):
                 response = self.fx.generate('reference_102', state=state)
                 self.assertEqual(response.status_code, 409, response.json)
-                self.assertIn('E1-04', response.json['error'])
+                self.assertIn('尺寸', response.json['error'])
                 edited = self.fx.edit('reference_102', state=state, parent='20261028T000000Z-' + 'b' * 32)
                 self.assertEqual(edited.status_code, 409, edited.json)
-                self.assertIn('E1-04', edited.json['error'])
+                self.assertIn('尺寸', edited.json['error'])
                 self.assertEqual(before, {str(p): p.read_bytes() for p in self.store.folder(state['id']).rglob('*') if p.is_file()})
                 # Defense at the pure request boundary also protects an executor caller.
                 record = self.service._generate(state, 'reference_102')
                 self.assertEqual(record['status'], 'FAILED')
                 self.assertFalse(record['api_call_attempted'])
-                self.assertIn('E1-04', record['error']['message'])
+                self.assertIn('尺寸', record['error']['message'])
         self.assertEqual(self.fx.fx.requests, [])
 
     def test_new_scenario_api_failure_keeps_truthful_status_and_does_not_retry(self):

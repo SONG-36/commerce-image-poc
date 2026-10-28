@@ -130,7 +130,7 @@ test('saved empty dynamic cards restore; legacy unused placeholders stay collaps
   assert.equal(restored.field(3,'size').value,'1024x1024');assert.equal(restored.field(4,'size').value,'1536x1024');
 });
 
-test('three visible choices persist two backend modes; new Quick scenarios explicitly stay engineering partial',async()=>{
+test('three visible choices persist two backend modes and disclose dimension prerequisites',async()=>{
   const choices=[...template.matchAll(/<option value="(product_pack|quick_a|quick_b|quick_redesign)"([^>]*)>([^<]+)/g)];
   assert.deepEqual(choices.filter(m=>!m[2].includes('hidden')).map(m=>m[1]),['product_pack','quick_a','quick_b']);
   for(const scenario of ['quick_a','quick_b']){
@@ -139,7 +139,7 @@ test('three visible choices persist two backend modes; new Quick scenarios expli
     assert.equal(data.get('mode'),'quick_redesign');assert.equal(data.get('quick_scenario'),scenario);
     assert.equal(data.get('quick_business_version'),'v1');assert.equal(data.get('listing_slots'),null);
     assert.equal(JSON.parse(data.get('quick_slots')).filter(row=>row.enabled)[0].type,'dimensions');
-    assert.match(h.node('mode-note').textContent,/ENGINEERING PARTIAL.*E1-04.*不允许生成或修改尺寸图/);
+    assert.match(h.node('mode-note').textContent,/尺寸图须绑定.*真实尺寸.*明确声明/);
     assert.match(h.node('mode-note').textContent,scenario==='quick_a'?/同款同外观.*可沿用适用参考营销信息/:/全部相关商品主体须替换.*不是简单风格迁移/);
     assert.equal(h.node('planning-controls').hidden,true);
   }
@@ -244,4 +244,74 @@ test('restored dynamic rows use the same type grouping for display and serializa
   const order=h.rows().map(row=>row.dataset.slotId),saved=JSON.parse(h.calls.at(-1).options.body.get('listing_slots'));
   assert.deepEqual(order.slice(3),['reference_902','reference_904','reference_901','reference_903']);
   assert.deepEqual(saved.map(row=>row.id),order);assert.equal(JSON.stringify(state),before);
+});
+
+test('dimension material is an explicit product choice; changing or deleting it clears declaration',async()=>{
+  const h=await harness();h.mode('quick_b');h.products(3);h.reference(1);
+  const source=h.field(1,'dimension-source');source.value='1';source.onchange();
+  const check=h.field(1,'dimension-confirmed');check.checked=true;check.onchange();
+  h.reject();await h.submit();let slot=JSON.parse(h.calls.at(-1).options.body.get('quick_slots'))[1];
+  assert.equal(slot.dimension_source_product_id,'product_002');assert.equal(slot.dimension_source_confirmed,true);
+  const buttons=all(h.node('product-images'),e=>e.tag==='button');buttons[1].onclick();
+  assert.equal(h.field(1,'dimension-source').value,'');assert.equal(h.field(1,'dimension-confirmed').checked,false);
+  await h.submit();slot=JSON.parse(h.calls.at(-1).options.body.get('quick_slots'))[1];
+  assert.equal(slot.dimension_source_product_id,null);assert.equal(slot.dimension_source_confirmed,false);
+});
+test('dimension source restores and remaps product identity when saving as a separate Listing',async()=>{
+  const state={id:'f'.repeat(32),title:'sizes',mode:'product_pack',revision:3,inputs:{},images:[
+    {id:'product_001',role:'product',name:'old.png',url:'/old'},
+    {id:'product_002',role:'product',name:'annotated.png',url:'/annotated'},
+    {id:'reference_001',role:'reference',name:'layout.png',url:'/layout'}],
+    listing_slots:[{id:'reference_102',type:'dimensions',enabled:true,reference_id:'reference_001',requirements:'',
+      output_size:'1024x1024',dimension_source_product_id:'product_002',dimension_source_confirmed:true}],
+    plans:{},plan_status:{},stale_plans:[]};
+  const h=await harness(state);assert.equal(h.field(1,'dimension-source').value,'1');assert.equal(h.field(1,'dimension-confirmed').checked,true);
+  all(h.node('product-images'),e=>e.tag==='button')[0].onclick();
+  assert.equal(h.field(1,'dimension-source').value,'0');assert.equal(h.field(1,'dimension-confirmed').checked,true);
+  h.reject();await h.submit();const slots=JSON.parse(h.calls.at(-1).options.body.get('listing_slots'));
+  assert.equal(slots[1].dimension_source_product_id,'product_001');assert.equal(slots[1].dimension_source_confirmed,true);
+  assert.equal(state.listing_slots[0].dimension_source_product_id,'product_002');
+});
+test('legacy Listing can explicitly classify a new copy using existing references, without rewriting its plan',async()=>{
+  const state={id:'e'.repeat(32),title:'legacy',mode:'product_pack',revision:3,inputs:{},images:[
+    {id:'product_001',role:'product',name:'own.png',url:'/own'},
+    {id:'reference_004',role:'reference',name:'saved-layout.png',url:'/layout'}],plans:{},plan_status:{},stale_plans:[]};
+  const h=await harness(state);assert.equal(h.node('classify-listing').hidden,false);h.node('classify-listing').onclick();
+  assert.equal(h.node('quick-slots-field').hidden,false);
+  h.field(0,'existing-reference').value='reference_004';h.field(0,'existing-reference').onchange();
+  h.reject();await h.submit();const body=h.calls.at(-1).options.body;
+  assert.equal(JSON.parse(body.get('listing_slots'))[0].reference_id,'reference_001');assert.equal(body.get('from_session'),state.id);
+  assert.equal(body.getAll('reference').length,0);assert.equal(state.listing_slots,undefined);
+});
+test('fact dispute shows sources and takes an explicit operator decision through the existing action route',async()=>{
+  const state={id:'9'.repeat(32),title:'review',mode:'product_pack',revision:3,inputs:{},images:[],
+    product:{identity:'own',claims:'claim',appearance:'visible',uncertainties:'unknown'},plans:{reference_001:{goal:'goal',selling_points:'claim',design:'layout',scene_style:'style',risks:'risk'}},plan_status:{},stale_plans:[],
+    fact_issues:[{conflict_id:'call_issue',issue_type:'VISIBLE_CONTRADICTION',affected_claim:'USB-C',resolution_status:'UNRESOLVED',
+      text_evidence:{source:'listing',quote:'USB-C'},visual_evidence:{product_image_ids:[],observation:'Mock visible connector differs'},affected_image_ids:['reference_001']}]};
+  const h=await harness(state),box=h.node('product-understanding');
+  assert.match(box.textContent,/图文明显矛盾（模型报告）/);assert.match(box.textContent,/listing 原文：USB-C/);
+  const fields=all(box,e=>e.tag==='textarea');fields.find(e=>e.placeholder?.startsWith('人工依据')).value='运营确认应移除此宣称';
+  const decision=all(box,e=>e.tag==='select')[0];decision.value='EXCLUDE';
+  for(const field of fields.filter(e=>e.value&&['goal','claim','layout','style','risk'].includes(e.value)))field.value='移除后的计划';
+  h.handler=async()=>({ok:true,json:async()=>({state:{...state,revision:4,fact_issues:[]}})});
+  all(box,e=>e.tag==='button').find(e=>e.textContent.startsWith('保存人工处理')).onclick();await tick();
+  const call=h.calls.at(-1),payload=JSON.parse(call.options.body);
+  assert.equal(call.url,'/api/sessions/'+state.id+'/action');assert.equal(payload.action,'resolve_conflict');
+  assert.equal(payload.decision,'EXCLUDE');assert.equal(payload.revision,3);assert.equal(payload.plans.reference_001.goal,'移除后的计划');
+  assert.equal(h.calls.filter(c=>/generate|revise/.test(c.url)).length,0);
+});
+
+test('classifying a legacy Listing transfers reference sizes into slots without sending the old size map',async()=>{
+  const state={id:'7'.repeat(32),title:'legacy sizes',mode:'product_pack',revision:4,inputs:{},images:[
+    {id:'product_001',role:'product',name:'own.png',url:'/own'},
+    {id:'reference_004',role:'reference',name:'saved-layout.png',url:'/layout'}],
+    image_sizes:{reference_004:'1536x1024'},plans:{},plan_status:{},stale_plans:[]};
+  const before=JSON.stringify(state),h=await harness(state);h.node('classify-listing').onclick();
+  h.field(0,'existing-reference').value='reference_004';h.field(0,'existing-reference').onchange();
+  assert.equal(h.field(0,'size').value,'1536x1024');
+  h.reject();await h.submit();const body=h.calls.at(-1).options.body;
+  assert.equal(body.get('image_sizes'),null);
+  assert.equal(JSON.parse(body.get('listing_slots'))[0].output_size,'1536x1024');
+  assert.equal(JSON.parse(body.get('listing_slots'))[0].reference_id,'reference_001');
+  assert.equal(JSON.stringify(state),before);
 });

@@ -14,6 +14,7 @@ from image_workflow.planning.request import reference_ids
 import image_workflow.generation.quick_v1 as quick_v1
 from persistence import task_state
 from .rules import context_version, plan_status, stale_ids
+from image_workflow.planning.conflicts import issue_views
 
 
 def case_identifier(store, state, case_match):
@@ -76,13 +77,17 @@ def card_view(store, card_reader, state, target):
     card = card_reader(current, target)
     history = [card_reader(saved, target) for saved in image_history(store, state, target)]
     older = next((old for old in history if old['versions'] and old['confirmed_revision'] != current['revision']), None)
-    blocked = quick_v1.generation_block_reason(state, target)
+    blocked = quick_v1.generation_block_reason(state, target,
+        lambda relative: store.input_exists(state['id'], relative))
+    if status and status.get('fact_conflict_ids'):
+        blocked = '本图存在未处理或版本已过期的图文事实争议；请在共享资料中处理后重新确认计划。'
     allowed = (quick or status['confirmed']) and not blocked
     historical = False
-    if not allowed and older and not card['versions']:
+    review_allowed = quick or status['confirmed']
+    if not review_allowed and older and not card['versions']:
         card = copy.deepcopy(older)
         historical = True
-    elif not allowed and card['versions']:
+    elif not review_allowed and card['versions']:
         historical = True
     elif older and not card['versions']:
         card['previous_result'] = {'revision': older['confirmed_revision'], 'image_url': older['image_url']}
@@ -97,6 +102,7 @@ def card_view(store, card_reader, state, target):
         card['accepted_result'] = {'revision': passed['confirmed_revision'], 'run_id': passed['passed_run']}
     card['batch_eligible'] = bool(allowed and not has_history and not passed and not attempted and card['status'] == 'NOT_STARTED')
     if blocked:
+        card['review_allowed'] = review_allowed
         card['generation_block_reason'] = blocked
     return card
 
@@ -130,6 +136,8 @@ class TaskQueries:
         result["mode"] = state.get("mode", "product_pack")
         result["stale_plans"] = stale_ids(state)
         result['plan_status'] = {target: plan_status(state, target) for target in reference_ids(state)}
+        if 'fact_issues' in state:
+            result['fact_issues'] = issue_views(state)
         for image in result["images"]:
             image["url"] = f"/api/sessions/{state['id']}/images/{image['id']}"
         return result

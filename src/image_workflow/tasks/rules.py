@@ -9,6 +9,7 @@ import json
 from file_ops import sha256
 from image_workflow import Problem
 from image_workflow.planning.request import reference_ids
+from image_workflow.planning.conflicts import apply_reports, blockers
 
 
 def context_version(state, ref_id):
@@ -33,7 +34,9 @@ def plan_status(state, target):
                    and entry['plan_version'] == version and entry['plan_sha256'] == digest
                    and entry['context'] == context_version(state, target)
                    and isinstance(entry['revision'], int) and 1 <= entry['revision'] <= state['revision'])
-    return {'plan_version': version, 'confirmed': current, 'confirmation': entry, 'legacy': legacy}
+    disputes = blockers(state, target)
+    return {'plan_version': version, 'confirmed': current and not disputes, 'confirmation': entry, 'legacy': legacy,
+            **({'fact_conflict_ids': [issue['conflict_id'] for issue in disputes]} if disputes else {})}
 
 
 def materialize_confirmations(state):
@@ -49,6 +52,8 @@ def confirm_plan(state, target, body, *, clock):
     if target not in ids or target not in state['plans'] or target in stale_ids(state):
         raise Problem('请在对应卡片确认已采用最新理解的本图计划。')
     status = plan_status(state, target)
+    if status.get('fact_conflict_ids'):
+        raise Problem('本图存在未处理或版本已过期的图文事实争议，请先查看依据并作出人工处理决定。', 409)
     if body.get('plan_version', status['plan_version']) != status['plan_version']:
         raise Problem('本图计划版本已改变，请刷新后确认。', 409)
     if status['confirmed']:
@@ -95,5 +100,6 @@ def apply_planning_result(state, kind, target, feedback, result, call_id):
         state["plan_context"][target] = context_version(state, target)
         state['plan_versions'][target] = state['plan_versions'].get(target, 0) + 1
     event["after"] = result
+    apply_reports(state, result.get('fact_issues', []), call_id)
     state["confirmed"] = False
     return event

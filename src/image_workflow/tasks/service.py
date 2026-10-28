@@ -16,6 +16,7 @@ from image_workflow.planning.request import reference_ids
 import image_workflow.generation.quick_v1 as quick_v1
 from image_workflow.generation.request import validate_image_sizes
 from .rules import apply_planning_result, confirm_plan, plan_status, stale_ids
+from image_workflow.planning.conflicts import resolve
 
 
 def save_task(store, state, event, *, clock):
@@ -199,7 +200,7 @@ class TaskApplication:
                     raise Problem("Listing 图位配置不是有效的 JSON。") from error
                 if options["listing_slots"] is None:
                     raise Problem("Listing 图位配置必须为列表。")
-            if previous_id and previous.get('image_sizes') and 'image_sizes' not in form:
+            if previous_id and previous.get('image_sizes') and 'image_sizes' not in form and 'listing_slots' not in options:
                 raise Problem('另存任务请显式提交逐图尺寸，以保持输出绑定。')
             if 'image_sizes' in form:
                 try:
@@ -226,7 +227,7 @@ class TaskApplication:
                 raise Problem("页面内容已过期，请刷新后再操作；本次没有调用模型。", 409)
             kind, target, feedback = body.get("action"), body.get("target"), body.get("feedback", "")
             ids = reference_ids(state)
-            if kind not in ["understand", "product", "reference", "plan", "replan", "confirm"]:
+            if kind not in ["understand", "product", "reference", "plan", "replan", "confirm", "resolve_conflict"]:
                 raise Problem("不支持的操作。")
             if kind != "understand" and state["product"] is None:
                 raise Problem("请先完成 AI 理解与规划。")
@@ -236,6 +237,13 @@ class TaskApplication:
                 raise Problem("请填写本次修改意见（最多 12000 字）。")
             if kind == "understand" and state["product"] is not None:
                 raise Problem("已有理解与计划，请使用修正或重新规划按钮，避免覆盖修改。")
+            if kind == 'resolve_conflict':
+                # Keep previous per-image confirmations before invalidating only affected plans.
+                from .rules import materialize_confirmations
+                materialize_confirmations(state)
+                event = resolve(state, body, clock=self.clock)
+                self.store.save(state, event)
+                return state
             if kind == "confirm":
                 event = confirm_plan(state, target, body, clock=self.clock)
                 if event is not None:

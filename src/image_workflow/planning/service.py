@@ -132,7 +132,13 @@ def execute_planning(folder: Path, state, action, target, feedback, *, case_id_f
         if not key.strip():
             raise Problem("AI 服务尚未配置。请由运行人员在启动服务的终端设置环境密钥；本次没有调用模型。", 503)
         response = invoke_model(arguments, key, record, evidence, io)
-        result = receive_result(response, action, ids, record, evidence, io, validator)
+        def validate_response(raw, action, ids):
+            result = validator(raw, action, ids)
+            if 'listing_slots' in state:
+                from .conflicts import validate_reports
+                result['fact_issues'] = validate_reports(raw, state, ids)
+            return result
+        result = receive_result(response, action, ids, record, evidence, io, validate_response)
         return result, call_id
     except Exception as error:
         record["status"] = "FAILED"

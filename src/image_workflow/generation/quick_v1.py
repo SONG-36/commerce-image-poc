@@ -11,7 +11,7 @@ import re
 VERSION = "v1"
 LEGACY = "legacy"
 SCENARIOS = ("quick_a", "quick_b")
-DIMENSIONS_PENDING = "ENGINEERING PARTIAL：尺寸图专项素材校验尚未完成（E1-04）；Quick-A/B 尺寸图暂不允许生成或修改，未调用模型。"
+DIMENSION_FIELDS = {"dimension_source_product_id", "dimension_source_confirmed"}
 SLOT_TYPES = {
     "main": (1, "主图", "清楚展示实际售卖商品"),
     "dimensions": (1, "尺寸图", "表达自家商品有依据的真实尺寸"),
@@ -37,9 +37,10 @@ def validate_slots(slots, images):
     if not isinstance(slots, list) or not slots:
         raise ValueError("请至少配置一个图位。")
     references = {image["id"] for image in images if image["role"] == "reference"}
+    products = {image["id"] for image in images if image["role"] == "product"}
     counts, identities, bound, result = {}, set(), set(), []
     for slot in slots:
-        if not isinstance(slot, dict) or set(slot) - {"id", "type", "enabled", "reference_id", "requirements"}:
+        if not isinstance(slot, dict) or set(slot) - ({"id", "type", "enabled", "reference_id", "requirements"} | DIMENSION_FIELDS):
             raise ValueError("图位配置包含无效字段；不接受外部任务或文件路径。")
         identity, kind = slot.get("id"), slot.get("type")
         if not isinstance(identity, str) or not re.fullmatch(r"reference_[0-9]{3,12}", identity) or identity in identities:
@@ -63,6 +64,13 @@ def validate_slots(slots, images):
             bound.add(reference)
         result.append({"id": identity, "type": kind, "enabled": slot["enabled"],
                        "reference_id": reference, "requirements": requirements})
+        if DIMENSION_FIELDS & slot.keys():
+            source = slot.get('dimension_source_product_id')
+            declared = slot.get('dimension_source_confirmed', False)
+            if kind != 'dimensions' or type(declared) is not bool or (source is not None and
+                    (not isinstance(source, str) or source not in products)) or (declared and source is None):
+                raise ValueError('尺寸专项素材须为本任务 product 图片，且声明必须是明确的布尔值。')
+            result[-1].update(dimension_source_product_id=source, dimension_source_confirmed=declared)
     return result
 
 
@@ -76,11 +84,23 @@ def validate_scenario(state):
         raise ValueError("Quick 子场景仅适用于显式 Quick V1；请选择 Quick-A 或 Quick-B。")
 
 
-def generation_block_reason(state, target):
-    """Open request-tested scenario branches; E1-04 remains fail-closed."""
+def generation_block_reason(state, target, input_exists=None):
+    """Business prerequisites; existence is checked by the file-owning caller."""
     validate_scenario(state)
-    if state.get('quick_scenario') in SCENARIOS and output_slot(state, target)['type'] == 'dimensions':
-        return DIMENSIONS_PENDING
+    slot = None
+    if is_v1(state):
+        slot = output_slot(state, target)
+    elif state.get('mode', 'product_pack') == 'product_pack':
+        if 'listing_slots' not in state:
+            return '历史 Listing 未保存图位分类，无法安全判断尺寸图；请另存为已分类任务后再生成或修改。历史记录与导出保留。'
+        slot = next((row for row in state['listing_slots'] if row['enabled'] and row['reference_id'] == target), None)
+    if slot and slot['type'] == 'dimensions':
+        source = next((image for image in state['images'] if image['role'] == 'product' and
+                       image['id'] == slot.get('dimension_source_product_id')), None)
+        if source is None or slot.get('dimension_source_confirmed') is not True:
+            return '尺寸图须绑定本商品已标注真实尺寸的白底 product 素材，并由运营明确声明；未调用模型。'
+        if input_exists is not None and not input_exists(source['file']):
+            return '尺寸专项商品素材不存在或已失效，已阻止生成和修改；未调用模型。'
     return None
 
 
@@ -91,7 +111,7 @@ def validate_listing_slots(slots, images, sizes):
     Size lives on this association; historical Listing still uses image_sizes.
     """
     if not isinstance(slots, list) or any(not isinstance(slot, dict) or
-            set(slot) - {"id", "type", "enabled", "reference_id", "requirements", "output_size"} for slot in slots):
+            set(slot) - ({"id", "type", "enabled", "reference_id", "requirements", "output_size"} | DIMENSION_FIELDS) for slot in slots):
         raise ValueError("Listing 图位配置包含无效字段。")
     normalized = validate_slots([{key: value for key, value in slot.items() if key != "output_size"}
                                  for slot in slots], images)

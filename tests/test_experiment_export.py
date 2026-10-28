@@ -157,6 +157,11 @@ class ExperimentExportTests(unittest.TestCase):
         self.assertEqual(manifest["confirmed_revision"], self.state["revision"])
 
     def test_generation_failure_and_export_preserve_success_bytes(self):
+        # New executions use explicitly classified outputs; old exports above
+        # remain tested against unclassified historical records.
+        uploads = [(image['role'], image['name'], self.store.read_input(self.state['id'], image['file'])) for image in self.state['images']]
+        self.state = self.store.create(self.state['inputs'], uploads, 'classified anonymous export', case_id='case-001',
+            listing_slots=[dict(id='reference_101', type='selling_point', enabled=True, reference_id='reference_001', requirements='')])
         self.initial()
         self.assertEqual(self.action("confirm", "reference_001").status_code, 200)
         success = self.generate()

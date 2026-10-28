@@ -73,6 +73,8 @@ class PreparePlanTests(unittest.TestCase):
         result = copy.deepcopy(context["return_json"])
 
         def replace(value):
+            if isinstance(value, list):
+                return [replace(item) for item in value]
             if isinstance(value, dict):
                 return {key: replace(item) for key, item in value.items()}
             return "离线测试候选内容（未经核验）"

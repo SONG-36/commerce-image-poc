@@ -31,7 +31,8 @@ def slots():
     return [
         {'id': 'reference_101', 'type': 'main', 'enabled': True, 'reference_id': 'reference_001'},
         {'id': 'reference_102', 'type': 'dimensions', 'enabled': True, 'reference_id': 'reference_002',
-         'requirements': '只表达自家尺寸图中有依据的尺寸'},
+         'requirements': '只表达自家尺寸图中有依据的尺寸',
+         'dimension_source_product_id': 'product_002', 'dimension_source_confirmed': True},
         {'id': 'reference_103', 'type': 'scene', 'enabled': True, 'reference_id': 'reference_003'},
         {'id': 'reference_104', 'type': 'comparison', 'enabled': False, 'reference_id': None},
     ]

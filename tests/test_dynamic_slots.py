@@ -45,6 +45,10 @@ class DynamicSlotTests(unittest.TestCase):
                     reference=[(io.BytesIO(generation_fixture.png((32, 40+i))), f'ref-{i}.png')
                                for i in range(len(configuration)+1)])
         if mode == 'listing':
+            configuration = copy.deepcopy(configuration)
+            for slot in configuration:
+                if slot['type'] == 'dimensions':
+                    slot.update(dimension_source_product_id='product_002', dimension_source_confirmed=True)
             data['listing_slots'] = json.dumps(configuration)
         else:
             data.update(quick_business_version='v1',
@@ -171,8 +175,8 @@ class DynamicSlotTests(unittest.TestCase):
                         headers=generation_fixture.HEADERS, json=dict(confirmed_revision=1, card_revision=0,
                             operation_id=uuid4().hex, parent_run_id='20261028T000000Z-'+'a'*32, feedback='仅改背景'))
                     self.assertEqual(response.status_code, 409, response.json)
-                    self.assertIn('ENGINEERING PARTIAL', response.json['error'])
-                    self.assertIn('E1-04', response.json['error'])
+                    self.assertIn('尺寸', response.json['error'])
+                    self.assertIn('未调用模型', response.json['error'])
             self.assertEqual(self.files(state), before)
         self.assertEqual(self.fx.requests, [])
 
@@ -180,7 +184,7 @@ class DynamicSlotTests(unittest.TestCase):
         state, helper = self.planned()
         content = helper.requests[0]['input'][0]['content']
         context = json.loads(content[0]['text'])
-        expected = {row['reference_id']: row for row in rows()}
+        expected = {row['reference_id']: row for row in state['listing_slots']}
         self.assertEqual(context['output_slot_inputs'], expected)
         self.assertEqual(context['required_reference_ids'], list(expected))
         self.assertEqual(set(state['plans']), set(expected))

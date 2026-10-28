@@ -27,6 +27,7 @@ class TaskReviewAdapterTests(unittest.TestCase):
         self.addCleanup(self.fx.doCleanups)
         self.state = {"id": self.fx.scope.task_id, "revision": 3,
                       "images": [{"id": name, "role": "reference"} for name in ("reference_001", "reference_002")]}
+        self.state['listing_slots'] = [dict(id=f'reference_{101+i}', type='selling_point', enabled=True, reference_id=target) for i, target in enumerate(('reference_001', 'reference_002'))]
         self.target = self.fx.scope.image_id
         self.store = SimpleNamespace(
             folder=lambda task: self.fx.root / "sessions" / task, case_id=lambda state: "case-anonymous",

@@ -112,7 +112,9 @@ class OutputSizeTests(unittest.TestCase):
 
     def test_listing_analysis_confirmation_and_generation_keep_independent_sizes(self):
         mapping = dict(zip(('reference_001', 'reference_002', 'reference_003'), self.sizes))
-        state = self.create('product_pack', mapping).json['state']
+        state = self.create('product_pack', listing_slots=json.dumps([dict(id=f'reference_{101+i}',
+            type='selling_point', enabled=True, reference_id=target, requirements='', output_size=size)
+            for i, (target, size) in enumerate(mapping.items())])).json['state']
         self.assertEqual(self.generate(state, 'reference_001').status_code, 409)
         planner = planning_fixtures.PreparePlanTests()
         planner.setUp()

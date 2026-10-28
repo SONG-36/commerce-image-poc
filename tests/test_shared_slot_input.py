@@ -94,7 +94,7 @@ class SharedSlotInputTests(unittest.TestCase):
             dimensions = next(card for card in cards if card['id'] == 'reference_102')
             self.assertFalse(dimensions['generation_allowed'])
             self.assertFalse(dimensions['batch_eligible'])
-            self.assertIn('E1-04', dimensions['generation_block_reason'])
+            self.assertIn('尺寸', dimensions['generation_block_reason'])
             self.assertTrue(all(card['generation_allowed'] for card in cards if card['id'] != 'reference_102'))
             with patch.object(generation_fixture.generation, 'make_client', side_effect=AssertionError('No SDK')):
                 for action in ('generate', 'revise'):
@@ -102,8 +102,8 @@ class SharedSlotInputTests(unittest.TestCase):
                         headers=generation_fixture.HEADERS, json=dict(confirmed_revision=1, card_revision=0,
                             operation_id=uuid4().hex, parent_run_id='20261028T000000Z-' + 'a' * 32, feedback='只改背景'))
                     self.assertEqual(result.status_code, 409, result.json)
-                    self.assertIn('ENGINEERING PARTIAL', result.json['error'])
-                    self.assertIn('E1-04', result.json['error'])
+                    self.assertIn('尺寸', result.json['error'])
+                    self.assertIn('未调用模型', result.json['error'])
             self.assertEqual(self.files(state), before)
 
     def test_historical_quick_and_listing_never_gain_inferred_classification(self):
@@ -120,7 +120,9 @@ class SharedSlotInputTests(unittest.TestCase):
                 self.assertNotIn('listing_slots', restored)
             if mode == 'quick_redesign':
                 cards = self.client.get(f"/api/sessions/{state['id']}/generation").json['cards']
-                self.assertTrue(all(card['generation_allowed'] for card in cards))
+                self.assertTrue(all(card['generation_allowed'] for card in cards if card['id'] != 'reference_102'))
+                if version == 'v1':
+                    self.assertFalse(next(card for card in cards if card['id'] == 'reference_102')['generation_allowed'])
             self.assertEqual(self.files(state), before)
 
     def test_listing_restore_clone_and_reference_remap_keep_source_unchanged(self):

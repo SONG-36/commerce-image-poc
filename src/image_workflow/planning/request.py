@@ -52,6 +52,11 @@ def build_planning_request(state, action, target, feedback, model, image_bytes, 
                "current": current, "operator_feedback": feedback,
                "required_reference_ids": ids if action in ["understand", "replan"] else [],
                "return_json": response_shape(action, ids)}
+    if 'listing_slots' in state:
+        from .conflicts import REPORT_INSTRUCTIONS, issue_views
+        context['fact_review_instructions'] = REPORT_INSTRUCTIONS
+        context['current_fact_issues'] = issue_views(state)
+        context['return_json']['fact_issues'] = []
     if 'listing_slots' in state and action != 'product':
         context['output_slot_inputs'] = {slot['reference_id']: slot for slot in state['listing_slots']
                                         if slot['enabled'] and (not target or slot['reference_id'] == target)}

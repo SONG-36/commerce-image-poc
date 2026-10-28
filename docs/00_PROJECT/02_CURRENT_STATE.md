@@ -1,6 +1,28 @@
 # Current State
 
-**E1-03｜2026-10-28：场景请求策略 ENGINEERING VERIFIED / BUSINESS ACCEPTANCE PENDING；尺寸专项能力 ENGINEERING PARTIAL。** 当前 `main` 为 E1-02 独立检查点 `4e42f17d76cef156826edfaae8324621a3d0caab`（8 文件，阶段 A 本轮完整回归 410 项通过）；本节 E1-03 改动尚未暂存、未提交。未 Push、部署、读取 `.env`、访问真实 Runtime 或调用真实模型。
+**E1-04 最终工程检查点｜2026-10-28：ENGINEERING VERIFIED（离线范围）；BROWSER ACCEPTANCE: NOT TESTED；REAL MODEL NOT TESTED；BUSINESS ACCEPTANCE PENDING。** 提交前基线为 `main / d1999bc4de76a1042ee584f5e8e698bcdc9c97e1`，30 Modified + 2 Untracked 全部属于已审核 E1-04 范围。本条随独立 E1-04 Commit 归档，SHA 以包含本条记录的 Git 提交为准；不 Push、不部署。
+
+- 本轮重新完整隔离回归：Python **434 项通过（22.797 秒）**，独立 Node **68 项通过**，零失败/错误/跳过；Python 包含 Node 包装，不重复累加。使用匿名临时数据、假 Key 与 SDK Mock，禁止测试联网和访问项目真实 `.env` / `.runtime`。尺寸绑定、声明、直接生成/修改前置保护，争议版本与旧确认保护，历史 Listing 分类另存及尺寸保留，动态 N、版本、Pass、ZIP 与 CLI 回归通过；没有新增功能或改变保护性断言。
+- 本轮用户明确允许浏览器工具不可用时独立建立工程检查点，取代下方上次的提交阻断。**BROWSER ACCEPTANCE: NOT TESTED** 保持不变：此前 Codex 浏览器 native pipe 启动失败，内置浏览器不可用，并非已证实业务功能失败；Node DOM 测试不能替代浏览器交互，也没有截图或操作记录。
+- 浏览器交接可复用 `cli.debug_workspace --runtime-dir <全新临时目录> --port <空闲本机端口>`，使用显式离线假 Key，**不传 `--allow-paid-actions`**，不读取真实 Key，不使用既有历史 Runtime；可手工检查三个入口、动态 N、尺寸声明和保存/恢复/另存。现有 CLI 没有交互式 SDK Mock 开关；Planning/冲突、历史版本及审核导出的浏览器验收仍需隔离 Fixture/Mock 环境，不将 unittest 夹具当作已可浏览的服务。`start_live_debug.sh` 使用既有 Runtime 并启用付费门禁，不用于本次无付费交接。
+- 本轮未启动服务、读取运营数据、调用真实模型或部署。E1-05 仍须先完成未测浏览器项目、冻结有效业务样本与人工验收标准，并独立授权模型种类、单次预算和失败处理；不自动重试或追加调用。尺寸声明不是独立测量认证，模型冲突识别和真实成图质量仍待验证。
+
+**E1-04 上次检查点复核 / UI 验收记录｜2026-10-28：当时 UNIT / INTEGRATION TESTED；BROWSER NOT TESTED；按当时门禁提交 BLOCKED。** 当时基线为 `main / d1999bc4de76a1042ee584f5e8e698bcdc9c97e1`，预期 30 Modified + 2 Untracked 与现场一致。代码复核发现并修复一项范围内阻断：有旧 `image_sizes` 的无分类 Listing 在分类另存时，前端混交旧尺寸映射和新 `listing_slots`，服务端的旧尺寸保留校验又拒绝只提交新图位。现将绑定参考的旧尺寸带入新图位、仅提交新尺寸表示，服务端允许显式新图位表示取代旧映射；普通旧任务另存仍不得遗漏尺寸。新增前后端回归验证来源任务和素材不变；另新增测试证实新争议可阻止未改变计划的旧确认及缓存状态继续生成。
+
+- 本轮相关 Python **88 项通过**，另有新增旧确认保护单项 **1 项通过**；最终完整隔离回归 **434 项通过（22.619 秒）**，独立 Node **68 项通过**，零失败/跳过，Python 包含 Node 包装，不累加。新增兼容用例先复现失败，局部修复后通过；未刷新历史金样或放宽安全断言。
+- 实际浏览器通道返回 native pipe 启动失败、无可用浏览器，内置浏览器亦不可用。三个模式、动态 N、尺寸声明、冲突处理及审核导出的真实浏览器交互均 **NOT TESTED**；Node DOM 模拟不是浏览器验收，未补造截图。按本轮提交门禁，没有暂存、Commit 或 Push，全部工作树改动保留；未部署、未启动服务、未读取生产凭据，真实模型调用为 0。
+- E1-05 仅核对两个已知本地历史候选的快照及 Run 文件：测温 Task `963cd0348c824948a6f02b988091dd69` / revision 1 / `reference_102` / Run `20261026T022139Z-388e488b64a2446cb01f672f149b5467` 位于既有 Live Debug Runtime，其 `quick_scenario` 缺失，不能赋予 A/B 身份；洗车机 Listing Task `43889e73c53c462da86216ed42f0a1ec` / revision 3 / `reference_002` / Run `20261014T084656Z-5b6ba1bfd6864f76b7c8fcf87a9f01e5` 位于原 `.runtime/prepare-plan`，可作为分类另存候选，不能用当前新计划解释旧 Run。原始文件只读，未复制或改写。实际 A/B 业务关系、尺寸专项真实性声明及事实冲突正反例仍需人工冻结；后续调用预算仅能提出建议，本轮未授权付费执行。**REAL MODEL NOT TESTED / BUSINESS ACCEPTANCE PENDING**。
+
+**E1-04 初始实现历史记录｜2026-10-28：ENGINEERING VERIFIED（明确分类图位的离线范围）/ BROWSER NOT TESTED / BUSINESS ACCEPTANCE PENDING。** 当时 `main` / `d1999bc4de76a1042ee584f5e8e698bcdc9c97e1` 为阶段 A 已提交的 E1-03 检查点（13 文件；重新完整回归 420 项通过，21.963 秒）。以下 E1-04 改动当时未暂存、未提交，最终检查点以上方为准；未 Push、部署、启动服务、读取 `.env` 或真实 Runtime，真实模型调用为 0。
+
+- **尺寸专项：**在原 Quick/Listing 图位内保存 `dimension_source_product_id`、`dimension_source_confirmed`。运营从本任务 `product` 选择已标注目标商品真实尺寸的白底素材并明确声明，不要求另填数字；不做 OCR、测量或真实性认证。界面刷新/另存保留并重映射商品身份，改选或删除所选素材清除声明。服务端拒绝非法角色、跨范围引用和非布尔声明；Task 协调在创建 Run 前检查关联/声明/文件存在，请求构建再检查专项素材实际进入商品输入，原图片哈希校验仍在 SDK 前执行。Quick-A/B 与 Listing 的明确 `dimensions` 图位仅在满足条件后解除临时阻断，直接生成、批量及修改使用同一保护。
+- **Listing 争议：**仅为有明确 `listing_slots` 的新规划补充 `fact_issues`，要求文字来源原文、商品图片 ID、可见依据、受影响 reference/计划 ID，并区分 `VISIBLE_CONTRADICTION` 与 `INSUFFICIENT_EVIDENCE`。来源与归属校验失败不应用结果；缺少拍摄角度不是确定性矛盾。旧未处理争议不会因下一次模型返回空数组而消失。没有报告争议不表示商品资料已经独立核验；识别正确性和影响范围仍依赖模型报告，未经真实模型验证。
+- **人工处理与版本：**复用原 `/action`、Task 锁/活动检查和逐图计划确认。运营可以明确保留、修正或移除争议宣称；修正/移除须提交受影响图位的修订计划，原始来源不改写。处理记录绑定输入、商品/参考理解、计划内容及版本；计划/理解变化后旧处理过期。未处理/过期的可见矛盾阻止受影响计划确认和有效生成；处理后仍需原有逐图确认。当前人工决定与修订计划进入 Generation Context/Prompt，保留人工来源而非认证标签；Pass 不反向证明商品事实。人工处理本身不调用模型，Live Debug 付费门禁不再将它误判为付费操作，原本机/Host/Origin/只读限制保留。
+- **历史边界：**历史 Task/Run/Pass/Evidence 不迁移、不补声明。历史 Quick V1 中已有明确尺寸类型但无声明者阻断新生成/修改；无图位类型的历史 Quick 保留原单图重设计及 CLI 行为，不从标题或 Prompt 自动推断尺寸类型，也不能声称其具备新版尺寸专项校验。无分类历史 Listing 可读取、选择历史版本、Pass、导出，但新增生成/修改保守阻断；界面允许明确分类、绑定已有参考后另存新任务并重新规划/确认，不修改原计划。动态 N、reference 计划身份、父 Run、锁、去重、旧 Pass、失败保留与零自动重试保持。
+- **验证：**新增 12 项 Python / 5 项 Node 测试。最终完整隔离回归 **432 项通过（23.005 秒）**；独立 Node **67 项通过**，零失败/跳过，Python 包含 Node 包装，不累加。匿名 SDK Mock 核对三模式尺寸请求的实际图片字节/顺序、专项商品角色、父 Run、旧 Pass、去重与错误；验证争议来源、按图位阻断、人工处理、计划重确认、过期保护、另存不沿用旧事实决定及免费处理。既有 Generation/CLI 历史指纹未刷新；Task 历史指纹先精确断言并归一化本轮有意新增的“未分类 Listing 执行阻断”查询差异，其余 HTTP、文件和写入顺序仍对照原金样。
+- **未验证与下一步：**真实浏览器交互、实际尺寸素材内容、模型冲突识别可靠性及成图质量未测试；仅有运营声明与 SDK Mock，不能报告 BUSINESS ACCEPTED。源码追踪仍为单文件哈希；未核验 Mac mini。E1-05 前应先人工审阅本轮 Diff，确认历史未分类任务的执行边界并体验尺寸/争议交互；真实模型验证仍须单独授权，不据本轮离线通过自动追加调用或其他功能。
+
+**E1-03｜2026-10-28：场景请求策略 ENGINEERING VERIFIED / BUSINESS ACCEPTANCE PENDING；尺寸专项能力 ENGINEERING PARTIAL。** 本节保留 E1-03 当时记录：其起点为 E1-02 检查点 `4e42f17d76cef156826edfaae8324621a3d0caab`（8 文件，当时阶段 A 回归 410 项通过）；E1-03 后于本轮阶段 A 独立提交为 `d1999bc4de76a1042ee584f5e8e698bcdc9c97e1`。以下临时尺寸阻断和未实现项属于 E1-03 历史状态，以顶部 E1-04 记录为准。未 Push、部署、读取 `.env`、访问真实 Runtime 或调用真实模型。
 
 - 仅显式 `quick_scenario=quick_a|quick_b` 启用新策略，Context 与保存的请求均记录场景。Quick-A 以实际商品素材决定外观，允许沿用适用的同款参考营销信息，保留差异化再设计及必保留卖点约束；Quick-B 要求替换主视觉、局部特写、结构及场景中的全部相关参考商品主体，禁止混合两款外观/结构，并按目标商品形态调整布局。关系声明与营销信息均不等于独立检测认证，明显矛盾/不可读/不适用内容不得猜补，候选结果仍需运营审核。
 - 生成与修改复用同一场景策略，不强制独立 Planning。商品素材、当前绑定主参考、整体/逐图要求、父 Run 候选图及本次辅助素材的权限在实际 Prompt 中区分；`design_reference` 文件同时携带适用营销信息与设计表达，不再对新 A/B 使用旧的“一律不可继承参考参数/功能”规则。历史未分类 Quick、旧 Quick V1 和 Listing 继续走原请求策略，不改写历史 Evidence 或既有确认、版本、Pass。

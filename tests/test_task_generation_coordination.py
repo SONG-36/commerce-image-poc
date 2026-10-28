@@ -59,6 +59,7 @@ class TaskGenerationCoordinationTests(unittest.TestCase):
                       "images": [{"id": target, "role": "reference", "name": target + ".png"}
                                  for target in (TARGET, OTHER)],
                       "plans": {TARGET: {}, OTHER: {}}, "inputs": {"requirements": "anonymous"}}
+        self.state['listing_slots'] = [dict(id=target, type='selling_point', enabled=True, reference_id=target) for target in (TARGET, OTHER)]
         self.store = FakeStore(self.root, self.state)
         self.executor = Mock(return_value={"status": "SUCCEEDED"})
         self.review = SimpleNamespace(versions=Mock(return_value=[]),

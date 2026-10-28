@@ -100,7 +100,8 @@ class GenerationService:
     def generate(self, state, target, parent_run_id=None, feedback="", expected_revision=None, operation_id=None, auxiliary=None):
         if target not in self.targets(state):
             raise ValueError("图片不属于当前工作模式的制作任务。")
-        blocked = quick_v1.generation_block_reason(state, target)
+        blocked = quick_v1.generation_block_reason(state, target,
+            lambda relative: self.store.input_exists(state['id'], relative))
         if blocked:
             raise ValueError(blocked)
         if auxiliary is not None:
