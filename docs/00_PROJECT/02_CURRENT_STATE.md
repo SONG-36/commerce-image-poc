@@ -1,11 +1,23 @@
 # Current State
 
-> 同步日期：2026-10-26（Asia/Shanghai）；当前本地 Git 基线：`main` / `b508c27889e4c1fedfc577ec2f2efeed11920646`，`feat: implement Quick V1 slot-based image workflow`；CP1+CP2 已提交。本次动态图位、逐图尺寸和开发者入口修复仍未提交。此前文档同步起点 `cb8ec3944c5df5473d5e1a6b404cc1a9c6a717e8` 为历史检查点。
+> 语义同步：2026-10-27（Asia/Shanghai）。本轮仅核对本地 Git、现有文档和引用；未访问 Pilot Runtime、启动服务、读取密钥、运行模型或重跑工程测试。
+
+**CURRENT VERIFIED STATE｜2026-10-27 本地核验**
+
+- **Git：** `main / 36251cc386233a5a8c76177818dd831174f0014b`，2026-10-26 的 `fix: support dynamic Quick slots, per-image sizes and inspector entry`。CP1+CP2 已在 `b508c27889e4c1fedfc577ec2f2efeed11920646` 提交；动态图位、逐图尺寸、Inspector 入口修复已包含于当前 HEAD，不再是未提交源码。
+- **待审工作树：** 当前待提交的是文档目录整理、语义同步及已有 V0.1 删除/V0.2 替代稿。三个 `git mv` 重命名已在上一轮暂存，其余文档改动尚未完整暂存；本轮不自动 add / commit / push。
+- **业务与研究：** 当前业务权威是 [V1 Business Baseline V0.2](../02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.2.md)。Quick-A / Quick-B 是 Quick 的子场景，Listing 为另一模式；新信息沿用、主体替换及尺寸素材规则不因业务确认就视为代码已实现。工程符合性与真实质量仍待验证；[能力与技术适配研究](../04_AI_AGENT_SUITABILITY/IMAGE_AI_DECISION_STUDY_V0.1.md)为 ACTIVE，未授权新的 AI 决策增强 Coding。
+- **验证边界：** 下文 393 项 Python / 56 项 Node 是 2026-10-26 已记录结果，Python 包含 Node 包装，不累加；不是本轮执行结果。历史工程验收中的 `REAL IMAGE GENERATED = 0` 只指该轮匿名 Mock 验证，不表示项目没有真实 Run。模型质量、运营接受与新 SOP / Agent 增益不能由这些数字证明。
+- **UNKNOWN｜当前运行：** 本轮未连接本地服务或 Mac mini，当前 Pilot 在线 SHA、WSGI、进程、数据及备份状态未核验。已有部署/运行观察保留其日期和范围，不推断今日已部署或未部署；不将本地 HEAD 当成线上版本。
+
+**HISTORICAL SNAPSHOT｜阅读约定：** 下述旧 SHA、测试、部署、学习与“本轮”描述按原记录所属日期解释；以下历史快照不覆盖上方本地核验，也不替代当前运行核验。
+
+> HISTORICAL SNAPSHOT｜原同步日期：2026-10-26（Asia/Shanghai）；当时本地 Git 基线：`main` / `b508c27889e4c1fedfc577ec2f2efeed11920646`，`feat: implement Quick V1 slot-based image workflow`；CP1+CP2 已提交；当时动态图位、逐图尺寸和开发者入口修复尚未提交，现已包含于上方核验的 `36251cc`。此前文档同步起点 `cb8ec3944c5df5473d5e1a6b404cc1a9c6a717e8` 为历史检查点。
 > FINAL CUTOVER `78c68f9f25639d77abfdc3792a36541912f8af09` 是历史源码检查点；其后 Inspector/Live Debug 实现不包含在该 SHA 中。已提交的 Inspector 源码与文档检查点见第 5 节。Mac mini 线上状态 **UNKNOWN / UNVERIFIED**，核验 **DEFER**。
 
-**当前摘要**：Inspector V0～V0.7 与本地 Live Debug 已实现；Quick V1 CP1+CP2 已提交，最新三项修复及匿名浏览器验证见下。最新完整离线回归 393 项、独立 Node 56 项（Python 包含 Node 包装，不累加）。不将本轮验证扩大为整个 Inspector 交互清单或真实模型验收；完整运营交互与真实图片质量仍待验收。第 6 节保留历史记录，现行状态以上述摘要和最新检查点为准。
+**HISTORICAL SNAPSHOT｜2026-10-26 工程摘要**：Inspector V0～V0.7 与本地 Live Debug 已实现；Quick V1 CP1+CP2 已提交，最新三项修复及匿名浏览器验证见下。该次完整离线回归 393 项、独立 Node 56 项（Python 包含 Node 包装，不累加）。不将本轮验证扩大为整个 Inspector 交互清单或真实模型验收；完整运营交互与真实图片质量仍待验收。第 6 节保留历史记录；当前本地提交状态以上方 CURRENT VERIFIED STATE 为准。
 
-**当前核心问题**：用户/运营反馈的商品主体变形及商品身份保持；这是待逐 Run 核验的业务问题，不是已证明的模型根因。近期停止扩张 Inspector UI，以现有证据工具推进 Context、图片角色与人工 Evaluation；具体案例差异见第 6 节，下一会话交接见 [P3 主文档](learning/P3_SOURCE_WALKTHROUGH_STUDY_V0.1.md#10-下一会话接续2026-10-23)。
+**当前核心问题**：用户/运营反馈的商品主体变形及商品身份保持；这是待逐 Run 核验的业务问题，不是已证明的模型根因。近期停止扩张 Inspector UI，以现有证据工具推进 Context、图片角色与人工 Evaluation；具体案例差异见第 6 节，下一会话交接见 [P3 主文档](../learning/P3_SOURCE_WALKTHROUGH_STUDY_V0.1.md#10-下一会话接续2026-10-23)。
 
 **Quick V1 CP1（2026-10-24）：CORE ENGINEERING IMPLEMENTED / BUSINESS VALIDATION PENDING。** 首片（现已与 CP2 一并提交）通过现有保存 API 显式接收 `quick_business_version=v1` 与图位配置，按启用图位建立稳定输出，校验 1/1/1/3/2 上限、参考归属及可选要求。CP1 使用共同商品素材与本图位主参考，暂不使用全局风格图片，不执行 Planning；三素材全量发送仅为本片策略，不冻结为长期素材选择规则。新 Context、实际 Prompt、输入顺序及 Run 保存输出身份和绑定，编辑沿用父 Run、锁、去重、版本、Pass 与 ZIP；无显式新版的历史 Quick、功能 B 和 CLI 保持原行为，不迁移历史数据。
 CP1 隔离环境修改前 366 项通过，新增 15 项 Quick V1 测试通过，最终完整回归 **381 项通过（19.459 秒）**；原测试和历史行为指纹未修改，未调用真实模型或操作真实 runtime。该检查点当时仅支持保存 API，页面与 Inspector 适配由下述 CP2 完成。Mac mini 未核验、未部署；工程通过不代表商品身份、事实、视觉质量或运营接受通过。
@@ -14,11 +26,11 @@ CP1 隔离环境修改前 366 项通过，新增 15 项 Quick V1 测试通过，
 输出选择/详情展示图位、主参考与本图要求；生成、顺序批量、修改、历史版本、Pass 和两种 ZIP 复用原流程。Inspector 只读投影识别 V1 输出身份，按实际清单区分共同商品素材和当前图位参考；缺少 Context 或有歧义的文字来源仍为 UNKNOWN，不重建历史 Prompt、不改变 Evidence。
 本轮修改前 **381 项通过（18.935 秒）**；最终完整隔离回归 **387 项通过（18.986 秒）**，独立 Node **53 项通过**，均零跳过，二者不累加。真实 Edge 浏览器使用 NEW FIXTURE / SDK Mock：三素材三图位创建、第四素材另存仍三卡、刷新恢复、尺寸图生成与修改、父 Run、选 V1 Pass 后看 V2、两种 ZIP、Inspector 随 Run 读取，以及 390px 上传布局通过；最终图片 ZIP 核对仅含明确 Pass 的 V1。浏览器两次 SDK Mock（一次生成、一次修改），不是付费调用。截图、下载和原始验证日志只在仓库外临时目录，未加入 Git；未验证真实商品质量、生产环境或 Mac mini。
 
-**Quick V1 真实使用问题修复（2026-10-26，未提交）：ENGINEERING VERIFIED / BROWSER VERIFIED（匿名 SDK Mock）；REAL IMAGE GENERATED = 0；BUSINESS ACCEPTED = PENDING。**
+**Quick V1 真实使用问题修复（2026-10-26，当时未提交；现已提交于 `36251cc`）：ENGINEERING VERIFIED / BROWSER VERIFIED（匿名 SDK Mock）；REAL IMAGE GENERATED = 0；BUSINESS ACCEPTED = PENDING。**
 - 主图/尺寸/对比固定显示；卖点、场景使用虚线添加框，按 3/2 上限动态增删。输出 ID 独立于显示序号，删除中间项不重编号其他绑定；刷新/另存恢复数量、顺序、参考、要求和尺寸。旧 CP2 未使用的空占位仅在页面收起，不改历史文件。
 - Quick V1 和 Listing 参考均可设置 `1024x1024` / `1024x1536` / `1536x1024`；复用当前客户端尺寸枚举。任务新增可选 `image_sizes` 输出 ID 映射，创建及读取时校验归属/尺寸；单图配置优先于任务默认，旧任务无该字段仍用原默认。生成/批量/修改使用本图尺寸，实际参数沿用原 request.json / Run Evidence。输入尺寸修改仍另存新 Task，不原地改历史 Run 或确认记录，Listing 保留理解及逐图确认流程。
 - Inspector 未被 Quick 移除：原本只在显式隔离调试工厂启用。工作台按钮改为「开发者视图 / Inspector」；普通本机工作台提供 Live Debug 导航和现有一键命令，仍不开放运营 Inspector API。无 Run 显示真实空状态，已有 Run 可看 Context、Prompt、角色、实际请求尺寸及输出；继续复用 V0.7 和原权限校验。
-- 修改前隔离回归 **387 项通过（20.516 秒）**；新增 [逐图参数/兼容测试](../tests/test_quick_operational_fixes.py) 6 项，更新并补充 [上传交互测试](../tests/quick_v1_upload.test.cjs)。最终完整回归 **393 项通过（20.014 秒）**；独立 Node **56 项通过，零失败/跳过**，不重复累加。旧 Quick、功能 B、CLI、锁/去重、失败保留、父 Run、Pass、ZIP 及历史请求/Evidence 指纹回归通过。
+- 修改前隔离回归 **387 项通过（20.516 秒）**；新增 [逐图参数/兼容测试](../../tests/test_quick_operational_fixes.py) 6 项，更新并补充 [上传交互测试](../../tests/quick_v1_upload.test.cjs)。最终完整回归 **393 项通过（20.014 秒）**；独立 Node **56 项通过，零失败/跳过**，不重复累加。旧 Quick、功能 B、CLI、锁/去重、失败保留、父 Run、Pass、ZIP 及历史请求/Evidence 指纹回归通过。
 - Edge 真实浏览器使用 NEW FIXTURE / 匿名 SDK Mock，验证两类动态图位增删/再添/上限、中间删除不串参考、保存/刷新/第四素材另存仍三输出；Quick 三图批量尺寸依次为方/竖/横，修改继承竖图，V1 Pass 不被 V2 替换，最终 ZIP 仅含 V1；Listing 经原理解和逐图确认后同样按方/竖/横生成。共 **7 次 Images SDK Mock**，请求尺寸为 `1024x1024, 1024x1536, 1536x1024, 1024x1536, 1024x1024, 1024x1536, 1536x1024`；另有匿名 Responses Mock，不是真实模型请求。Inspector 无 Run/随 Task 和 Run 更新、图片加载、Prompt/模型/尺寸、390px 上传与抽屉已核验，无浏览器脚本异常。截图和 JSON 报告仅存仓库外临时目录；真实 `.env`、运营 runtime、Mac mini 和现有 8012/8013 未访问或重启，不证明真实模型质量或账户尺寸可用性。
 
 ## 1. 定位与当前阶段
@@ -52,18 +64,18 @@ CP1 隔离环境修改前 366 项通过，新增 15 项 Quick V1 测试通过，
 
 | 位置 | 实际职责与边界 |
 |---|---|
-| [app.py](../src/app.py) | 正式 `create_app()`、配置与依赖组装；`create_local_debug_app()` 显式组合隔离调试；保留 Store 适配、Planning IO 注入和进程内活动状态 |
-| [api/](../src/api/) | `register_routes()`：请求解析、HTTP 响应和错误映射；原 23 条路由身份保留 |
-| [image_workflow/tasks/](../src/image_workflow/tasks/) | `rules` 状态规则，`service` Task 用例，`queries` 查询，`storage` 资料校验/存取；`images` 协调图片操作，`generation` 拥有锁/去重，`generation_runtime` 绑定依赖，`review` 适配审核 |
-| [image_workflow/planning/](../src/image_workflow/planning/) | 纯请求构建、结果结构/身份校验、Responses 执行与调用 Evidence；不进行人工语义验收 |
-| [image_workflow/generation/](../src/image_workflow/generation/) | 商品包/Quick 的 Context 与 Prompt、Images 执行、结果校验及 Run 保存；辅助图策略归于此处 |
-| [image_workflow/review/](../src/image_workflow/review/) | 成功版本查询、选择、Pass、审核事件和最终图片 ZIP，不执行图像模型 |
-| [image_workflow/experiment_export.py](../src/image_workflow/experiment_export.py) | 当前任务实验包，保留 ACTUAL / RECONSTRUCTED / MISSING 来源等级与哈希校验 |
-| [infrastructure/](../src/infrastructure/) | `evidence` 通用脱敏/私密字段过滤；`openai_images` Images SDK 客户端及参数，无业务/CLI 反向依赖 |
-| [persistence/](../src/persistence/) / [file_ops.py](../src/file_ops.py) | Task 当前状态/不可变快照、审核文件、路径/哈希/JSON；不替调用方推进业务状态，不提供多文件事务 |
-| [cli/](../src/cli/) | T01/Quick 实验默认免费检查；`debug_workspace` 负责本地 Live 配置/启动，不自动调用模型；CLI 不成为正式业务的导入依赖 |
-| [api/inspector.py](../src/api/inspector.py) / [image_workflow/inspector.py](../src/image_workflow/inspector.py) / [inspector_graph.py](../src/image_workflow/inspector_graph.py) | 本地显式启用的只读 API、受限证据读取及纯图投影；复用历史数据，不写 Evidence 或调用模型 |
-| [templates/](../src/templates/) / [static/](../src/static/) | 原生前端；prepare/workspace/generate 协同，批次由浏览器顺序执行，无后台 Worker |
+| [app.py](../../src/app.py) | 正式 `create_app()`、配置与依赖组装；`create_local_debug_app()` 显式组合隔离调试；保留 Store 适配、Planning IO 注入和进程内活动状态 |
+| [api/](../../src/api/) | `register_routes()`：请求解析、HTTP 响应和错误映射；原 23 条路由身份保留 |
+| [image_workflow/tasks/](../../src/image_workflow/tasks/) | `rules` 状态规则，`service` Task 用例，`queries` 查询，`storage` 资料校验/存取；`images` 协调图片操作，`generation` 拥有锁/去重，`generation_runtime` 绑定依赖，`review` 适配审核 |
+| [image_workflow/planning/](../../src/image_workflow/planning/) | 纯请求构建、结果结构/身份校验、Responses 执行与调用 Evidence；不进行人工语义验收 |
+| [image_workflow/generation/](../../src/image_workflow/generation/) | 商品包/Quick 的 Context 与 Prompt、Images 执行、结果校验及 Run 保存；辅助图策略归于此处 |
+| [image_workflow/review/](../../src/image_workflow/review/) | 成功版本查询、选择、Pass、审核事件和最终图片 ZIP，不执行图像模型 |
+| [image_workflow/experiment_export.py](../../src/image_workflow/experiment_export.py) | 当前任务实验包，保留 ACTUAL / RECONSTRUCTED / MISSING 来源等级与哈希校验 |
+| [infrastructure/](../../src/infrastructure/) | `evidence` 通用脱敏/私密字段过滤；`openai_images` Images SDK 客户端及参数，无业务/CLI 反向依赖 |
+| [persistence/](../../src/persistence/) / [file_ops.py](../../src/file_ops.py) | Task 当前状态/不可变快照、审核文件、路径/哈希/JSON；不替调用方推进业务状态，不提供多文件事务 |
+| [cli/](../../src/cli/) | T01/Quick 实验默认免费检查；`debug_workspace` 负责本地 Live 配置/启动，不自动调用模型；CLI 不成为正式业务的导入依赖 |
+| [api/inspector.py](../../src/api/inspector.py) / [image_workflow/inspector.py](../../src/image_workflow/inspector.py) / [inspector_graph.py](../../src/image_workflow/inspector_graph.py) | 本地显式启用的只读 API、受限证据读取及纯图投影；复用历史数据，不写 Evidence 或调用模型 |
+| [templates/](../../src/templates/) / [static/](../../src/static/) | 原生前端；prepare/workspace/generate 协同，批次由浏览器顺序执行，无后台 Worker |
 
 主要执行链：HTTP → API → Task 用例/协调 → Planning、Generation 或 Review → Persistence / Infrastructure。
 模型在当前 HTTP 处理内同步执行；运行时回调提供 IO/能力，不另建锁或第二套状态。CLI 独立执行实验，不经过 Web Task 编排。
@@ -83,8 +95,9 @@ Web 默认使用 `.runtime/prepare-plan/sessions/<task-id>/`；`create_app(runti
 
 代码默认配置（本轮未调用模型）：Planning 为 `gpt-5.4-mini`，允许显式回退 `gpt-4.1-mini` 或其 `2025-04-14` 快照；Responses 使用 instructions、JSON Context、图片标签与 data URL。
 Images 默认 `gpt-image-2.5-sunburst`，另允许 `gpt-image-2.5-flare`；`images.edit`、n=1、low、PNG。默认竖图；Quick V1 和 Listing 可逐输出配置已有方图/竖图/横图尺寸，历史 Quick 保留任务默认尺寸。
-商品资料决定事实依据，参考只借鉴设计；图片编辑先送当前选中成图，再送必要原始依据、本图参考和本次辅助图/意见，不重跑完整规划或无条件携带全部历史。
-源码依据：[Planning request](../src/image_workflow/planning/request.py)、[Generation request](../src/image_workflow/generation/request.py)、[Quick Prompt](../src/image_workflow/generation/quick_prompt.py)、[Images 配置](../src/infrastructure/openai_images.py)。
+**既有代码策略记录（非业务规范）：**商品资料决定事实依据，参考只借鉴设计；图片编辑先送当前选中成图，再送必要原始依据、本图参考和本次辅助图/意见，不重跑完整规划或无条件携带全部历史。
+这描述既有 Prompt/Context 策略，不覆盖 V0.2 对 Quick-A / 经运营确认的 Quick-B 适用参考信息的沿用权限；两者的工程符合性仍待核对，本轮不改 Prompt。
+源码依据：[Planning request](../../src/image_workflow/planning/request.py)、[Generation request](../../src/image_workflow/generation/request.py)、[Quick Prompt](../../src/image_workflow/generation/quick_prompt.py)、[Images 配置](../../src/infrastructure/openai_images.py)。
 
 来源追踪仍是单文件：Planning 的 source_sha256 指 `app.py`，Generation 指 `tasks/generation_runtime.py`；其 T01/Quick 字段及 Quick CLI 指向正式 `cli/` 源文件。
 T01 CLI 自身原本没有 source_sha256；这些字段都不代表完整 Package、依赖集合或部署 Git 版本。源码移动使新哈希自然变化，不改写旧 Evidence。
@@ -99,11 +112,11 @@ T01 CLI 自身原本没有 source_sha256；这些字段都不代表完整 Packag
 - **独立审核事实**：19 个已修改测试文件中的原测试方法均保留；固定请求/Evidence 指纹未改。新来源哈希先与实际文件比较再归一化。43 个 Python 模块静态无环；额外探针确认同一 App 共享一个协调器及锁/active。部分测试 legacy/core 别名已指同一模块，不能把它们作为独立新旧实现对照。
 - **验收边界**：本地源码组织与软件兼容性 PASS；多文件事务/崩溃恢复未解决，线上部署、真实模型质量和运营闭环没有因此 PASS。
 
-- **Inspector / Live Debug 源码检查点（2026-10-23，已提交）**：`39199acc42ec056eae87247f17b267f1adbfd05a`，`feat: add context flow inspector and local live debug`。从 dfcf6df 起累计的 28 个源码、资源、配置及测试文件构成完整功能检查点，未改变模型、Prompt 或业务状态规则。当前本文对应此 C1 源码；工程文档 C2 与学习记录 C3 已分别提交，不改变该源码基线，也不代表线上发布。
-- **最近实际回归（2026-10-23，C1 提交前）**：暂存内容与已审计工作树一致，受控完整离线回归 **366 项通过（21.140 秒），0 失败/错误**；独立 Node **46 项通过，0 失败/跳过**，不与 Python 包装重复累加。测试只用匿名临时目录与 Mock，保护器禁止联网及项目真实 `.env` / `.runtime` 读取、临时目录外写入。本次文档同步不重跑此回归、不新增运行 Evidence；只核对源码/Git、文档链接、Diff 与安全。浏览器完整验收、真实 GPT 效果及运营接受不由这些测试证明。
-- **Inspector 收尾已提交**：C1 源码 `39199acc42ec056eae87247f17b267f1adbfd05a`、C2 工程文档 `331a13b3374e23f13607df78142810ff1e36b2f7`、C3 学习记录 `cb8ec3944c5df5473d5e1a6b404cc1a9c6a717e8`，共 32 个独立路径，无遗漏未跟踪模块。本次新的文档 Commit 不改变 C1 源码，也不等于服务已重启加载或 Mac mini 已部署。
+- **Inspector / Live Debug 源码检查点（2026-10-23，已提交）**：`39199acc42ec056eae87247f17b267f1adbfd05a`，`feat: add context flow inspector and local live debug`。从 dfcf6df 起累计的 28 个源码、资源、配置及测试文件构成完整功能检查点，未改变模型、Prompt 或业务状态规则。该阶段本文对应此 C1 源码；工程文档 C2 与学习记录 C3 已分别提交，不改变该源码基线，也不代表线上发布。
+- **历史检查点回归（2026-10-23，C1 提交前）**：暂存内容与已审计工作树一致，受控完整离线回归 **366 项通过（21.140 秒），0 失败/错误**；独立 Node **46 项通过，0 失败/跳过**，不与 Python 包装重复累加。测试只用匿名临时目录与 Mock，保护器禁止联网及项目真实 `.env` / `.runtime` 读取、临时目录外写入。本次文档同步不重跑此回归、不新增运行 Evidence；只核对源码/Git、文档链接、Diff 与安全。浏览器完整验收、真实 GPT 效果及运营接受不由这些测试证明。
+- **Inspector 收尾已提交**：C1 源码 `39199acc42ec056eae87247f17b267f1adbfd05a`、C2 工程文档 `331a13b3374e23f13607df78142810ff1e36b2f7`、C3 学习记录 `cb8ec3944c5df5473d5e1a6b404cc1a9c6a717e8`，共 32 个独立路径，无遗漏未跟踪模块。当时文档 Commit 不改变 C1 源码，也不等于服务已重启加载或 Mac mini 已部署；本轮文档同步不创建 Commit。
 
-回归依据：[Cutover](../tests/test_source_cutover.py)、[HTTP](../tests/test_api_package.py)、[T02 请求](../tests/test_t02_request_construction.py)、[图片边界](../tests/test_t02_image_boundaries.py)、[Generation](../tests/test_generation_package.py)、[Review](../tests/test_review_package.py)、[Task 持久化](../tests/test_task_state_persistence.py)、[实验 ZIP](../tests/test_experiment_export_package.py)、[前端交互](../tests/unified_interaction.test.cjs)。
+回归依据：[Cutover](../../tests/test_source_cutover.py)、[HTTP](../../tests/test_api_package.py)、[T02 请求](../../tests/test_t02_request_construction.py)、[图片边界](../../tests/test_t02_image_boundaries.py)、[Generation](../../tests/test_generation_package.py)、[Review](../../tests/test_review_package.py)、[Task 持久化](../../tests/test_task_state_persistence.py)、[实验 ZIP](../../tests/test_experiment_export_package.py)、[前端交互](../../tests/unified_interaction.test.cjs)。
 
 ## 6. 历史真实实验、失败与质量缺口
 
@@ -163,7 +176,7 @@ T01 CLI 自身原本没有 source_sha256；这些字段都不代表完整 Packag
 - I01：Run `20261016T013618Z-c0952e3ddfff430189e350a8bbb27c00` 保存真实重设计图；用户仅对一个样本给出正面评价，原 review decision 仍空。首次缺资料记录未调用 API，不与真实模型失败混同。
 - 真实带图编辑、连续修改、商品结构与日文保持、参考干扰、场景遗漏、批量费用及效率尚无完整评价；模型内部根因不得由现象直接推定。早期未定位的 `20261016T071710Z-94b3eab16e3c4f*` 现有准确标识记录如下，但本轮没有重新核验其原始文件。
 
-**重要真实案例索引（文字记录，非本轮原始 Evidence 核验）**：现有 [M05 CASE-001](../../enterprise-ai-theory/theory/M05_CASE_001_QUICK_REDESIGN_EVIDENCE_V0.1.md) 报告 Task `bbf3f10c42ad4a329438222ac1715d39` / Image `product_011` / revision 1 / Run `20261016T071710Z-94b3eab16e3c4f33a99a63332eaefdf6`，模式 Quick Redesign，未运行 T02。记录称该 Run **未证实主体替换**，主要问题是新增宣称缺少已保存商品事实支持；不能把“无依据”改写成“已经证明虚假”。该 M05 文件目前在理论仓库未跟踪，来源是既有调查报告，不等于本轮看过图片或恢复了完整请求。原始资料/本地副本可用性仍 UNKNOWN；若要调查真正的外观变形，先确认运营拒绝图片的准确 Task/Image/Run，不能用此样本预设根因。它也不与 T02 reference_001 理解偏差混为同一事件。
+**重要真实案例索引（文字记录，非本轮原始 Evidence 核验）**：现有 [M05 CASE-001](../../../enterprise-ai-theory/theory/M05_CASE_001_QUICK_REDESIGN_EVIDENCE_V0.1.md) 报告 Task `bbf3f10c42ad4a329438222ac1715d39` / Image `product_011` / revision 1 / Run `20261016T071710Z-94b3eab16e3c4f33a99a63332eaefdf6`，模式 Quick Redesign，未运行 T02。记录称该 Run **未证实主体替换**，主要问题是新增宣称缺少已保存商品事实支持；不能把“无依据”改写成“已经证明虚假”。该 M05 文件目前在理论仓库未跟踪，来源是既有调查报告，不等于本轮看过图片或恢复了完整请求。原始资料/本地副本可用性仍 UNKNOWN；若要调查真正的外观变形，先确认运营拒绝图片的准确 Task/Image/Run，不能用此样本预设根因。它也不与 T02 reference_001 理解偏差混为同一事件。
 
 运营反馈保留：等待不清晰、多个商品任务管理、自然语言改图需求（2026-10-14）；两页切换成本、辅助图修正、Quick 重设计需求（2026-10-16）。对应功能已实现，能否改善质量/效率仍是待验证假设。
 Product Brief 与实验日志保留其历史日期口径；其中“候选/未实现/Next Action”不代替本文件当前状态，不在本轮改写原始实验记录。
@@ -176,7 +189,7 @@ Product Brief 与实验日志保留其历史日期口径；其中“候选/未�
 - **数据与安全**：Task 路径隔离不构成用户权限；真实资料与 `.runtime/` 不入 Git，须单独备份。`.env` 已忽略，本轮模板及候选提交未发现真实凭据；不读取真实 `.env` 内容或将其作为测试数据。历史模板/聊天密钥与本地 `refs/codex/turn-diffs` 快照风险独立保留，撤销及曾否外泄仍 UNKNOWN；本轮不删除引用或改写历史，不把当前文件安全等同于历史风险消除。
 - **诊断边界**：单文件来源哈希、缺失 HTTP/服务端内部信息、未返回 usage/账单与人工评价缺口仍存在；模型调用成功不能证明商品事实或视觉正确。
 - **Inspector / Trace 边界**：图是已保存 Evidence 的只读投影；最近 Planning Call 关联可能为 INFERRED，不能补全历史 trace。SDK 请求留存不等于远端实际采用的视觉特征；Quick 的 Context 快照不是 T02 Plan。当前可视化不替代人工商品事实/外观评价，历史缺失不由当前 Builder 或 LLM 猜测补齐。
-- **线上状态**：Mac mini 实际版本、WSGI 导入/配置、密钥权限/额度、网络、备份现状、登录会话/整机重启及新增运营数据均未核验。不得把本地 Cutover 版本写成已部署。
+- **UNKNOWN｜当前线上状态**：本轮未核验 Mac mini 的实际版本、WSGI 导入/配置、密钥权限/额度、网络、备份现状、登录会话/整机重启及新增运营数据。历史部署或只读调查不等于今日状态；不得把本地 Cutover 或最新 HEAD 写成已部署。
 
 ## 8. Mac mini 历史记录与恢复线索（非当前核验）
 
@@ -216,7 +229,7 @@ cd66dad 是原目录内更新，旧代码应从该批 `code.tar.gz` 和原清单
 
 ## 9. 下一阶段
 
-- **P3 学习状态（2026-10-23）**：P3-01 ACTIVE，第一轮按 A 系统全貌 / B 单图调用链 / C 失败证据三个检查点快速定向。Client/Server、Flask、应用初始化已有 ORIENTED 基础，独立追踪与复述尚未确认完成。主线 A 以商品变形案例学习 Context/Multimodal/Image/Evaluation，主线 B 按需补足 Python 后端、Runtime、Persistence 与调试；Inspector 是证据辅助工具，不替代学习或语义评价。L1～L5 仅后续专题索引，P3-02～04 NOT_STARTED；见 [P3 主文档](learning/P3_SOURCE_WALKTHROUGH_STUDY_V0.1.md)。Mac mini 核验仍 DEFER。
+- **P3 学习状态（2026-10-23）**：P3-01 ACTIVE，第一轮按 A 系统全貌 / B 单图调用链 / C 失败证据三个检查点快速定向。Client/Server、Flask、应用初始化已有 ORIENTED 基础，独立追踪与复述尚未确认完成。主线 A 以商品变形案例学习 Context/Multimodal/Image/Evaluation，主线 B 按需补足 Python 后端、Runtime、Persistence 与调试；Inspector 是证据辅助工具，不替代学习或语义评价。L1～L5 仅后续专题索引，P3-02～04 NOT_STARTED；见 [P3 主文档](../learning/P3_SOURCE_WALKTHROUGH_STUDY_V0.1.md)。Mac mini 核验仍 DEFER。
 
 源码组织整理到此结束。后续按人工授权进行走读与诊断，不自动启动重构、付费实验或新业务：
 
@@ -226,6 +239,6 @@ cd66dad 是原目录内更新，旧代码应从该批 `code.tar.gz` 和原清单
 4. 失败诊断及 Evidence：区分最早可观察偏差、软件错误、模型假设与 UNKNOWN。
 5. Mac mini 当前版本、WSGI、安全与备份核验：**DEFER**，需另行授权。
 
-三仓接续：blueprint 已按本轮共识更新既有 Vision/演进台账，检查点 `60ac4bfc3f5d803950fcdcc9c0c29a39f082a5e7`；理论仓库 HEAD 仍为 `d0ab310`，M04 实验脚本及多份学习记录未跟踪，按本轮规则停止该仓写入/提交，不把它们当作已版本化成果。近期业务学习重心为 M04/M05/M07；详细状态与最小后续任务见 P3 末尾交接。
+**HISTORICAL SNAPSHOT｜2026-10-23 三仓接续：**blueprint 已按当时共识更新既有 Vision/演进台账，检查点 `60ac4bfc3f5d803950fcdcc9c0c29a39f082a5e7`；理论仓库 HEAD 仍为 `d0ab310`，M04 实验脚本及多份学习记录未跟踪，按本轮规则停止该仓写入/提交，不把它们当作已版本化成果。近期业务学习重心为 M04/M05/M07；详细状态与最小后续任务见 P3 末尾交接。
 
-本轮只同步本文件与 P3 主文档，保留既有业务及部署历史；不改源码/Prompt/测试/运行数据，不新增实验日志，不 Push、部署或操作现有服务。历史凭据撤销仍 UNKNOWN；保留本地快照引用，不将当前文件安全视为历史风险已消除。
+**历史文档同步范围（2026-10-23）：**当时只同步本文件与 P3 主文档，保留既有业务及部署历史；不改源码/Prompt/测试/运行数据，不新增实验日志，不 Push、部署或操作现有服务。历史凭据撤销仍 UNKNOWN；保留本地快照引用，不将当前文件安全视为历史风险已消除。

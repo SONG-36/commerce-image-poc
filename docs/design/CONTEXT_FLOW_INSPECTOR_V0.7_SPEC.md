@@ -12,7 +12,7 @@
 
 **非目标**：不编辑 Workflow，不编排或重新执行模型，不修改 Prompt、业务状态、审核规则或 Evidence 格式；不建设新解析器、日志平台或消息数据库；不把参考输入解释成模型采用了参考商品外观。
 
-本规格保留设计时的 Graph Model 和匿名 Run 映射；实现及验证状态已同步至 2026-10-23。上方 HEAD 是设计时基线，**不包含**后续 Inspector 实现；本轮源码检查点见 [CURRENT_STATE](../02_CURRENT_STATE.md) 第 5 节。以下历史映射不随当前代码重建，也不声称本轮重新读取了原临时 Run。
+本规格保留设计时的 Graph Model 和匿名 Run 映射；实现及验证状态已同步至 2026-10-23。上方 HEAD 是设计时基线，**不包含**后续 Inspector 实现；本轮源码检查点见 [CURRENT_STATE](../00_PROJECT/02_CURRENT_STATE.md) 第 5 节。以下历史映射不随当前代码重建，也不声称本轮重新读取了原临时 Run。
 
 **实现与验收检查点**：图数据及原生 JavaScript/SVG 交互代码已实现，纯投影见 [context_graph()](../../src/image_workflow/inspector_graph.py#L12)，页面见 [inspector.js](../../src/static/inspector.js#L120)。完整 Quick 图含 14 个 Artifact、3 个 Activity 和 21 条关系，默认主干 12 节点/12 边，侧栏显示五阶段摘要。V0.7 实现检查点离线回归 **362 项 / Node 45 项**；后续 Writable Live Debug 检查点为 **366 项 / Node 46 项**。Python 回归包含 Node 包装，数字不累加；本轮提交前的实际重跑结果见 CURRENT_STATE。
 **人工体验边界**：用户确认已有人工截图与部分操作体验，本轮未重新读取截图或执行浏览器验收。完整点击/布局、390px、键盘/触屏与跨身份切换等清单尚未全部验收；不能写为全功能业务 PASS。匿名 Mock、MATCH 和 SUCCEEDED 均不证明真实模型质量。

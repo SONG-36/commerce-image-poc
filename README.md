@@ -8,7 +8,7 @@
 
 - 任务中心与独立任务资料：商品图、Listing、描述、整体要求及设计参考图。
 - 商品图包：AI 商品/参考理解与逐图规划 → 人工逐图确认 → 单图或显式顺序批量生成。
-- Quick Redesign：N 张原图直接重设计，无需 Listing 或完整规划。
+- Quick Redesign：历史 Quick 按原图建立输出；当前 Quick V1 按启用图位输出，无需 Listing 或强制 Planning。Quick-A / Quick-B 两个业务子场景以 [V0.2 业务基线](docs/02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.2.md)为准，工程符合性与业务效果仍待验证。
 - 统一工作台：选图、计划/成图查看、文字加一张辅助图修改、历史版本和指定版本 Pass。
 - 最终通过图片 ZIP、完整实验 ZIP，以及实际请求、响应、输入身份和失败 Evidence。
 
@@ -31,7 +31,7 @@ python3.12 -m venv .venv
 原 `src/prepare_plan.py --port 8010` 及 `prepare_plan.create_app()` 仍兼容；该 Flask 调试服务不应直接开放到公网。
 
 常规启动需预先配置服务端环境变量 `OPENAI_API_KEY`，不自动读取环境文件。固定本地 Live Debug 请在根目录 `.env` 的 `OPENAI_API_KEY=` 后填写 Key，再执行 `./scripts/start_live_debug.sh`，打开 [8013 任务中心](http://127.0.0.1:8013/)。该本地隔离 Runtime 内新建任务可直接手动生成、修改并查看右侧 Inspector，无需逐 Task 白名单或重启；生产入口不启用此范围。该入口只安全读取 `.env` 中的 Key，已有非空进程环境变量优先；不读取 `.env.example`，不自动调用模型。无 Key 时页面与 Inspector 可用，生成禁用；修改 Key 后重新运行同一命令即可。
-`OPENAI_PLANNING_MODEL`、`OPENAI_IMAGE_MODEL` 选择代码允许的模型，当前默认与调用边界见 [CURRENT_STATE](docs/02_CURRENT_STATE.md)。
+`OPENAI_PLANNING_MODEL`、`OPENAI_IMAGE_MODEL` 选择代码允许的模型，当前默认与调用边界见 [CURRENT_STATE](docs/00_PROJECT/02_CURRENT_STATE.md)。
 
 ## 离线测试
 
@@ -42,7 +42,7 @@ python3.12 -m venv .venv
 .venv/bin/python -B -m pip check
 ```
 
-测试使用临时目录和 Mock；不需要 API Key，不调用真实模型。Python 回归包含 Node 测试包装，不另行累加内部用例；也可单独执行 `node --test tests/*.test.cjs`。最近实际结果与隔离保护范围见 [CURRENT_STATE](docs/02_CURRENT_STATE.md)。
+测试使用临时目录和 Mock；不需要 API Key，不调用真实模型。Python 回归包含 Node 测试包装，不另行累加内部用例；也可单独执行 `node --test tests/*.test.cjs`。最近实际结果与隔离保护范围见 [CURRENT_STATE](docs/00_PROJECT/02_CURRENT_STATE.md)。
 
 ## 目录导航
 
@@ -79,9 +79,11 @@ PYTHONPATH=src .venv/bin/python -B -m api.inspector \
 
 ## 文档入口
 
-- [当前工程状态](docs/02_CURRENT_STATE.md)：代码基线、模块职责、已知限制、历史部署与下一阶段。
-- [Product Brief](docs/01_PRODUCT_BRIEF.md)：业务目标与历史产品决策；其中候选/未实现描述按原日期理解，当前状态以上一份为准。
-- [实验日志](docs/03_EXPERIMENT_LOG.md)：真实实验与人工评价记录；旧 Next Action 不作为当前任务。
+- [文档导航：Enterprise AI 六步流程](docs/README.md)：现有文档位置、阶段状态与权威边界。
+- [V1 业务基线 V0.2](docs/02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.2.md)：Quick-A / Quick-B 与 Listing 业务边界；不代表现有工程已全部符合。
+- [当前工程状态](docs/00_PROJECT/02_CURRENT_STATE.md)：代码基线、模块职责、已知限制、历史部署与下一阶段。
+- [Product Brief](docs/00_PROJECT/01_PRODUCT_BRIEF.md)：业务目标与历史产品决策；其中候选/未实现描述按原日期理解，当前状态以上一份为准。
+- [实验日志](docs/00_PROJECT/03_EXPERIMENT_LOG.md)：真实实验与人工评价记录；旧 Next Action 不作为当前任务。
 - [AGENTS.md](AGENTS.md)：协作、成本及数据保护边界。
 
 ## 验证范围与安全

@@ -8,10 +8,10 @@
 **执行状态：** P3-01 ACTIVE；采用 A/B/C 三个任务检查点。已有部分概念达到 ORIENTED，尚未完成调用链追踪与检查点复述；L1～L5 专题深学不作为第一轮前置条件。
 **历史初始化基线：** `main` / `dfcf6df82230c6f1a7c8383ce8a1fe95091312b6`（P3 初始化已提交）；初始规划基线为 `5a3c57a`。
 **本次源码核查基线：** `main` / `39199acc42ec056eae87247f17b267f1adbfd05a`（Inspector / Live Debug C1）；学习记录作为独立 C3 文档提交，不改变源码。
-**业务源码基线：** `78c68f9f25639d77abfdc3792a36541912f8af09` 是 FINAL CUTOVER 历史检查点；后续 Inspector/Live Debug 源码检查点以 [CURRENT_STATE](../02_CURRENT_STATE.md) 第 5 节为准，不能只用旧 SHA 复现当前工作台。
+**业务源码基线：** `78c68f9f25639d77abfdc3792a36541912f8af09` 是 FINAL CUTOVER 历史检查点；后续 Inspector/Live Debug 源码检查点以 [CURRENT_STATE](../00_PROJECT/02_CURRENT_STATE.md) 第 5 节为准，不能只用旧 SHA 复现当前工作台。
 
 本文既是计划，也是后续持续更新的唯一 P3 学习记录。初始化已提交，本次按已批准的业务/Python 双主线调整执行方式，并建立独立文档检查点；不另建学习文档。
-源码、测试和业务状态分别以 [src/](../../src/)、[tests/](../../tests/)、[CURRENT_STATE](../02_CURRENT_STATE.md) 为准；[README](../../README.md) 是启动与导航入口。
+源码、测试和业务状态分别以 [src/](../../src/)、[tests/](../../tests/)、[CURRENT_STATE](../00_PROJECT/02_CURRENT_STATE.md) 为准；[README](../../README.md) 是启动与导航入口。
 以下函数和行号已按本次 Inspector/Live Debug 工作树静态核对；提交后以对应源码检查点为准。后续先核对版本，不把旧行号当作新版本事实。
 
 ## 1. 学习目标、方法与证据
@@ -76,7 +76,7 @@ Workflow Inspector 是现有证据的只读调试辅助工具，不是模型内�
 ### A — 系统全貌与组件职责
 
 - **任务**：从运营创建任务到生成、修改、Pass 和导出，说明主要组件各管什么、怎样连接；先定向，不展开全部函数。
-- **最小入口**：[app.create_app():108](../../src/app.py#L108)、[api.register_routes():17](../../src/api/routes.py#L17) 及 [CURRENT_STATE 模块表](../02_CURRENT_STATE.md)。
+- **最小入口**：[app.create_app():108](../../src/app.py#L108)、[api.register_routes():17](../../src/api/routes.py#L17) 及 [CURRENT_STATE 模块表](../00_PROJECT/02_CURRENT_STATE.md)。
 - **产物与复述**：一张简要组件关系图/职责表，一次用自己的话串联业务过程；能指出 HTTP、Task/Application、AI Capability、持久化与 Evidence 的归属即可。
 - **边界**：已有基础概念先按 ORIENTED 使用；不要求理解 Flask 内核、全部依赖初始化或每个 lambda 的细节。当前 A 尚待完整复述。
 
@@ -263,7 +263,7 @@ NOT_STARTED；已明确商品变形诊断方向，但独立证据定位、复述
 
 ## 10. 下一会话接续（2026-10-23）
 
-**读取顺序**：本节 → [CURRENT_STATE](../02_CURRENT_STATE.md) → [系统愿景](../../../aigc-system-blueprint/docs/AIGC_SYSTEM_VISION_V0.1.md) / [演进台账](../../../aigc-system-blueprint/docs/SYSTEM_EVOLUTION_MAP_V0.1.md)；先核对各仓 Git，不依赖聊天记忆认定已提交、已学会或已部署。本节所在的最新文档 Commit 可用 `git log -1 -- docs/learning/P3_SOURCE_WALKTHROUGH_STUDY_V0.1.md` 确认，避免把自引用 SHA 写入正文。
+**读取顺序**：本节 → [CURRENT_STATE](../00_PROJECT/02_CURRENT_STATE.md) → [系统愿景](../../../aigc-system-blueprint/docs/AIGC_SYSTEM_VISION_V0.1.md) / [演进台账](../../../aigc-system-blueprint/docs/SYSTEM_EVOLUTION_MAP_V0.1.md)；先核对各仓 Git，不依赖聊天记忆认定已提交、已学会或已部署。本节所在的最新文档 Commit 可用 `git log -1 -- docs/learning/P3_SOURCE_WALKTHROUGH_STUDY_V0.1.md` 确认，避免把自引用 SHA 写入正文。
 
 | 本地仓库（均位于 /Users/andy/projects/） | 职责与 Git 检查点 |
 |---|---|

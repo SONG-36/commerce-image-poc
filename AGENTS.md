@@ -6,7 +6,7 @@
 
 ## 开始工作前
 
-- 阅读 `README.md`、`docs/01_PRODUCT_BRIEF.md` 和 `docs/02_CURRENT_STATE.md`；只执行当轮用户明确授权的任务。
+- 阅读 `README.md`、`docs/00_PROJECT/01_PRODUCT_BRIEF.md` 和 `docs/00_PROJECT/02_CURRENT_STATE.md`；只执行当轮用户明确授权的任务。
 - 严格区分：`已观察业务事实`、`运营陈述待核验`、`技术假设`、`已完成实验`、`产品决策`。不要将假设自动转化为功能。
 - 未经明确授权，不修改旧仓库、不创建新架构文档、不扩展业务范围、不引入新服务或重依赖。
 
@@ -25,6 +25,6 @@
 ## 交付与记录
 
 - 代码放在 `src/`，测试按需放在 `tests/`；技术栈在首次实施时依据需求选择，不提前冻结。
-- 完成一个实际可验证节点后简要更新 `docs/02_CURRENT_STATE.md`。
-- **仅在发生真实试验之后**，向 `docs/03_EXPERIMENT_LOG.md` 添加一条事实记录；原始文件保存在 `.runtime/`。
+- 完成一个实际可验证节点后简要更新 `docs/00_PROJECT/02_CURRENT_STATE.md`。
+- **仅在发生真实试验之后**，向 `docs/00_PROJECT/03_EXPERIMENT_LOG.md` 添加一条事实记录；原始文件保存在 `.runtime/`。
 - 每轮汇报控制在：完成了什么、实际证据、未完成/失败、下一步是否值得继续。不要声称未经独立验证的 PASS。
