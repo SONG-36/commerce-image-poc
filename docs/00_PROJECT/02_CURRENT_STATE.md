@@ -1,6 +1,13 @@
 # Current State
 
-**E1-01｜2026-10-28：输入基础 ENGINEERING VERIFIED；Quick-A/B 制作策略 ENGINEERING PARTIAL。** 本轮基线 `main / 4b19fd7c97800549bbf0a0fcefb8bf3752fc6593`，下列改动尚未提交；未访问 Pilot 或真实 Runtime、未读取 `.env`、未调用真实模型。
+**E1-02｜2026-10-28：动态 N ENGINEERING VERIFIED / BUSINESS ACCEPTANCE PENDING。** 当前 `main` 为 E1-01 独立检查点 `c93bd900eb5aa530436b3bc2ea61a07fdb67cdc8`（14 文件，阶段 A 本轮复核 403 项通过）；以下 E1-02 改动尚未暂存、未提交。未 Push、部署、读取 `.env`、访问真实 Runtime 或调用真实模型。
+
+- 三个入口共用的卖点、场景图位支持持续增删，不再使用 3/2/8 业务上限；主图、尺寸、对比各 max1。前端分别定义可多项与数量上限，类型分组及组内顺序用于展示和保存；删除中间项不重编号其他身份，恢复/另存保留参考、要求和尺寸。服务端创建与读取共用原校验，保留 ID 唯一性、参考归属、启用状态、绑定唯一性、尺寸及文本校验，不迁移历史数据。
+- Listing 仍通过 `listing_slots` 关联 reference ID，沿用原 Planning、逐图确认和生成快照。匿名 SDK Mock 验证 4 卖点＋3 场景＋3 单项共 10 个启用图位，以及更大的 24 项配置；不完整或缺项 Planning 显式失败，保留请求/响应/错误，不覆盖原计划或确认，不自动重试。10 图按各自尺寸生成，修改保留父 Run 和旧 Pass，最终 ZIP 顺序/数量/文件名及实验 ZIP 完整性通过。
+- 保留现有技术保护：HTTP 请求总量 80 MB、表单内存 2 MB、单图 20 MB；Planning 输出预算为全量 6000 / 单项 2500 tokens、超时 120 秒，Images 超时 180 秒，零自动重试。现有附加辅助图编辑路径的 16 张输入保护未变；它不是已验证的所有输入路径统一上限。无固定业务数量上限不代表任意 N 一次 Planning 或批次均能成功，未自动分批或追加调用。
+- 完整隔离 Python 回归 **410 项通过（21.087 秒）**；独立 Node **61 项通过**，零失败/跳过，Python 含 Node 包装，不累加。测试禁止网络及项目 `.env` / `.runtime` 访问，使用匿名临时目录、假 Key 和 SDK Mock。浏览器交互 **NOT TESTED**，`REAL IMAGE GENERATED = 0`，真实质量与运营接受 **PENDING**。Quick-A/B 仍在 Run / SDK 创建前阻断未完成场景策略；未实施 E1-03、后续尺寸专项素材或 Listing 事实冲突处理。Mac mini 状态继续 **UNKNOWN / DEFER**。
+
+**E1-01 历史检查点｜2026-10-28：输入基础 ENGINEERING VERIFIED；Quick-A/B 制作策略 ENGINEERING PARTIAL。** 实施基线 `main / 4b19fd7c97800549bbf0a0fcefb8bf3752fc6593`，已于 `c93bd900eb5aa530436b3bc2ea61a07fdb67cdc8` 归档；下述旧数量限制是 E1-01 当时范围，已由上方 E1-02 待审改动替代。未访问 Pilot 或真实 Runtime、未读取 `.env`、未调用真实模型。
 
 - 三个入口 Quick-A / Quick-B / Listing 保留 `quick_redesign` / `product_pack` 两类后端；新增显式 `quick_scenario=quick_a|quick_b`，缺失字段的历史任务不自动归类。复用商品/参考上传与现有五类图位，仍保留本阶段 1/1/1/3/2、总计 8 的限制；动态 N 待 E1-02。
 - 新 Listing 保存 `listing_slots` 分类、启用状态、参考绑定、补充要求和尺寸；图位表单 ID 不替代 reference ID。分类信息进入既有 Planning 请求，仍需逐图人工确认；生成及确认沿用 reference ID 和原快照。逐图尺寸保存在该关联中，历史 Listing 仍沿用原 `image_sizes` / 默认规则。创建、读取、刷新恢复与另存参考重映射通过离线验证，不迁移历史文件。

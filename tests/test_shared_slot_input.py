@@ -220,9 +220,11 @@ class SharedSlotInputTests(unittest.TestCase):
         self.assertEqual(self.create(listing_slots='null').status_code, 400)
         self.assertEqual(set(self.store.root.rglob('*')), before)
 
-    def test_listing_and_quick_share_existing_caps_and_unique_binding_checks(self):
+    def test_listing_and_quick_keep_singleton_caps_and_unique_binding_checks(self):
         for scenario in (None, 'quick_a'):
             for kind, maximum in ((kind, data[0]) for kind, data in quick_v1.SLOT_TYPES.items()):
+                if maximum is None:
+                    continue  # Replaced by dynamic-N acceptance tests, not a new cap.
                 rows = [dict(id=f'reference_{100+i}', type=kind, enabled=False, reference_id=None,
                              output_size='1024x1536') for i in range(maximum+1)]
                 self.assertEqual(self.create(scenario, slots=rows).status_code, 400)

@@ -96,14 +96,14 @@ test('all three new entries share slot drafts without discarding references, req
   }
 });
 
-test('selling and scene add/delete/re-add keep identities, references and sizes isolated at their caps',async()=>{
+test('selling and scene add/delete/re-add keep identities, references and sizes isolated without the old caps',async()=>{
   const h=await harness();h.mode('quick_redesign');
   for(let i=0;i<3;i++){h.add('selling_point');h.reference(3+i);h.field(3+i,'requirements').value='selling '+i;h.field(3+i,'requirements').oninput();}
-  const initial=h.rows().slice(3).map(e=>e.dataset.slotId);assert.equal(h.node('quick-add-selling_point').disabled,true);
+  const initial=h.rows().slice(3).map(e=>e.dataset.slotId);assert.equal(h.node('quick-add-selling_point').disabled,false);
   h.field(4,'delete').onclick();h.add('selling_point');const after=h.rows().slice(3).map(e=>e.dataset.slotId);
   assert.deepEqual(after.slice(0,2),[initial[0],initial[2]]);assert.ok(!initial.includes(after[2]));
   h.field(4,'size').value='1536x1024';h.field(4,'size').onchange();
-  h.add('scene');h.reference(6);h.add('scene');h.reference(7);assert.equal(h.node('quick-add-scene').disabled,true);
+  h.add('scene');h.reference(6);h.add('scene');h.reference(7);assert.equal(h.node('quick-add-scene').disabled,false);
   const scene=h.rows()[7].dataset.slotId;h.field(6,'delete').onclick();h.add('scene');assert.equal(h.rows()[6].dataset.slotId,scene);
   h.reject();await h.submit();const body=h.calls.at(-1).options.body,slots=JSON.parse(body.get('quick_slots')),sizes=JSON.parse(body.get('image_sizes'));
   assert.equal(slots.length,8);assert.equal(slots.find(s=>s.id===initial[1]),undefined);
@@ -178,4 +178,69 @@ test('saved Quick scene restores without reclassification or changing stable out
     assert.equal(data.get('quick_scenario'),scenario||null);assert.equal(JSON.parse(data.get('quick_slots'))[0].id,'reference_988');
     assert.equal(JSON.parse(data.get('quick_slots'))[0].reference_id,'reference_001');
   }
+});
+
+test('dynamic N crosses 3/2/8 in all new entries, preserves bindings after middle deletion, refresh and save-as',async()=>{
+  assert.doesNotMatch(template,/最多\s*8\s*张|卖点\s*3\s*张|场景\s*2\s*张/);
+  for(const mode of ['quick_a','quick_b','product_pack']){
+    const h=await harness();h.mode(mode);h.products(3);
+    [0,1,2].forEach(index=>h.reference(index));
+    for(let i=0;i<4;i++){h.add('selling_point');h.reference(3+i);}
+    for(let i=0;i<3;i++){h.add('scene');h.reference(7+i);}
+    const sizes=['1024x1024','1024x1536','1536x1024'];
+    h.rows().forEach((row,index)=>{
+      h.field(index,'requirements').value='要求 '+row.dataset.slotId;h.field(index,'requirements').oninput();
+      h.field(index,'size').value=sizes[index%3];h.field(index,'size').onchange();
+    });
+    const initial=h.rows().map(row=>row.dataset.slotId),removed=[initial[4],initial[8]];
+    h.field(4,'delete').onclick();h.add('selling_point');h.reference(6);
+    h.field(8,'delete').onclick();h.add('scene');h.reference(9);
+    assert.equal(h.rows().length,10);assert.equal(h.node('quick-add-selling_point').disabled,false);
+    assert.equal(h.node('quick-add-scene').disabled,false);
+    assert.equal(h.node('quick-add-main'),undefined);assert.equal(h.node('quick-add-dimensions'),undefined);assert.equal(h.node('quick-add-comparison'),undefined);
+    const identities=h.rows().map(row=>row.dataset.slotId);
+    assert.equal(new Set(identities).size,10);removed.forEach(id=>assert.ok(!identities.includes(id)));
+    assert.ok(!initial.includes(identities[6]));assert.ok(!initial.includes(identities[9]));
+    // Replacing a surviving card's reference must not reset its identity/text/size.
+    h.reference(5);assert.equal(h.rows()[5].dataset.slotId,initial[6]);
+    h.reject();await h.submit();const data=h.calls.at(-1).options.body;
+    const key=mode==='product_pack'?'listing_slots':'quick_slots',config=JSON.parse(data.get(key));
+    assert.deepEqual(config.map(row=>row.id),identities);assert.equal(config.filter(row=>row.enabled).length,10);
+    assert.equal(config.filter(row=>row.type==='selling_point').length,4);assert.equal(config.filter(row=>row.type==='scene').length,3);
+    assert.equal(data.getAll('reference').length,10);assert.equal(data.getAll('product').length,3);
+    assert.deepEqual(config.map(row=>row.reference_id),Array.from({length:10},(_,i)=>'reference_'+String(i+1).padStart(3,'0')));
+    const imageSizes=mode==='product_pack'?Object.fromEntries(config.map(row=>[row.id,row.output_size])):JSON.parse(data.get('image_sizes'));
+    config.forEach(row=>{
+      const originalIndex=initial.indexOf(row.id);if(originalIndex<0)return;
+      assert.equal(row.requirements,'要求 '+row.id);assert.equal(imageSizes[row.id],sizes[originalIndex%3]);
+    });
+    const state={id:'9'.repeat(32),title:'dynamic N saved',mode:mode==='product_pack'?'product_pack':'quick_redesign',revision:1,
+      inputs:{listing:'原 Listing',description:'原描述',requirements:'整体要求'},images:[
+        ...Array.from({length:3},(_,i)=>({id:'product_'+String(i+1).padStart(3,'0'),role:'product',name:'product-'+i+'.png',url:'/product/'+i})),
+        ...data.getAll('reference').map((file,i)=>({id:'reference_'+String(i+1).padStart(3,'0'),role:'reference',name:file.name,url:'/reference/'+i}))],
+      [key]:config,plans:{},plan_status:{},stale_plans:[]};
+    if(mode!=='product_pack'){state.quick_business_version='v1';state.quick_scenario=mode;state.image_sizes=imageSizes;}
+    const before=JSON.stringify(state),restored=await harness(state);
+    assert.deepEqual(restored.rows().map(row=>row.dataset.slotId),identities);
+    config.forEach((row,i)=>{assert.equal(restored.field(i,'requirements').value,row.requirements);assert.equal(restored.field(i,'size').value,imageSizes[row.id]);});
+    restored.reject();await restored.submit();const copy=restored.calls.at(-1).options.body;
+    assert.deepEqual(JSON.parse(copy.get(key)),config);assert.equal(copy.get('from_session'),state.id);
+    assert.equal(copy.getAll('reference').length,0);assert.equal(JSON.parse(copy.get('keep_images')).length,13);
+    assert.equal(JSON.stringify(state),before);
+    restored.add('selling_point');assert.equal(restored.rows().length,11);
+    assert.equal(new Set(restored.rows().map(row=>row.dataset.slotId)).size,11);
+  }
+});
+
+test('restored dynamic rows use the same type grouping for display and serialization',async()=>{
+  const config=[{id:'reference_901',type:'scene'},{id:'reference_902',type:'selling_point'},
+    {id:'reference_903',type:'scene'},{id:'reference_904',type:'selling_point'}].map((row,i)=>({...row,
+      enabled:true,reference_id:'reference_'+String(i+1).padStart(3,'0'),requirements:'要求 '+i,output_size:'1024x1536'}));
+  const state={id:'8'.repeat(32),title:'group order',mode:'product_pack',revision:1,inputs:{},
+    images:[{id:'product_001',role:'product',name:'own.png',url:'/own'},...config.map(row=>({id:row.reference_id,role:'reference',name:row.id+'.png',url:'/ref/'+row.id}))],
+    listing_slots:config,plans:{},plan_status:{},stale_plans:[]};
+  const before=JSON.stringify(state),h=await harness(state);h.reject();await h.submit();
+  const order=h.rows().map(row=>row.dataset.slotId),saved=JSON.parse(h.calls.at(-1).options.body.get('listing_slots'));
+  assert.deepEqual(order.slice(3),['reference_902','reference_904','reference_901','reference_903']);
+  assert.deepEqual(saved.map(row=>row.id),order);assert.equal(JSON.stringify(state),before);
 });

@@ -197,8 +197,10 @@ class QuickV1Tests(unittest.TestCase):
         self.assertEqual({p:p.read_bytes() for p in foreign_folder.rglob('*') if p.is_file()}, foreign_before)
         self.assertEqual(self.fx.requests, [])
 
-    def test_types_enabled_flags_and_each_slot_cap_are_enforced(self):
+    def test_types_enabled_flags_and_singleton_slot_caps_are_enforced(self):
         for kind, (limit, _, _) in quick_v1.SLOT_TYPES.items():
+            if limit is None:
+                continue  # Dynamic selling_point/scene no longer have a business cap.
             config = [{'id': f'reference_{i+101:03}', 'type': kind, 'enabled': False} for i in range(limit+1)]
             with self.subTest(kind=kind):
                 self.assertEqual(self.create(configuration=config).status_code, 400)
@@ -207,8 +209,10 @@ class QuickV1Tests(unittest.TestCase):
             self.assertEqual(self.create(configuration=config).status_code, 400)
         full = []
         for kind, (limit, _, _) in quick_v1.SLOT_TYPES.items():
-            full.extend({'id':f'reference_{len(full)+i+201:03}', 'type':kind, 'enabled':False} for i in range(limit))
-        self.assertEqual(len(full), 8)
+            # More than the former 3/2/8 limits, without weakening type/ID checks.
+            count = limit if limit is not None else 7
+            full.extend({'id':f'reference_{len(full)+i+201:03}', 'type':kind, 'enabled':False} for i in range(count))
+        self.assertEqual(len(full), 17)
         self.assertEqual(self.create(configuration=full).status_code, 200)
 
     def test_disabled_and_product_targets_cannot_generate_or_batch(self):

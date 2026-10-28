@@ -2,7 +2,7 @@
 "use strict";
 let state = null, dirty = false, busy = false;
 let kept = [], pending = {product: [], reference: []};
-const slotTypes=[['main','主图',1],['dimensions','尺寸图',1],['comparison','同类商品对比图',1],['selling_point','卖点图',3],['scene','使用场景图',2]];
+const slotTypes=[['main','主图',{multiple:false,max:1}],['dimensions','尺寸图',{multiple:false,max:1}],['comparison','同类商品对比图',{multiple:false,max:1}],['selling_point','卖点图',{multiple:true,max:null}],['scene','使用场景图',{multiple:true,max:null}]];
 let quickSlots=[],usedSlotIds=new Set(),nextSlotSerial=101;
 const outputSizes=[['1024x1536','竖图 2:3 · 1024×1536'],['1024x1024','方图 1:1 · 1024×1024'],['1536x1024','横图 3:2 · 1536×1024']];
 let operation=null,remoteBusy=false,progressPoll=null,imageBusy=false;
@@ -42,13 +42,15 @@ function resetSlots(){
   // a newly saved empty card has an explicit size entry and remains restorable.
   saved.filter(slot=>['selling_point','scene'].includes(slot.type)&&
     (slot.enabled||slot.reference_id||slot.requirements||slot.output_size||state.image_sizes?.[slot.id])).forEach(slot=>quickSlots.push(makeSlot(slot.type,slot)));
+  quickSlots.sort((a,b)=>slotTypes.findIndex(([type])=>type===a.type)-slotTypes.findIndex(([type])=>type===b.type));
 }
 function renderSlots(){
   const box=$('quick-slots');box.replaceChildren();
-  for(const [type,label,limit] of slotTypes){
-    const dynamic=limit>1,items=quickSlots.filter(slot=>slot.type===type);
+  for(const [type,label,policy] of slotTypes){
+    const dynamic=policy.multiple,limit=policy.max,items=quickSlots.filter(slot=>slot.type===type);
+    const atLimit=limit!==null&&items.length>=limit;
     const group=element('section',undefined,'quick-slot-group'+(dynamic?' quick-slot-dynamic':'')),grid=element('div',undefined,'quick-slot-grid');
-    if(dynamic)group.append(element('h4',label+' · '+items.length+' / '+limit));
+    if(dynamic)group.append(element('h4',label+' · '+items.length+(limit===null?' 张':' / '+limit)));
     items.forEach((slot,index)=>{
       const title=label+(dynamic?' '+(index+1):''),prefix='quick-slot-'+slot.id;
       const row=element('article',undefined,'quick-slot');row.dataset.slotId=slot.id;row.dataset.slotType=type;
@@ -70,8 +72,8 @@ function renderSlots(){
       const requirementLabel=element('label','补充制作要求（选填）'),requirements=element('textarea');requirements.id=prefix+'-requirements';requirements.rows=2;requirements.maxLength=12000;requirements.value=slot.requirements;requirements.oninput=()=>{slot.requirements=requirements.value;markDirty();};requirementLabel.append(requirements);row.append(requirementLabel);
       row.append(element('p',slot.enabled?'已启用 · 保存后建立输出项':slot.reference?'未启用 · 仅保存参考，不产生输出':'未启用 · 不产生输出','muted'));grid.append(row);
     });
-    if(dynamic){const add=element('button',items.length>=limit?'已达上限（'+limit+' 张）':'＋ 添加'+label,'quick-slot-add');add.type='button';add.id='quick-add-'+type;add.disabled=items.length>=limit;add.dataset.slotLimit=String(add.disabled);
-      add.onclick=()=>{if(quickSlots.filter(slot=>slot.type===type).length>=limit)return;quickSlots.push(makeSlot(type));quickSlots.sort((a,b)=>slotTypes.findIndex(([type])=>type===a.type)-slotTypes.findIndex(([type])=>type===b.type));renderSlots();markDirty();};grid.append(add);}
+    if(dynamic){const add=element('button',atLimit?'已达上限（'+limit+' 张）':'＋ 添加'+label,'quick-slot-add');add.type='button';add.id='quick-add-'+type;add.disabled=atLimit;add.dataset.slotLimit=String(add.disabled);
+      add.onclick=()=>{if(limit!==null&&quickSlots.filter(slot=>slot.type===type).length>=limit)return;quickSlots.push(makeSlot(type));quickSlots.sort((a,b)=>slotTypes.findIndex(([type])=>type===a.type)-slotTypes.findIndex(([type])=>type===b.type));renderSlots();markDirty();};grid.append(add);}
     group.append(grid);box.append(group);
   }
 }

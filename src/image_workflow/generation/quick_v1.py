@@ -16,8 +16,8 @@ SLOT_TYPES = {
     "main": (1, "主图", "清楚展示实际售卖商品"),
     "dimensions": (1, "尺寸图", "表达自家商品有依据的真实尺寸"),
     "comparison": (1, "同类商品对比", "依据已有比较资料表达差异，不编造优劣主张"),
-    "selling_point": (3, "卖点图", "展示与自家商品资料相符的产品特点"),
-    "scene": (2, "使用场景图", "展示与实际商品用途相容的使用场景"),
+    "selling_point": (None, "卖点图", "展示与自家商品资料相符的产品特点"),
+    "scene": (None, "使用场景图", "展示与实际商品用途相容的使用场景"),
 }
 
 
@@ -34,8 +34,8 @@ def is_v1(state):
 
 def validate_slots(slots, images):
     """Return owned, normalized slot data, without changing inputs or doing IO."""
-    if not isinstance(slots, list) or not 1 <= len(slots) <= 8:
-        raise ValueError("Quick V1 请配置 1～8 个图位。")
+    if not isinstance(slots, list) or not slots:
+        raise ValueError("请至少配置一个图位。")
     references = {image["id"] for image in images if image["role"] == "reference"}
     counts, identities, bound, result = {}, set(), set(), []
     for slot in slots:
@@ -47,7 +47,8 @@ def validate_slots(slots, images):
         if not isinstance(kind, str) or kind not in SLOT_TYPES or type(slot.get("enabled")) is not bool:
             raise ValueError("图位类型或启用状态无效。")
         counts[kind] = counts.get(kind, 0) + 1
-        if counts[kind] > SLOT_TYPES[kind][0]:
+        limit = SLOT_TYPES[kind][0]
+        if limit is not None and counts[kind] > limit:
             raise ValueError("图位数量超过该类型上限。")
         reference = slot.get("reference_id")
         if (slot["enabled"] or reference is not None) and (not isinstance(reference, str) or reference not in references):
