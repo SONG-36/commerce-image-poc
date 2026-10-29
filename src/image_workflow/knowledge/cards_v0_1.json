@@ -1,0 +1,156 @@
+[
+  {
+    "method_id": "K01",
+    "version": "0.1",
+    "title": "局部特写与功能标注",
+    "applicable_conditions": [
+      "卖点涉及目标商品真实可见的按钮、接口、接头、开关、纹理或附件安装位。",
+      "实际商品素材有对应部件的清晰视角，并有允许使用的功能说明。"
+    ],
+    "method_instructions": [
+      "保持商品整体可识别，把对应部件以真实特写或裁切区域展示。",
+      "让引线与文字一一对应，避免信息卡遮挡关键结构。",
+      "审核箭头端点所指部件是否真实存在，局部图与主体是否属于同一 SKU，文字是否与结构匹配。"
+    ],
+    "limitations": [
+      "缺少真实视角、部件被遮挡或说明与外观冲突时，补充素材或改换表达，不能凭空生成结构。",
+      "只指导 HOW TO PRESENT，不提供 WHAT IS TRUE；不能扩大 Quick-A、Quick-B、Listing 的事实权限。",
+      "外部来源仍待核查；方法及成图效果未获运营验证。"
+    ],
+    "source_reference": {
+      "document": "docs/04_AI_AGENT_SUITABILITY/S5_PROFESSIONAL_DESIGN_KNOWLEDGE_RESEARCH_V0.1.md",
+      "card_section": "K01｜局部特写与功能标注",
+      "registered_source_ids": ["SRC-01", "SRC-03", "SRC-02"],
+      "source_status": "SOURCE_LEAD_VERIFY"
+    },
+    "status": "RESEARCH_CANDIDATE"
+  },
+  {
+    "method_id": "K02",
+    "version": "0.1",
+    "title": "多形态与状态展示",
+    "applicable_conditions": [
+      "商品资料明确支持两种或多种工作状态、形态或操作方式。",
+      "有能证明或合理支持对应状态的目标商品图片或技术资料。"
+    ],
+    "method_instructions": [
+      "使用并列状态、对应视角或转换关系展示差异，保持各状态的视觉联系清楚。",
+      "不夸大实际变形路径；逐项核对状态数量、结构、关系及文案是否受当前商品资料支持。"
+    ],
+    "limitations": [
+      "不能仅因参考图存在另一形态就沿用；缺少目标商品关键结构依据时，不生成无依据的转换部件。",
+      "研究中的 2WAY 是有条件示例，不是任何当前 SKU 的功能声明。",
+      "只指导 HOW TO PRESENT，不提供 WHAT IS TRUE；不能扩大 Quick-A、Quick-B、Listing 的事实权限。",
+      "外部来源仍待核查；方法及成图效果未获运营验证。"
+    ],
+    "source_reference": {
+      "document": "docs/04_AI_AGENT_SUITABILITY/S5_PROFESSIONAL_DESIGN_KNOWLEDGE_RESEARCH_V0.1.md",
+      "card_section": "K02｜多形态与状态展示",
+      "registered_source_ids": ["SRC-03"],
+      "source_status": "SOURCE_LEAD_VERIFY"
+    },
+    "status": "RESEARCH_CANDIDATE"
+  },
+  {
+    "method_id": "K03",
+    "version": "0.1",
+    "title": "场景化利益表达",
+    "applicable_conditions": [
+      "有依据的商品卖点与使用条件、环境或场合直接相关，单独主体不足以解释价值。",
+      "有商品真实用途及场景限制、适用人群或环境的可靠资料。"
+    ],
+    "method_instructions": [
+      "展示目标商品在合理场景中的使用关系，保持主体识别度和一项清晰价值主张。",
+      "检查操作方式、接触部件、产品尺寸、环境与效果，没有违反实际商品事实。"
+    ],
+    "limitations": [
+      "场景不得暗示未经证实的强度、速度、适用材质、人群或结果；不能仅凭参考迁移高风险使用情境。",
+      "只指导 HOW TO PRESENT，不提供 WHAT IS TRUE；不能扩大 Quick-A、Quick-B、Listing 的事实权限。",
+      "外部来源仍待核查；方法及成图效果未获运营验证。"
+    ],
+    "source_reference": {
+      "document": "docs/04_AI_AGENT_SUITABILITY/S5_PROFESSIONAL_DESIGN_KNOWLEDGE_RESEARCH_V0.1.md",
+      "card_section": "K03｜场景化利益表达",
+      "registered_source_ids": ["SRC-03"],
+      "source_status": "SOURCE_LEAD_VERIFY"
+    },
+    "status": "RESEARCH_CANDIDATE"
+  },
+  {
+    "method_id": "K04",
+    "version": "0.1",
+    "title": "抽象卖点的可理解表达",
+    "applicable_conditions": [
+      "存在轻巧、便携、易操作、舒适、耐用等无法仅由白底图直接说明的抽象价值。",
+      "有允许引用的客观资料或经确认的定性宣称，以及支持表达的真实比例参照或其他真实依据。"
+    ],
+    "method_instructions": [
+      "选择能让用户理解的场景、真实比例关系、细节或简短说明。",
+      "区分客观参数和主观感受，使表达与证明方式匹配实际依据强度，保持信息层级清楚。"
+    ],
+    "limitations": [
+      "不把轻巧补写为具体重量、耐用补写为寿命数字，或舒适补写为可量化医学及功效结论。",
+      "只指导 HOW TO PRESENT，不提供 WHAT IS TRUE；不能扩大 Quick-A、Quick-B、Listing 的事实权限。",
+      "外部来源仍待核查；方法及成图效果未获运营验证。"
+    ],
+    "source_reference": {
+      "document": "docs/04_AI_AGENT_SUITABILITY/S5_PROFESSIONAL_DESIGN_KNOWLEDGE_RESEARCH_V0.1.md",
+      "card_section": "K04｜抽象卖点的可理解表达",
+      "registered_source_ids": ["SRC-01", "SRC-03"],
+      "source_status": "SOURCE_LEAD_VERIFY"
+    },
+    "status": "RESEARCH_CANDIDATE"
+  },
+  {
+    "method_id": "K05",
+    "version": "0.1",
+    "title": "多卖点的优先级与信息层级",
+    "applicable_conditions": [
+      "当前图位确有多个可用卖点、必保留信息或复杂信息层级需要组织。",
+      "已明确可用信息、运营必保留内容、当前图位与参考营销意图。"
+    ],
+    "method_instructions": [
+      "明确一个视觉主目标；其他信息按重要性分组、弱化，或在现有图位允许时分配给其他图位。",
+      "利用大小、对比与空间关系建立阅读顺序，检查核心内容是否先被读到，辅助信息是否服务主目标。",
+      "核对必保留内容：Quick-A/B 可聚焦适用卖点，Listing 受当前商品资料及运营确认计划约束，均不能擅自删硬约束。"
+    ],
+    "limitations": [
+      "参考核心意图不再成立时应说明原因，不伪造新的商品价值；不因为专业方法自行创建其他输出。",
+      "只指导 HOW TO PRESENT，不提供 WHAT IS TRUE；不能扩大 Quick-A、Quick-B、Listing 的事实权限。",
+      "外部来源仍待核查；方法及成图效果未获运营验证。"
+    ],
+    "source_reference": {
+      "document": "docs/04_AI_AGENT_SUITABILITY/S5_PROFESSIONAL_DESIGN_KNOWLEDGE_RESEARCH_V0.1.md",
+      "card_section": "K05｜多卖点的优先级与信息层级",
+      "registered_source_ids": ["SRC-02"],
+      "source_status": "SOURCE_LEAD_VERIFY"
+    },
+    "status": "RESEARCH_CANDIDATE"
+  },
+  {
+    "method_id": "K06",
+    "version": "0.1",
+    "title": "移动端可读性",
+    "applicable_conditions": [
+      "明确需要考虑移动端展示、文字密度或缩小后的可读性。",
+      "已有目标展示环境、实际文案及输出图像尺寸；未知展示环境应保留假设标记。"
+    ],
+    "method_instructions": [
+      "控制低价值小字，让主标题与主要商品保持可识别。",
+      "在缩小预览中检查字形、对比、信息密度及遮挡，确认仍能识别商品和核心功能。",
+      "分别检查当前语言与渠道，不因提高可读性改写商品宣称。"
+    ],
+    "limitations": [
+      "不把某个对比度数值当作所有平台商品图片的强制门槛；来源与适用范围需要另行核实。",
+      "只指导 HOW TO PRESENT，不提供 WHAT IS TRUE；不能扩大 Quick-A、Quick-B、Listing 的事实权限。",
+      "外部来源仍待核查；方法及成图效果未获运营验证。"
+    ],
+    "source_reference": {
+      "document": "docs/04_AI_AGENT_SUITABILITY/S5_PROFESSIONAL_DESIGN_KNOWLEDGE_RESEARCH_V0.1.md",
+      "card_section": "K06｜移动端可读性",
+      "registered_source_ids": ["SRC-02", "SRC-07"],
+      "source_status": "SOURCE_LEAD_VERIFY"
+    },
+    "status": "RESEARCH_CANDIDATE"
+  }
+]
