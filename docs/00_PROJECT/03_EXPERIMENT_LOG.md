@@ -47,3 +47,17 @@
 - 局限：服务端 `revised_prompt=null`；原始 HTTP 请求/响应字节、完整响应头、当时源码版本快照和账单金额未记录。未把源码重建信息当成原始证据。
 - 结论：**T01 COMPLETE；该首张图片被用户接受。** 未证明多图一致性、单图修改稳定性或普遍业务效果；无原流程成本/效率对照。
 - 下一步：T02 ACTIVE，开发 Prepare & Plan；T02 的真实多模态规划和修改效果须另行授权、执行并记录，不以本地 Mock 代替。
+
+
+### EXP-20261028-E105 — Listing 两图真实 Smoke：Planning 响应校验失败
+
+- 授权与范围：一次性新 Listing Task，最多 1 Planning / 2 Images，零自动重试；生产代码与 Prompt 不改动，不部署。
+- 基线与来源：`main / ff7526ea39afecc75368ce0a23b3248aa55ba351`；历史 Task `43889e73c53c462da86216ed42f0a1ec` revision 3，分别从 reference_001 / reference_002 当时 Run 的 inputs 提取三张商品、两张参考及原始文字，未用 revision 6；原始字节与哈希一致，历史文件未改写。
+- 新 Task：`6fc958c5b1b649328f24a2718d3f9954`；main / selling_point 分别绑定 reference_001 / reference_002，固定 Brief 通过现有逐图要求提供。候选输出尺寸 1024x1536，未发送 Images 请求。
+- 实际调用：Planning 1 次，`gpt-5.4-mini` → 返回 `gpt-5.4-mini-2026-03-17`；reasoning low，max_output_tokens 6000，json_object，store false，timeout 120 秒，max_retries 0。Images 0 次。
+- 结果：提供方返回 completed，本地事实报告校验失败并返回 HTTP 502。受影响计划字段混入 reference_101/102 图位 ID，另有一条逐图 Brief 引用被标为原始 requirements 而原文不匹配。两条均为 INSUFFICIENT_EVIDENCE，不是已证明的商品矛盾；原始结果未修正或应用。
+- 确认与审核：DELEGATED_TEST_CONFIRMATION 为本次授权方式，因校验失败未执行；没有生成图片，没有 Pass，运营未评价。返回文本还描述了未经本次确认的旋转喷头，不能据此认证该机制。
+- 实际用量：input 12055 / output 1408（含 reasoning 75）/ total 13463 tokens；API 12.499 秒，总过程 12.6 秒。实际计费金额 UNKNOWN。
+- Evidence：`.runtime/debug/e105-listing-pack-smoke-20261028T121902Z-924883/` 的 input_manifest、planning_review、usage_summary、final_result 及 summary；原始请求/响应/错误保存在新 Task 的 `calls/79ac7dbd03df48478f4ddf04892c9881/`。
+- 结论类型：实验在 Planning 应用前失败，GENERATED = 0 / BUSINESS ACCEPTANCE PENDING。未重试、切换模型、绕过确认或继续生成；不以此次失败直接推断商品图模型质量。
+- 后续工程注记（2026-10-29，非新模型实验）：针对上述身份/来源契约做最小修复；Listing 模型输入不再提供内部图位 ID，逐图 Brief 使用独立且严格归属/原文匹配的 slot_requirements 来源。完整隔离 Python 451 / 独立 Node 68 项通过；原始响应仍被拒绝，34 个失败 Evidence 文件整体哈希未变。本注记不更改上述失败、Usage、评分或运营状态，没有重跑 Planning/Images。

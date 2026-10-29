@@ -28,6 +28,13 @@ def planning_images(state, action, target):
                     (image['id'] not in reference_ids(state) or action == "product" or target and image["id"] != target))]
 
 
+def listing_slot_inputs(state, target=None):
+    """Project reference-owned inputs; internal UI slot IDs are not Planning IDs."""
+    return {slot['reference_id']: {key: value for key, value in slot.items() if key != 'id'}
+            for slot in state.get('listing_slots', [])
+            if slot['enabled'] and (not target or slot['reference_id'] == target)}
+
+
 def build_planning_request(state, action, target, feedback, model, image_bytes, *, reasoning_model, instructions=RULES):
     """Build complete SDK arguments and image order, without I/O or mutation.
 
@@ -54,13 +61,24 @@ def build_planning_request(state, action, target, feedback, model, image_bytes, 
                "return_json": response_shape(action, ids)}
     if 'listing_slots' in state:
         from .conflicts import REPORT_INSTRUCTIONS, issue_views
+        slots = listing_slot_inputs(state, target) if action != 'product' else {}
+        context['planning_id_contract'] = {
+            'valid_reference_ids': ids, 'target_reference_id': target,
+            'rule': 'references/plans 的键及 fact_issues.affected_image_ids 仅使用 valid_reference_ids；'
+                    '单图操作只返回指定 target 的结果。output_slot_inputs 的键和 reference_id 是参考资产/计划身份，'
+                    '图位类型不是 ID；内部图位 ID 不参与模型输出，不得猜测或混入其他编号。'}
+        context['fact_source_contract'] = {
+            'original_text_sources': ['listing', 'description', 'requirements'],
+            'original_text_path': 'original_inputs[source]',
+            'slot_requirements_reference_ids': list(slots),
+            'slot_requirements_path': 'output_slot_inputs[reference_id].requirements',
+            'rule': '仅引用本次实际提供的来源原文；逐图 Brief 不等于 original_inputs.requirements。'}
         context['fact_review_instructions'] = REPORT_INSTRUCTIONS
         context['current_fact_issues'] = issue_views(state)
         context['return_json']['fact_issues'] = []
     if 'listing_slots' in state and action != 'product':
-        context['output_slot_inputs'] = {slot['reference_id']: slot for slot in state['listing_slots']
-                                        if slot['enabled'] and (not target or slot['reference_id'] == target)}
-        context['task'] += " 按 output_slot_inputs 中本图类型、补充要求和尺寸制定计划；结果仍以 reference ID 关联，图位 id 不是计划身份。"
+        context['output_slot_inputs'] = slots
+        context['task'] += " 按 output_slot_inputs 中本图类型、补充要求和尺寸制定计划；结果严格以 planning_id_contract 的参考 ID 关联。"
     prompt = json.dumps(context, ensure_ascii=False, indent=2)
     content = [{"type": "input_text", "text": prompt}]
     image_order = []

@@ -184,7 +184,8 @@ class DynamicSlotTests(unittest.TestCase):
         state, helper = self.planned()
         content = helper.requests[0]['input'][0]['content']
         context = json.loads(content[0]['text'])
-        expected = {row['reference_id']: row for row in state['listing_slots']}
+        expected = {row['reference_id']: {key: value for key, value in row.items() if key != 'id'}
+                    for row in state['listing_slots']}
         self.assertEqual(context['output_slot_inputs'], expected)
         self.assertEqual(context['required_reference_ids'], list(expected))
         self.assertEqual(set(state['plans']), set(expected))

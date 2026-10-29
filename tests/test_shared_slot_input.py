@@ -158,7 +158,8 @@ class SharedSlotInputTests(unittest.TestCase):
             state = self.saved(action(state, 'understand'))
         content = helper.requests[0]['input'][0]['content']
         context = json.loads(content[0]['text'])
-        self.assertEqual(context['output_slot_inputs'], {row['reference_id']: row for row in configuration() if row['enabled']})
+        self.assertEqual(context['output_slot_inputs'], {row['reference_id']: {key: value for key, value in row.items() if key != 'id'}
+                                                       for row in configuration() if row['enabled']})
         self.assertEqual(context['original_inputs'], state['inputs'])
         self.assertEqual(context['required_reference_ids'], ['reference_002', 'reference_001'])
         self.assertEqual(len([item for item in content if item['type'] == 'input_image']), 5)
@@ -203,7 +204,7 @@ class SharedSlotInputTests(unittest.TestCase):
             args, order = build_planning_request(state, action, 'reference_001', '仅修改本张', 'offline-model', blobs,
                                                 reasoning_model='offline-reasoning')
             context = json.loads(args['input'][0]['content'][0]['text'])
-            self.assertEqual(context['output_slot_inputs'], {'reference_001': configuration()[1]})
+            self.assertEqual(context['output_slot_inputs'], {'reference_001': {key: value for key, value in configuration()[1].items() if key != 'id'}})
             self.assertEqual([i['id'] for i in order], ['product_001', 'product_002', 'product_003', 'reference_001'])
         args, order = build_planning_request(state, 'product', None, '修正商品资料', 'offline-model', blobs,
                                             reasoning_model='offline-reasoning')

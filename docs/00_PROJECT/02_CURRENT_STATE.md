@@ -1,5 +1,17 @@
 # Current State
 
+**E1-05 Listing Planning 契约修复｜2026-10-29：OFFLINE ENGINEERING VERIFIED；REAL RERUN NOT PERFORMED。** 保留下方真实失败及既有未提交记录；本轮只改 Planning 请求投影、来源校验与离线测试，不修改 Generation、Review、业务基线或历史 Evidence。
+
+- 明确合法 reference/计划 ID，并在模型输入中去除内部图位 ID；保留参考绑定、类型、逐图要求和尺寸，任务存储身份不变。原始 listing/description/requirements 继续逐字匹配；新增仅限本次提供且启用的具体参考图的 `slot_requirements` 来源，必须带 reference_id、关联受影响计划并逐字匹配该 Brief。模型推断不作为原始来源，运行时约束不等于商品事实认证；无效 ID/来源仍拒绝，不做模糊匹配或自动重映射。
+- 新来源的人工处理摘要额外绑定对应 Brief，改动后失效；旧来源摘要算法不变。未处理明显矛盾、逐图确认及版本保护保持，证据不足不自动升级为明显矛盾。未把本次洗车机实验的禁用参数写成通用规则。
+- 新增 17 项匿名回归，结构来自失败 Call `79ac7dbd03df48478f4ddf04892c9881`，不复制运营图片或完整响应为测试夹具。定向回归 60 项通过；最终完整隔离 Python **451 项通过（23.659 秒）**，独立 Node **68 项通过**，零失败/错误/跳过，Python 含 Node 包装不累加。测试禁止联网与项目真实 `.env`/`.runtime` 访问。
+- 单独只读核对真实失败 Evidence：原响应仍拒绝，仅明确标记的内存假设结构通过校验；34 个文件整体哈希未变。下一次真实 Planning 尚未执行、需独立付费授权；模型语义、商品事实与成图质量仍待验收。未 Commit/Push、部署或调用模型。
+
+**E1-05 Listing 两图真实 Smoke｜2026-10-28：PLANNING RESPONSE VALIDATION FAILED；GENERATED = 0；BUSINESS ACCEPTANCE PENDING。** 在独立 `.runtime/debug/e105-listing-pack-smoke-20261028T121902Z-924883/runtime` 新建 Task `6fc958c5b1b649328f24a2718d3f9954`，只从洗车机历史 revision 3 的两个 Run 提取原始输入，图片/文字字节和来源哈希核对通过；固定两图 Brief 通过现有逐图要求提供，生产代码和 Prompt 未修改。
+
+- 实际仅调用 Planning 1 次：`gpt-5.4-mini`，返回 `gpt-5.4-mini-2026-03-17`，API 返回 completed；因事实报告混入图位 ID `reference_101/102`，且一条来源引用不属于其声明的原始 requirements，正式本地校验返回 HTTP 502，计划未应用。两条报告均为 INSUFFICIENT_EVIDENCE，不据此宣布商品事实矛盾。原始请求/响应、输入顺序、错误及 Usage 已保留。
+- Usage：输入 12055、输出 1408、合计 13463 tokens，API 耗时 12.499 秒，实际金额 UNKNOWN。Images 调用 0、重试 0。`DELEGATED_TEST_CONFIRMATION` 为本次已授权但未执行的确认方式；未确认计划、未生成或 Pass。来源文件哈希未变。详见实验日志新增记录及独立 Runtime Evidence；未追加实验、修复代码、部署或提交 Git。
+
 **E1-04 最终工程检查点｜2026-10-28：ENGINEERING VERIFIED（离线范围）；BROWSER ACCEPTANCE: NOT TESTED；REAL MODEL NOT TESTED；BUSINESS ACCEPTANCE PENDING。** 提交前基线为 `main / d1999bc4de76a1042ee584f5e8e698bcdc9c97e1`，30 Modified + 2 Untracked 全部属于已审核 E1-04 范围。本条随独立 E1-04 Commit 归档，SHA 以包含本条记录的 Git 提交为准；不 Push、不部署。
 
 - 本轮重新完整隔离回归：Python **434 项通过（22.797 秒）**，独立 Node **68 项通过**，零失败/错误/跳过；Python 包含 Node 包装，不重复累加。使用匿名临时数据、假 Key 与 SDK Mock，禁止测试联网和访问项目真实 `.env` / `.runtime`。尺寸绑定、声明、直接生成/修改前置保护，争议版本与旧确认保护，历史 Listing 分类另存及尺寸保留，动态 N、版本、Pass、ZIP 与 CLI 回归通过；没有新增功能或改变保护性断言。

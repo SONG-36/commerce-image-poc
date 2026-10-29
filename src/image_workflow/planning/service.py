@@ -12,7 +12,7 @@ from typing import Callable, Mapping, MutableMapping
 
 from file_ops import sha256
 from ..errors import Problem
-from .request import RULES, build_planning_request, planning_images, reference_ids
+from .request import RULES, build_planning_request, listing_slot_inputs, planning_images, reference_ids
 from .validation import validate_result
 
 
@@ -136,7 +136,8 @@ def execute_planning(folder: Path, state, action, target, feedback, *, case_id_f
             result = validator(raw, action, ids)
             if 'listing_slots' in state:
                 from .conflicts import validate_reports
-                result['fact_issues'] = validate_reports(raw, state, ids)
+                sources = listing_slot_inputs(state, target) if action != 'product' else {}
+                result['fact_issues'] = validate_reports(raw, state, ids, slot_reference_ids=sources)
             return result
         result = receive_result(response, action, ids, record, evidence, io, validate_response)
         return result, call_id
