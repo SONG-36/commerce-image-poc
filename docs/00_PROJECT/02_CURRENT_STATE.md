@@ -1,5 +1,133 @@
 # Current State
 
+## V1 Overall Project Status
+
+**总览更新：2026-10-29（Asia/Shanghai）。当前阶段：V1 工程基础已建立，Knowledge 可选接入处于离线验证阶段；BUSINESS ACCEPTANCE PENDING。** `commerce-image-poc` 是长期 AIGC / 多模态系统的首个商品图业务切片；当前核心问题仍是商品主体、接口、喷头及附件保真，以及有依据的营销信息能否正确进入最终图片。
+
+**当前决定：暂停新增开发，进入 LOCAL RUNTIME / USABILITY INSPECTION。** 保留此前 PAUSED FOR REVIEW / BUSINESS REALITY CHECK 的业务核对方向；本轮新增授权仅为 B-02 与本文分别提交、离线回归、本地启动和免费 UI 检查。仍不授权新功能、Agent Runtime、架构重构、付费模型实验或部署；下表 Next Action 均是恢复后候选，不是执行授权。工作节奏调整不代表已关闭服务或修改部署。
+
+**本轮核验基线（OBSERVED）：**起始为 `main / 815e4db10f790d7194e9e836379efa4316df75f3`（B-01），暂存区为空，5 Modified + 2 Untracked。复核并重跑隔离回归后，B-02 六个文件已独立提交为 **`53013f80c7123a34dd8d23b643c3e5fd721a7d98`**，`feat: integrate listing knowledge into planning`；这是本文提交前最新工程基线。既有总览内容保留，本文单独归档；本轮不 Push、不部署、不调用真实模型。
+
+**证据时效：**Git、B-02 Diff 与源码接入点已核对，本轮实际隔离回归 **Python 539 PASS / 独立 Node 73 PASS**，`pip check` 通过；测试禁止真实网络、读取真实密钥/Runtime 及写入仓库。下文旧浏览器记录、真实模型结果仍为 **PREVIOUSLY REPORTED**，不因本次回归升级为新版真实业务验收；本地启动/UI 结果另按本轮实际交付记录，不在文档提交前预填成功。
+
+业务规则以 [Business Baseline V0.3](../02_BUSINESS_MODELING/V1_BUSINESS_BASELINE_V0.3.md)为准；[能力拆解](../03_AI_CAPABILITY_DECOMPOSITION/IMAGE_AI_CAPABILITY_DECOMPOSITION_V0.1.md)、[架构候选](../04_AI_AGENT_SUITABILITY/IMAGE_AI_ARCHITECTURE_DECISION_V0.1.md)和[实施契约](../05_TASK_CONTRACT_EVALUATION/V1_IMPLEMENTATION_CONTRACT_V0.1.md)保留各自的研究 / PROPOSED 状态。它们的历史“待实施”描述不是当前代码状态；已授权增量的完成情况以下表及 Git 检查点为准，文档归档也不等于后续 Coding 授权。
+
+**状态口径：**`IMPLEMENTED` 表示代码存在；`ENGINEERING VERIFIED` 表示指定离线工程范围通过；`BROWSER VERIFIED WITH MOCK` 表示真实浏览器中的匿名 Mock 操作通过；`REAL MODEL VERIFIED` 仅适用于有真实调用证据且明确写出的验证范围，不自动包含语义或图片质量。`BUSINESS ACCEPTED` 必须有对应案例的运营接受证据。`RESEARCH ONLY`、`NOT IMPLEMENTED`、`UNKNOWN` 分别表示研究资产、尚无对应实现、证据不足；同一模块可以同时有多个状态。
+
+| Module | Implementation Status | Verification Status / Evidence | Known Limitations | Next Action（恢复后候选） |
+| --- | --- | --- | --- | --- |
+| Quick-A 同款快速改版 | IMPLEMENTED（入口、持久化、场景请求策略） | ENGINEERING VERIFIED / BROWSER VERIFIED WITH MOCK；E1-01、E1-03 及既有模式记录 | `quick_redesign` 子场景；无强制 Planning；保留适用信息的真实效果未验收 | 用运营确认同款、同外观的样本验收 |
+| Quick-B 换主体快速改版 | IMPLEMENTED（入口、持久化、主体替换请求策略） | ENGINEERING VERIFIED / BROWSER VERIFIED WITH MOCK；[场景请求测试](../../tests/test_quick_scenario_policy.py)及既有模式记录 | 仍复用 Quick 后端；全域替换是否成功、适用卖点是否正确 UNKNOWN | 用运营确认外观不同且卖点适用的样本验收 |
+| Listing / Planning | IMPLEMENTED（`product_pack`，资料理解、逐图计划及人工确认） | ENGINEERING VERIFIED / 模式 BROWSER VERIFIED WITH MOCK / REAL MODEL VERIFIED（Planning 调用及结构校验）；E1-04、`8bb1c6c`、真实 Task `63c1448453ac48c6aeb03bafa82ef8ea` | 真实计划通过 ID/来源校验后仍因删除授权 15° 的语义错误停止；不是完整 Listing 业务通过 | 人工修订并确认后验证正式 Listing 生图 |
+| 商品与参考素材输入 | IMPLEMENTED | ENGINEERING VERIFIED / BROWSER VERIFIED WITH MOCK；共享上传、角色、绑定及[Quick V1 测试](../../tests/test_quick_v1.py) | 多张商品图属于同 SKU 是业务约定，不是自动 SKU/真伪识别；商品素材张数不决定输出数 | 核对真实样本角色、来源及完整性 |
+| 五类输出 / 动态 N 图位 | IMPLEMENTED | ENGINEERING VERIFIED / BROWSER VERIFIED WITH MOCK；E1-02、[动态图位测试](../../tests/test_dynamic_slots.py)、超过 8 项及删除/另存记录 | 卖点/场景动态 N，主图/尺寸/对比各 max1；无固定业务总数不等于 Planning 容量无限 | 验收实际业务数量与制作成本 |
+| Manual Plan Edit | IMPLEMENTED | ENGINEERING VERIFIED / BROWSER VERIFIED WITH MOCK；`a6222db`、[可用性测试](../../tests/test_v1_usability.py)、TEST-01～10 | 免费编辑，不重新 Planning；只撤销本图确认，保留事实争议及版本校验；编辑后真实生图未验证 | 完成人工编辑→正式确认→真实生成闭环 |
+| Low / Medium / High | IMPLEMENTED（Task 默认与逐图覆盖） | ENGINEERING VERIFIED / BROWSER VERIFIED WITH MOCK；`a6222db`、SDK Mock 参数断言 | 新 Web Task 默认 Medium，历史/API/CLI 缺省 Low；High 不保证保真，Medium/High 真实效果与费用未测 | 有独立预算后核对参数、效果与成本 |
+| Generation / Revision | IMPLEMENTED | ENGINEERING VERIFIED / BROWSER VERIFIED WITH MOCK；父 Run、锁、operation_id、失败保留回归；真实 Images 见本页实验索引 | 新 Run 不覆盖旧版本，零自动重试；Direct Smoke 两图不等于正式 Listing 端到端，真实修改保真未验收 | 验收确认计划到成图、修改及失败停止 |
+| Reject / Feedback | IMPLEMENTED | ENGINEERING VERIFIED / BROWSER VERIFIED WITH MOCK；`a6222db`、选定 Run 原因/备注及显式复用测试 | 不自动修改/重试，不覆盖旧 Pass；未 Pass 不等于 Reject；真实运营评价尚未完成 | 收集真实拒绝原因与返工意见 |
+| Select / Pass / ZIP | IMPLEMENTED | ENGINEERING VERIFIED / BROWSER VERIFIED WITH MOCK；选定版本、旧版本保留及 ZIP 字节核对；[审核实现](../../src/image_workflow/review/service.py) | Pass 绑定指定版本；V1 三场景无完整运营接受链，历史 T01 单图 PASS 不能外推 | 由运营审核并导出接受版本 |
+| 尺寸专项素材 | IMPLEMENTED | ENGINEERING VERIFIED / BROWSER VERIFIED WITH MOCK（既有交互范围）；E1-04、[业务保护测试](../../tests/test_business_guards.py) | 必须绑定本 Task product、声明并保持素材一致；声明不是尺寸认证，真实尺寸成图未验收 | 用有效专项素材及缺失反例验收 |
+| Listing 事实冲突处理 | IMPLEMENTED | ENGINEERING VERIFIED；完整浏览器/真实识别效果 UNKNOWN；E1-04、[契约测试](../../tests/test_listing_planning_contract.py) | 明显冲突与证据不足分流，处理绑定版本；未报告冲突不等于事实认证 | 核对正反例、处理后重新确认的完整交互 |
+| 单图 Context / 历史 Prompt 兼容 | IMPLEMENTED | ENGINEERING VERIFIED；`3008891`、[Context 测试](../../tests/test_context_contract.py) | Listing 各图独立传递类型、要求及 reference 身份；Inspector 兼容新旧标题，无法确认时 UNKNOWN；新版真实链路未验收 | 用同一实际 Run 对照 Context、Prompt 与输入 |
+| Workflow Inspector V0.7 | IMPLEMENTED（只读） | ENGINEERING VERIFIED / BROWSER VERIFIED WITH MOCK（已操作范围）；[Graph](../../src/image_workflow/inspector_graph.py)及工作台记录 | 显式本地启用；历史 Planning 关联可能 INFERRED，缺失不补造；完整交互清单未全量验收 | 复用现有工具调查，不继续扩张 UI |
+| Business Rules | IMPLEMENTED（部分） | ENGINEERING VERIFIED；图位/角色/来源/版本/尺寸/争议等校验及 Quick 场景请求测试 | 商品事实、主体保持与营销语义部分仍是 Prompt 约束，测试不证明模型服从 | 区分确定性保护、模型责任与运营确认 |
+| Knowledge K01～K06 / Registry | IMPLEMENTED（B-01 已提交）；内容仍为 RESEARCH_CANDIDATE | ENGINEERING VERIFIED（既有报告）；本轮核对[资产](../../src/image_workflow/knowledge/cards_v0_1.json)、[Registry](../../src/image_workflow/knowledge/registry.py)及 Commit | 版本、来源和哈希已保存；来源仍待核查，研究资产不等于业务有效知识；未默认注入生产请求 | 恢复后先审核适用条件与实际业务需要 |
+| Method Candidate Selection | IMPLEMENTED（B-01 已提交） | ENGINEERING VERIFIED（既有报告）；[选择器](../../src/image_workflow/knowledge/selection.py)、[测试](../../tests/test_knowledge_methods.py) | 按显式条件保留选择/未选/缺失依据；不自动理解图片，不证明模型采用或专业收益 | 按实际案例核对候选选择及条件来源 |
+| Listing Knowledge Runtime | IMPLEMENTED（B-02 已提交；默认关闭） | ENGINEERING VERIFIED：本轮 Python 539、Node 73；[接入](../../src/image_workflow/planning/knowledge.py)、[测试](../../tests/test_listing_knowledge.py) | ENGINEERING INTEGRATED / NOT OPERATOR-ACCESSIBLE BY DEFAULT；无前端开关，不能视为生产已启用；未真实模型验证，MODEL_ADOPTION_UNKNOWN | 先检查实际工作台；Knowledge 受控真实验证须另行授权 |
+| Skills | NOT IMPLEMENTED（正式运行时）；RESEARCH ONLY | 无正式 Skills 调度或业务收益验证记录 | 普通函数、Prompt 和知识卡不是已验证专业 Skill | 只有明确重复任务与收益证据后再研究 |
+| AI Decision | IMPLEMENTED（L1～L3 基础） | 确定性 Rules、真实模型判断与条件分支已有记录；业务效果仍 PENDING | LLM 判断不是自主 Agent；04/05 文档保留 PROPOSED 边界 | 先核对现有决策对业务的实际帮助 |
+| Bounded Agent | NOT IMPLEMENTED（L4 Runtime）；RESEARCH ONLY | 无正式任务级动态工具选择/执行反馈 Runtime 的验证记录 | 保留按需扩展边界，不是当前开发任务或一期前置 | 仅在独立业务证据及授权下另行决定 |
+| 商品视觉保真 | IMPLEMENTED（素材依据与 Prompt 约束） | Direct Smoke 两图已有初评；稳定保真 UNKNOWN | 喷头、接口、泡沫附件/瓶体有偏差；模型内部根因及通用解决方法未证实 | 结合原图、实际请求及运营评价定位问题 |
+| 真实业务验收 | 主链已实现；当前 V1 尚未 BUSINESS ACCEPTED | BUSINESS ACCEPTANCE PENDING；历史 T01 仅单张用户 PASS | 正式 Listing、Quick-A/B 真实闭环未验收；运营正式 Pass、接受率、返工时间/成本基线仍缺 | 优先完成一个明确范围的真实运营闭环 |
+
+### 当前工程、运行与证据边界
+
+- **源码与闭环：**[app.py](../../src/app.py) / [API](../../src/api/) → [Task](../../src/image_workflow/tasks/) → [Planning](../../src/image_workflow/planning/) / [Generation](../../src/image_workflow/generation/) / [Review](../../src/image_workflow/review/) → [Persistence](../../src/persistence/) / [Infrastructure](../../src/infrastructure/)；前端与 CLI 复用这些能力，未新建 Agent 引擎。已实现输入→规划/直接生成→人工确认（Listing）→生成/修改→版本→审核→导出及 Evidence 留存；“实现闭环”不表示真实业务已全部通过。
+- **本地入口：**项目根目录执行 `./scripts/start_live_debug.sh`，沿用现有 `.venv`、`src/cli/debug_workspace.py`，监听 `http://127.0.0.1:8013/`，Runtime 固定为 `.runtime/debug/live-debug-20261023T013447Z/runtime`。只按字面量加载根目录 `.env` 的 `OPENAI_API_KEY`，已有非空进程环境优先，不读 `.env.example`；Key 非空不代表认证成功。脚本启用手动付费操作，启动本身不调用模型，不能当作离线 Mock 启动器。
+- **开发与运营隔离：**Live Debug 使用正式客户端、独立 Runtime，Inspector 在其安全范围内跟随合法 Task；普通 `create_app()` 默认不开放完整 Inspector。本轮启动前观察到 8012 已监听、8013 空闲，保留 8012；最新版本实际启动/HTTP/UI 结果以后续检查为准，不能从源码提交推定运行成功。远端版本、本地/远端同步及 Mac mini 实际部署/WSGI/数据/备份状态未核验，继续 **UNKNOWN / DEFER**；本轮不部署或改动 Pilot。
+- **Evidence / Trace：**保存输入与哈希、Context、Prompt、请求参数、响应/错误、Run、父版本、审核指针；Inspector 是只读投影。SDK 请求记录不证明提供方内部有效 Prompt、图片权重或模型遵守约束；Usage/request_id/费用以实际返回为准。源码哈希仍非完整包追踪；进程内锁/active 非跨进程协调，多文件写入非事务。Runtime 必须独立备份；历史凭据与快照引用风险未由本次核验消除。
+
+### 工程检查点与验证范围
+
+`a6222dbc1ae1ae6d5426bb03190183e1749bae6a` 已提交 Manual Plan Edit、Low/Medium/High、Task 默认及逐图质量覆盖、Reject/Feedback，以及相应版本和历史兼容保护。质量偏好独立持久化，不重写历史 Run 或确认快照；人工计划修改保留原始 AI 响应及 HUMAN_EDIT 差异；Reject 保留被评价的 Run 和旧 Pass。
+
+| 检查点 / 验证项 | 结果与核验时效 | 范围与限制 |
+| --- | --- | --- |
+| V1 Usability Closure / Python | **466 PASS，0 失败/错误/跳过**，24.476 秒 | `a6222db` 当时的匿名临时素材、假 Key、SDK Mock 回归；包含 Node 包装，不与 Node 数量相加，不是当前 HEAD 的新测结果 |
+| V1 Usability Closure / 独立 Node | **73 PASS，0 失败/跳过** | 前端状态/DOM 测试不等于浏览器验收 |
+| V1 Usability Closure / Edge Chromium + CDP | **TEST-01～10 最终 PASS；BROWSER VERIFIED WITH MOCK** | 3 次 Planning / 6 次 Images 均为 SDK Mock；390px 无横向溢出；初次 TEST-09 驱动失败及修正后重测记录保留，不外推为 B-02 浏览器验收 |
+| Context / Inspector 修复、B-01 | 已有离线通过报告；本轮确认 `3008891`、`815e4db` 的提交范围 | 单图 Context、Prompt 解析、Registry 与候选选择；没有由此证明真实模型效果 |
+| B-02 最新离线回归 | **本轮实际：Python 539 PASS，0 失败/错误/跳过，26.639 秒；独立 Node 73 PASS，0 失败/跳过；pip check 通过** | 假 Key / SDK Mock；外层保护禁止网络、真实密钥/Runtime 读取及仓库写入。日志位于 `/private/tmp/v1-local-usability-20261029-zr9hofvd/python-regression.log`、`node-regression.log`；临时日志不属于永久 Git Evidence |
+| V1 可用性、B-01/B-02 开发及本轮状态整理的真实模型 | **各自记录为 0 次；本轮 0 次** | 不覆盖既有 Direct Smoke 的两张真实产物；没有 Medium/High、Knowledge 接入或新版完整 Listing 的真实验收 |
+| 运营与运行环境 | **BUSINESS ACCEPTANCE PENDING；运行版本 UNKNOWN** | 当前 V1 无正式运营 Pass；远端/部署及本地服务代码版本本轮未核实 |
+
+既有浏览器报告引用仓库外临时目录 `/private/tmp/v1-usability-browser-llzs50yq/`，包括 `engineering-checkpoint.json`、`browser-report.json`、`python-final.log`、`node-final.log`、`sdk_mock_calls.json`、`download_integrity.json`。**本轮未复查该临时目录是否仍存在**；临时文件不是永久 Git 归档，失效后不可补造截图或操作记录。
+
+### Knowledge 检查点：B-01 / B-02 均已提交
+
+- **B-01（COMMITTED）：**`815e4db10f790d7194e9e836379efa4316df75f3` 包含 K01～K06 运行时资产、Knowledge Registry 与 Method Candidate Selection，以及版本、来源、内容哈希、适用性与选择依据。资产仍标记 `RESEARCH_CANDIDATE`，来源为 `SOURCE_LEAD_VERIFY`；存在可加载代码不等于来源已独立核验或成图有效。
+- **B-02（COMMITTED / ENGINEERING VERIFIED）：**`53013f80c7123a34dd8d23b643c3e5fd721a7d98`，复用正式 Listing Planning 路径；`knowledge_enabled` 是严格布尔、调用级 opt-in，**默认关闭、没有前端开关**，不把开关写成 Task 永久配置。只有符合来源归属和原文匹配要求的显式结构化条件才参与选择；来源验证不认证条件语义或商品事实，无条件时保持 UNKNOWN / `NO_METHOD_SELECTED`，不自动理解图片或推测适用性。
+- **请求与 Evidence：**选中的方法作为独立 `PROFESSIONAL DESIGN METHODS` Context 加入实际请求，保留 reference 适用范围、字符预算及未选原因；新调用保存 `knowledge.json`、有效 Prompt、版本/哈希及选择依据。持续记录 `MODEL_ADOPTION_UNKNOWN`，知识进入请求不证明模型采用，更不证明图片质量改善；不是所有历史调用都已有 `knowledge.json`。
+- **本次六文件提交范围：**修改 `src/app.py`、`src/image_workflow/planning/request.py`、`src/image_workflow/planning/service.py`、`src/image_workflow/tasks/service.py`；新增 `src/image_workflow/planning/knowledge.py`、`tests/test_listing_knowledge.py`。未包含本文、历史 Evidence 或 Runtime；本文为独立文档提交。不 Push、不部署，不得将本地归档描述为生产 Knowledge 已启用。
+- **验证限制：**B-02 本轮实际 Python 539 / Node 73 通过。尚无该接入通路的真实模型验证，尚未证明 Knowledge 提高方案或成图质量；原 S5 独立 A/B 不等于 B-02 Runtime 验收。
+
+### 开发历史与可核实 Git 检查点
+
+以下仅作进度索引；详细过程保留在本文历史正文。E1 子任务编号是实际增量检查点，不表示 05 候选契约的全部阶段已验收。
+
+| 阶段 | 完成范围 / 验证边界 | 已核实 Git Commit |
+| --- | --- | --- |
+| E0 | 工程差距调查与业务增量冻结；调查本身没有独立代码提交 | 审查基线 `e322d97d68a5cad4f0171263e0d350e4f6cb2f71`；共享输入/动态 N 文档 `4b19fd7c97800549bbf0a0fcefb8bf3752fc6593` |
+| E1-01 | 三入口、共享输入、Listing reference 计划身份；当时场景策略尚待实施 | `c93bd900eb5aa530436b3bc2ea61a07fdb67cdc8` |
+| E1-02 | 卖点/场景动态 N、稳定身份、保存/恢复/另存 | `4e42f17d76cef156826edfaae8324621a3d0caab` |
+| E1-03 | Quick-A/B 信息权限及主体替换请求策略；非真实质量通过 | `d1999bc4de76a1042ee584f5e8e698bcdc9c97e1` |
+| E1-04 | 尺寸专项、Listing 事实冲突、确认/版本与历史分类另存保护 | `ff7526ea39afecc75368ce0a23b3248aa55ba351`；当时浏览器 NOT TESTED，后续只按已验证操作补充 |
+| E1-05 | 隔离浏览器与真实模型探索；失败、语义阻断、Direct Smoke 分开保留 | Listing 契约修复 `8bb1c6cff8b558b9310ec763171a4946902a1057`；Runtime 实验不属于已提交源码，也不是业务通过 Commit |
+| V1 Usability Closure | 免费人工 Plan Edit、质量选择/覆盖、Reject/Feedback、历史兼容；466 Python / 73 Node / 10 浏览器 Mock 项通过 | `a6222dbc1ae1ae6d5426bb03190183e1749bae6a` |
+| A — Context Contract Fix | Listing 逐图 Context 独立传递、Inspector 新旧 Quick Prompt 兼容；离线验证不代表模型遵从 | `3008891cbe41e7615362fe8165b0f5fa54f0ff2f` |
+| B-01 — Knowledge Assets + Method Selection | K01～K06 运行时资产、Registry、候选选择、版本/来源/哈希和选择依据；非默认生产注入 | `815e4db10f790d7194e9e836379efa4316df75f3` |
+| B-02 — Listing Knowledge Runtime | 默认关闭的调用级 Knowledge 接入与 Evidence；本轮 539 Python / 73 Node 通过，未真实调用 | **最新工程提交：`53013f80c7123a34dd8d23b643c3e5fd721a7d98`** |
+
+## AI Capability Implementation Status
+
+S1～S6 是业务能力分类，不是六个服务、六个 Agent 或固定六次调用。以下为当前落地状态；真实调用只证明所列调用/产物存在，不能替代业务验收。
+
+| 能力 | Implementation Status / 当前代码 | Verification Status / Evidence | Known Limitations | Next Action（恢复后候选） |
+| --- | --- | --- | --- | --- |
+| S1 商品理解 | IMPLEMENTED：Listing [Planning 请求/校验](../../src/image_workflow/planning/request.py)、[事实争议](../../src/image_workflow/planning/conflicts.py)；Quick 由图像模型隐含完成 | Listing REAL MODEL VERIFIED（调用与结构范围）；工程回归见上表 | BUSINESS ACCEPTANCE PENDING；主要依据运营资料和图片；B-02 方法不是事实来源或独立认证，冲突识别可靠性未证明 | 核对资料声明、图片可见事实及运营确认 |
+| S2 参考图理解 | IMPLEMENTED：同次 Listing Planning 的 references；Quick 无独立理解产物，使用[场景 Prompt](../../src/image_workflow/generation/quick_v1.py)及图像模型 | Listing 与 S5 独立实验有真实记录；不是 B-02 真实验证 | 已记录第五栏误读、UP/15° 混淆；结构校验不证明理解正确；独立 K01/K05/K06 实验不代表生产支持 | 对照参考图原件核查理解，不以历史 Plan 作答案 |
+| S3 参考适配与事实权限 | IMPLEMENTED：Quick 场景策略、Listing 资料/逐图要求/确认计划及[生成 Context](../../src/image_workflow/generation/request.py) | ENGINEERING VERIFIED；Listing 有真实候选计划；新 A/B 完整真实验收 UNKNOWN | BUSINESS ACCEPTANCE PENDING；B-02 不增加事实权限，信息适用性仍依赖运营与模型；主体替换效果未证实 | 核查适用卖点、不可继承信息与真实主体替换 |
+| S4 平台 / 地区规则 | IMPLEMENTED（运营文字要求、Prompt）；专用有来源/版本/适用范围的规则加载校验 NOT IMPLEMENTED | 日语/乐天风格真实请求已有记录；正式合规验证 UNKNOWN | 没有正式平台知识源；K01～K06 是制作方法，不是平台硬规则或认证 | 有具体要求时再核对可追溯规则来源 |
+| S5 专业制作决策 | IMPLEMENTED：Listing plans、[人工编辑规则](../../src/image_workflow/tasks/rules.py)、Quick 指令及模型隐含决策；B-01 方法资产/选择器、B-02 可选注入均已提交 | 真实 Planning、探索性 A/B、Direct Smoke 已有记录；B-02 本轮离线验证；Skills NOT IMPLEMENTED | BUSINESS ACCEPTANCE PENDING；Knowledge 默认关闭、未真实验证接入；评分差主要在 S2，专业方法稳定收益与保真未证明 | 围绕实际不合格图片确认方法缺口，再决定最小验证 |
+| S6 Context Engineering | IMPLEMENTED：[Planning](../../src/image_workflow/planning/request.py)、[Generation request](../../src/image_workflow/generation/request.py) / [service](../../src/image_workflow/generation/service.py)、快照与 Inspector；`3008891` 修复单图传递/解析，B-02 增加可选 Knowledge Context/Evidence | ENGINEERING VERIFIED；真实请求/输入顺序/响应/产物有既有记录；B-02 539/73 本轮复核通过 | 客户端快照不证明提供方内部执行或模型采用；历史缺失、来源追踪仍有限制；Direct Smoke 不是正式 Listing Context 链验收 | 用当前案例原始 Context、实际请求与人工评价核对传递 |
+
+**Rules / Knowledge / Skills / Agent 的落地边界：**图位数量与归属、合法 reference ID、来源原文匹配、尺寸声明、计划/Run 版本、冲突处理、去重及审核指针部分由确定性程序保证；卖点适用、主体替换、文字/布局及外观保持部分仍由模型执行 Prompt。Knowledge 由“研究”推进到 **B-01 运行时资产/候选选择 + B-02 默认关闭接入，均已提交**，尚无该接入的真实模型或生产启用证据，也不直接注入 Generation。正式专业 Skills 运行时、L4 Bounded Agent Runtime 均未实现；L1 规则、L2 模型判断、L3 条件流程基础已经存在。04/05 文档仍为 PROPOSED，已授权增量不等于全部候选已实施，更不构成继续开发的批准。
+
+## 真实实验结果与当前业务缺口
+
+| 记录 | 实际结果 | 结论与证据边界 |
+| --- | --- | --- |
+| S5 Knowledge A/B | `CLOSED_EXPLORATORY_PILOT`；Plan-X / Knowledge 13/15、Plan-Y / Model-only 11/15 | AI-assisted preliminary review，非运营验收；主要差在 Q4 / S2：Plan-Y 将参考第五栏误述为泡沫洗净，其他四项同分；单案例、每组一次成功调用，无成图比较，不能证明 S5 稳定增益、技术胜出或 Agent 必要性。见 [04 结案摘要](../04_AI_AGENT_SUITABILITY/IMAGE_AI_ARCHITECTURE_DECISION_V0.1.md#8-现有实验如何影响架构)及 `experiments/s5/washer_reference_002_ab_v0.1/attempts/attempt_002/unblinded_analysis_v0.1.md` |
+| 首次真实 Listing Planning | Task `6fc958c5b1b649328f24a2718d3f9954`；Call `79ac7dbd03df48478f4ddf04892c9881`；1 Planning / 0 Images | 混入内部图位 ID、逐图 Brief 冒充 requirements 原文，本地拒绝，原响应保留；`8bb1c6c` 修复请求契约且仍严格拒绝非法来源/ID。见 [实验日志 EXP-20261028-E105](03_EXPERIMENT_LOG.md#exp-20261028-e105--listing-两图真实-smokeplanning-响应校验失败) |
+| 修复后 Listing 重跑 | Task `63c1448453ac48c6aeb03bafa82ef8ea` revision 2；Call `4e189711d5d0493989b8c8b18da021c2`；1 Planning / 0 Images | HTTP 200，结构/ID/来源校验通过并应用，但 reference_002 将参考 UP 不明误用为“不写 15°”，未完整保留授权五种模式；停于语义审核，未确认/生成/Pass。证据：`.runtime/debug/e105-listing-pack-rerun02-20261029T011556Z-e9f998/summary.md`、`planning_review.json`及 Task calls |
+| Direct Image Smoke | **DIRECT IMAGE SMOKE / GENERATED = 2**；2 Images / 0 Planning / 0 重试；`gpt-image-2.5-sunburst`、low、1024x1536 | 两张真实 PNG 已有保存记录；不是 Listing Task、计划确认或端到端验收。PRELIMINARY REVIEW 记录喷头/接口、泡沫附件装配及瓶体纹理偏差，以及未经本次确认的营销效果文案；不是已证明的模型内部根因。证据：`.runtime/debug/e105-direct-two-image-smoke-20261029T013054Z-951197/summary.md`、`preliminary_review.json`、`image_01/image.png`、`image_02/image.png` |
+
+用户快照另述 Direct Smoke 已完整表达五种模式、基本布局和日语文字初步可用；此处按**用户提供的初步评价**保留，本轮未重新查看图片或独立审校日语，不能据此声称全部文字/功能表达正确。已生成两图只证明真实生图通路成立；商品结构与外观保真、宣称准确性仍未达到可确认的业务交付标准，High 能解决失真或 Knowledge 改善成图均未得到证明。
+
+本轮只核对文档与源码，不新增实验或重读 Runtime。真实调用的 Usage 继续以各目录 `usage_summary.json` 为准，实际账单金额 UNKNOWN。**正式 Listing：计划→人工编辑/确认→真实生成→运营审核/Pass→导出尚未通过；Quick-A/B 真实业务验收、当前 V1 运营正式 Pass 均未完成。** 历史 T01 首图的用户 PASS 保留在 [实验日志](03_EXPERIMENT_LOG.md)，仅限该旧样本，不覆盖当前三场景及新可用性能力；该日志开头的 T02 待执行是旧状态，不代表后来没有真实 Planning。Direct Smoke 和 S5 的后续详情沿用本页既有索引，不把日志尚未同步的部分写成已补记。
+
+## 当前暂停点与恢复入口
+
+**暂停新增开发，进行实际运行与业务检查。** B-01、B-02 已建立工程 Git 检查点，B-02 本轮离线回归通过；V1 真实业务验收未完成。本轮仅执行已授权的本地启动和免费 UI 检查；之后仍先理解现有功能与 Evidence，再决定下一项最小工作，不自动继续开发或付费实验。
+
+1. **先恢复事实基线。**重新核对 HEAD、工作区与本文，保留独立的 B-02 与文档检查点；实际运行版本以进程/HTTP 核对为准，不把提交成功当作启动成功。本轮本地启动之外的 Push、部署及功能开发仍须单独授权。
+2. **以真实运营使用与业务效果决定优先项。**候选入口是已有洗车机 Plan 的人工修订/正式确认后 Listing 闭环，或经运营确认关系的 Quick-A/B 样本。先明确哪些功能满足需求、哪些保真/宣称问题阻碍交付，记录接受/拒绝理由、人工投入、耗时和可得成本；任何真实生成/修改须另有预算及授权，不重写旧证据。
+3. **增强能力须有实际缺口依据。**优先判断现有 Rules、Knowledge 与 AI Decision 是否有业务价值；必要的只读架构 Review、方法评价、保真研究是候选方向，不是本轮 Coding 或付费实验任务。不把继续建设 Skills、Agent Runtime 或新架构自动设为下一步；目标是在可接受的时间、人工投入与模型成本下稳定获得运营认可的商品图，而非代码/测试/Agent 数量。
+
+## Historical Development Records（历史正文原样保留）
+
+以下是各阶段当时的详细记录；其中“本轮”、旧测试数量、未提交/未实施/浏览器未测、下一步及部署描述仅适用于原日期与范围，不覆盖上方当前总览，也不构成当前任务授权。后续优先更新本页总览，历史记录用于追溯，不再以逐任务记录代替项目总体状态。
+
 **V1 可用性收口｜2026-10-29：ENGINEERING VERIFIED；BROWSER VERIFIED（匿名 SDK Mock）；BUSINESS ACCEPTANCE PENDING。** 本轮提交前基线 `main / 8bb1c6cff8b558b9310ec763171a4946902a1057`，独立工程提交 SHA 以包含本条的 Commit 为准；未 Push、部署或调用真实模型。下方记录按原日期理解，不代表本轮仍未实现。
 
 - Listing 新增免费 `manual_plan` 操作，保留五项计划 Schema、reference ID、原 AI Call 和前后差异；事件标记 `HUMAN_EDIT`。只递增本图计划版本，撤销本图确认，仍须正式重确认。明显矛盾保留，已处理争议随方案版本失效；人工编辑不认证商品事实、不调用 Planning。AI 重新规划在界面独立标明付费。Quick-A/B 仍无强制 Planning。
