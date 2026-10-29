@@ -95,13 +95,19 @@ def receive_result(response, action, ids, record, evidence, io, validator):
 
 def execute_planning(folder: Path, state, action, target, feedback, *, case_id_for: Callable,
                      activity: MutableMapping, models: tuple, environment: Mapping,
-                     io: PlanningIO, request_builder=None, validator=validate_result, instructions=RULES):
+                     io: PlanningIO, request_builder=None, validator=validate_result, instructions=RULES,
+                     knowledge_enabled=False, knowledge_conditions=None, knowledge_char_budget=12000):
     """Return (validated_result, call_id); state application remains caller-owned.
 
     folder/identity are validated by the caller. The activity mapping is the
     existing in-process registry. Optional pure callbacks retain old mock/import
     seams; normal standalone calls use this package's builder and validator.
     """
+    # Preserve the original execution/request/Evidence contract when disabled.
+    if knowledge_enabled is not False or knowledge_conditions is not None or knowledge_char_budget != 12000:
+        from .knowledge import validate_options
+        validate_options(knowledge_enabled=knowledge_enabled, knowledge_conditions=knowledge_conditions,
+                         knowledge_char_budget=knowledge_char_budget)
     call_id = io.new_id().hex
     evidence = folder / "calls" / call_id
     evidence.mkdir(parents=True)
@@ -114,20 +120,60 @@ def execute_planning(folder: Path, state, action, target, feedback, *, case_id_f
               "max_retries": 0, "timeout_seconds": 120.0, "api_call_attempted": False,
               "status": "PREPARING", "usage": None, "request_id": None}
     started = io.clock()
+    knowledge_record = None
     try:
         activity[state['id']] = record
+        if knowledge_enabled:
+            record.update(knowledge_enabled=True, knowledge_file='knowledge.json')
+            knowledge_record = {'knowledge_enabled': True, 'planning_call_id': call_id,
+                                'task_id': state['id'], 'parent_revision': state['revision'], 'model': model,
+                                'status': 'PREPARING', 'model_adoption_status': 'MODEL_ADOPTION_UNKNOWN',
+                                'method_ids': [], 'method_versions': {}, 'content_hashes': {}, 'source_references': {},
+                                'selection_basis': {}, 'eligibility': {}, 'missing_conditions': {},
+                                'effective_knowledge_text': '', 'effective_knowledge_text_sha256': sha256(b''),
+                                'applicable_reference_ids': [], 'content_budget': knowledge_char_budget,
+                                'content_budget_unit': 'UNICODE_CHARACTERS'}
+            io.write_json(evidence / 'knowledge.json', knowledge_record, exclusive=True)
         io.write_json(evidence / 'run.json', record)
         if model not in models:
             raise Problem("规划模型配置不在已核实的模型列表内，请检查运行配置。")
         ids = reference_ids(state)
         image_bytes = load_image_bytes(folder, state, action, target)
+        request_options = {}
+        if knowledge_enabled:
+            from .knowledge import prepare_knowledge
+            declarations = json.dumps(knowledge_conditions, ensure_ascii=False)
+            if io.safe_text(declarations) != declarations:
+                raise Problem('Knowledge 条件包含疑似凭据，已停止；未调用模型。')
+            knowledge_context = prepare_knowledge(state, action, target, knowledge_conditions=knowledge_conditions,
+                                                  knowledge_char_budget=knowledge_char_budget)
+            knowledge_record.update(knowledge_context.evidence)
+            io.write_json(evidence / 'knowledge.json', knowledge_record)
+            request_options['knowledge_text'] = knowledge_context.effective_text
         if request_builder is None:
             arguments, image_order = build_planning_request(state, action, target, feedback, model, image_bytes,
-                                                            reasoning_model=models[0], instructions=instructions)
+                                                            reasoning_model=models[0], instructions=instructions,
+                                                            **request_options)
         else:
-            arguments, image_order = request_builder(state, action, target, feedback, model, image_bytes)
+            arguments, image_order = request_builder(state, action, target, feedback, model, image_bytes, **request_options)
         del image_bytes
-        save_request(evidence, arguments, image_order, record, io, instructions)
+        if knowledge_enabled:
+            text = knowledge_context.effective_text
+            texts = [item['text'] for item in arguments['input'][0]['content'] if item['type'] == 'input_text']
+            from .knowledge import HEADER
+            chapters = [item for item in texts if item.startswith(HEADER)]
+            if chapters != ([text] if text else []):
+                raise Problem('实际 Planning Request 未完整包含本次 Knowledge，已停止；未调用模型。')
+            sent_references = {item['id'] for item in image_order if item['role'] == 'reference'}
+            if not set(knowledge_record['applicable_reference_ids']).issubset(sent_references):
+                raise Problem('Knowledge 与本次实际参考图片身份不一致，已停止；未调用模型。')
+        save_request(evidence, arguments, image_order, record, io,
+                     arguments['instructions'] if knowledge_enabled else instructions)
+        if knowledge_enabled:
+            knowledge_record.update(model=arguments['model'], parameters=record['parameters'], request_file='request.json',
+                                    request_payload_sha256=sha256(json.dumps(arguments, ensure_ascii=False, sort_keys=True).encode()))
+            record['knowledge_text_sha256'] = knowledge_record['effective_knowledge_text_sha256']
+            io.write_json(evidence / 'knowledge.json', knowledge_record)
         key = environment.get("OPENAI_API_KEY", "")
         if not key.strip():
             raise Problem("AI 服务尚未配置。请由运行人员在启动服务的终端设置环境密钥；本次没有调用模型。", 503)
@@ -156,4 +202,11 @@ def execute_planning(folder: Path, state, action, target, feedback, *, case_id_f
         record["finished_at"] = io.now()
         record["elapsed_seconds"] = round(io.clock() - started, 3)
         activity.pop(state['id'], None)
-        io.write_json(evidence / "run.json", record)
+        try:
+            if knowledge_record is not None:
+                if knowledge_record['status'] == 'PREPARING':
+                    knowledge_record['status'] = 'PREPARATION_FAILED'
+                knowledge_record.update(planning_status=record['status'], api_call_attempted=record['api_call_attempted'])
+                io.write_json(evidence / 'knowledge.json', knowledge_record)
+        finally:
+            io.write_json(evidence / "run.json", record)

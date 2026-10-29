@@ -35,7 +35,8 @@ def listing_slot_inputs(state, target=None):
             if slot['enabled'] and (not target or slot['reference_id'] == target)}
 
 
-def build_planning_request(state, action, target, feedback, model, image_bytes, *, reasoning_model, instructions=RULES):
+def build_planning_request(state, action, target, feedback, model, image_bytes, *, reasoning_model, instructions=RULES,
+                           knowledge_text=None):
     """Build complete SDK arguments and image order, without I/O or mutation.
 
     image_bytes maps saved relative filenames to verified bytes loaded by the
@@ -81,6 +82,11 @@ def build_planning_request(state, action, target, feedback, model, image_bytes, 
         context['task'] += " 按 output_slot_inputs 中本图类型、补充要求和尺寸制定计划；结果严格以 planning_id_contract 的参考 ID 关联。"
     prompt = json.dumps(context, ensure_ascii=False, indent=2)
     content = [{"type": "input_text", "text": prompt}]
+    if knowledge_text is not None:
+        if not isinstance(knowledge_text, str):
+            raise ValueError('Planning Knowledge must be explicitly prepared text.')
+        if knowledge_text:
+            content.append({'type': 'input_text', 'text': knowledge_text})
     image_order = []
     for image in planning_images(state, action, target):
         data = image_bytes[image["file"]]

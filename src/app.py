@@ -93,13 +93,13 @@ class Store(TaskFiles):
         return task_card_view(self, generation.card, state, target)
 
 
-def build_planning_request(state, action, target, feedback, model, image_bytes):
+def build_planning_request(state, action, target, feedback, model, image_bytes, *, knowledge_text=None):
     """Compatibility entry: model policy stays explicit for pure construction."""
     return _build_planning_request(state, action, target, feedback, model, image_bytes,
-                                   reasoning_model=MODELS[0], instructions=RULES)
+                                   reasoning_model=MODELS[0], instructions=RULES, knowledge_text=knowledge_text)
 
 
-def call_ai(store, state, action, target, feedback):
+def call_ai(store, state, action, target, feedback, **knowledge_options):
     """Adapt legacy Store/config/mock seams to the independent Planning use case."""
     return execute_planning(
         store.folder(state["id"]), state, action, target, feedback,
@@ -107,7 +107,7 @@ def call_ai(store, state, action, target, feedback):
         io=PlanningIO(client_factory=OpenAI, write_json=write_json, safe_text=safe_text,
                       now=now, new_id=uuid4, sdk_version=version, source_file=Path(__file__),
                       clock=time.perf_counter),
-        request_builder=build_planning_request, validator=validate_result, instructions=RULES)
+        request_builder=build_planning_request, validator=validate_result, instructions=RULES, **knowledge_options)
 
 
 def create_app(runtime_dir=None, case_dir=None):
@@ -119,7 +119,7 @@ def create_app(runtime_dir=None, case_dir=None):
     generation = GenerationService(store)
     app.extensions["plan_store"] = store
     app.extensions["generation_service"] = generation
-    tasks = TaskApplication(store, generation, planner=lambda state, action, target, feedback: call_ai(store, state, action, target, feedback),
+    tasks = TaskApplication(store, generation, planner=lambda state, action, target, feedback, **options: call_ai(store, state, action, target, feedback, **options),
                             clock=lambda: now(), writer=lambda path, value, exclusive=False: write_json(path, value, exclusive=exclusive))
     queries = TaskQueries(store, generation, auxiliary_purposes=auxiliary.AUXILIARY_PURPOSES,
                           auxiliary_max_bytes=auxiliary.MAX_AUXILIARY_BYTES, quick_sizes=SIZES)

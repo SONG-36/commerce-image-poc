@@ -248,6 +248,13 @@ class TaskApplication:
             state = self.store.load(session_id)
             body = read_command()
             if isinstance(body, dict) and body.get('action') == 'set_quality':
+                options = {key: body[key] for key in
+                           ('knowledge_enabled', 'knowledge_conditions', 'knowledge_char_budget') if key in body}
+                if options:
+                    from image_workflow.planning.knowledge import validate_options
+                    validate_options(**options)
+                    if options.get('knowledge_enabled', False):
+                        raise Problem('质量设置不接受 Planning Knowledge 实验参数。')
                 return self.set_quality(state, body)
             if state.get("mode") == "quick_redesign":
                 raise Problem("快速重设计不执行商品理解或规划；请进入图片生成。", 409)
@@ -257,6 +264,17 @@ class TaskApplication:
             ids = reference_ids(state)
             if kind not in ["understand", "product", "reference", "plan", "replan", "confirm", "resolve_conflict", "manual_plan"]:
                 raise Problem("不支持的操作。")
+            knowledge_options = {key: body[key] for key in
+                                 ('knowledge_enabled', 'knowledge_conditions', 'knowledge_char_budget') if key in body}
+            if knowledge_options:
+                from image_workflow.planning.knowledge import validate_options
+                validate_options(**knowledge_options)
+                if knowledge_options.get('knowledge_enabled', False) and kind in ('confirm', 'resolve_conflict', 'manual_plan'):
+                    raise Problem('免费确认或编辑操作不接受 Planning Knowledge 实验参数。')
+                if contains_private(body.get('knowledge_conditions')):
+                    raise Problem('Knowledge 条件包含疑似凭据，请移除后重试；未调用模型。')
+                if not knowledge_options.get('knowledge_enabled', False):
+                    knowledge_options = {}
             if kind != "understand" and state["product"] is None:
                 raise Problem("请先完成 AI 理解与规划。")
             if kind in ["reference", "plan"] and target not in ids:
@@ -288,7 +306,7 @@ class TaskApplication:
                 self.store.save(state, event)
                 return state
             parent_revision = state["revision"]
-            result, call_id = self.planner(state, kind, target, feedback)
+            result, call_id = self.planner(state, kind, target, feedback, **knowledge_options)
             event = apply_planning_result(state, kind, target, feedback, result, call_id)
             self.store.save(state, event)
             self.writer(self.store.folder(session_id) / "calls" / call_id / "applied.json",
