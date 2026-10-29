@@ -35,10 +35,10 @@ def image_bytes(service, state, target, run_id):
     return reviewed_image_bytes(image_scope(state, target), review_files(service, state, target), run_id)
 
 
-def review(service, state, target, kind, run_id, expected_revision):
+def review(service, state, target, kind, run_id, expected_revision, **feedback):
     with service.review_operation(state, target):
         return apply_review(image_scope(state, target), review_files(service, state, target), kind, run_id,
-                            expected_revision, io=review_io(service, state))
+                            expected_revision, io=review_io(service, state), **feedback)
 
 
 def export_passed(service, state):

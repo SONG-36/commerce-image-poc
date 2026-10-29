@@ -53,6 +53,10 @@ def image_state(store, state, target, required=True):
         raise Problem('本图确认快照与计划不一致。', 409)
     if context_version(saved, target) != entry['context']:
         raise Problem('本图确认快照与理解版本不一致。', 409)
+    # Current execution preferences do not change the confirmed plan/Run bucket.
+    for key in ('generation_quality', 'image_qualities', 'quality_revision'):
+        if key in state:
+            saved[key] = copy.deepcopy(state[key])
     return saved
 
 

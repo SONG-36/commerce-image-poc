@@ -14,8 +14,10 @@ from file_ops import sha256
 from image_workflow import Problem
 from image_workflow.planning.request import reference_ids
 import image_workflow.generation.quick_v1 as quick_v1
-from image_workflow.generation.request import validate_image_sizes
-from .rules import apply_planning_result, confirm_plan, plan_status, stale_ids
+from image_workflow.generation.request import validate_image_sizes, validate_quality, validate_image_qualities
+from .rules import apply_planning_result, confirm_plan, edit_plan, plan_status, stale_ids
+from image_workflow.planning.validation import manual_plan
+from infrastructure.evidence import contains_private
 from image_workflow.planning.conflicts import resolve
 
 
@@ -31,7 +33,7 @@ def save_task(store, state, event, *, clock):
 def create_task(store, text, uploads, title, case_id=None, mode="product_pack", output_size="1024x1536", *,
                 clock, new_id, contains_private, sizes, default_requirements,
                 quick_business_version=None, quick_slots=None, image_sizes=None,
-                quick_scenario=None, listing_slots=None):
+                quick_scenario=None, listing_slots=None, generation_quality=None, image_qualities=None):
     if mode not in ("product_pack", "quick_redesign"):
         raise Problem("请选择有效的工作模式。")
     if quick_business_version is not None or quick_slots is not None:
@@ -103,6 +105,15 @@ def create_task(store, text, uploads, title, case_id=None, mode="product_pack", 
             image_sizes = validate_image_sizes(image_sizes, targets, sizes)
         except ValueError as error:
             raise Problem(str(error)) from error
+    targets = ({slot['id'] for slot in quick_slots} if quick_business_version == quick_v1.VERSION else
+               {image['id'] for image in identities if image['role'] == ('product' if mode == 'quick_redesign' else 'reference')})
+    try:
+        if generation_quality is not None:
+            generation_quality = validate_quality(generation_quality)
+        if image_qualities is not None:
+            image_qualities = validate_image_qualities(image_qualities, targets)
+    except ValueError as error:
+        raise Problem(str(error)) from error
     session_id = new_id().hex
     folder = store.begin_inputs(session_id)
     state = {
@@ -123,6 +134,10 @@ def create_task(store, text, uploads, title, case_id=None, mode="product_pack", 
         state["listing_slots"] = listing_slots
     if image_sizes is not None:
         state['image_sizes'] = image_sizes
+    if generation_quality is not None:
+        state['generation_quality'] = generation_quality
+    if image_qualities is not None:
+        state['image_qualities'] = image_qualities
     counts = {"product": 0, "reference": 0}
     for role, name, data, ext, mime, width, height in checked:
         counts[role] += 1
@@ -176,6 +191,17 @@ class TaskApplication:
             if not title or len(title) > 120:
                 raise Problem('请填写任务名称（最多 120 字）。')
             options = {}
+            if 'generation_quality' in form:
+                options['generation_quality'] = form['generation_quality']
+            elif previous_id and 'generation_quality' in previous:
+                options['generation_quality'] = previous['generation_quality']
+            if 'image_qualities' in form:
+                try:
+                    options['image_qualities'] = json.loads(form['image_qualities'])
+                except (TypeError, ValueError) as error:
+                    raise Problem('逐图质量配置不是有效 JSON。') from error
+            elif previous_id and previous.get('image_qualities'):
+                raise Problem('另存任务须显式提交重映射后的逐图质量。')
             version = form.get("quick_business_version")
             if previous_id and previous.get("quick_business_version") == quick_v1.VERSION:
                 if version != quick_v1.VERSION:
@@ -185,7 +211,7 @@ class TaskApplication:
                     slots = json.loads(form["quick_slots"]) if "quick_slots" in form else None
                 except (TypeError, ValueError) as error:
                     raise Problem("图位配置不是有效的 JSON。") from error
-                options = {"quick_business_version": version, "quick_slots": slots}
+                options.update(quick_business_version=version, quick_slots=slots)
             scenario = form.get("quick_scenario")
             if previous_id and scenario != previous.get("quick_scenario"):
                 raise Problem("另存任务须保留原 Quick 子场景；请从任务中心新建其他场景。")
@@ -220,14 +246,16 @@ class TaskApplication:
                 if any(key[0] == session_id for key in self.generation.active):
                     raise Problem('本任务有图片正在处理，请完成后再改动或确认计划。', 409)
             state = self.store.load(session_id)
+            body = read_command()
+            if isinstance(body, dict) and body.get('action') == 'set_quality':
+                return self.set_quality(state, body)
             if state.get("mode") == "quick_redesign":
                 raise Problem("快速重设计不执行商品理解或规划；请进入图片生成。", 409)
-            body = read_command()
             if not isinstance(body, dict) or body.get("revision") != state["revision"]:
                 raise Problem("页面内容已过期，请刷新后再操作；本次没有调用模型。", 409)
             kind, target, feedback = body.get("action"), body.get("target"), body.get("feedback", "")
             ids = reference_ids(state)
-            if kind not in ["understand", "product", "reference", "plan", "replan", "confirm", "resolve_conflict"]:
+            if kind not in ["understand", "product", "reference", "plan", "replan", "confirm", "resolve_conflict", "manual_plan"]:
                 raise Problem("不支持的操作。")
             if kind != "understand" and state["product"] is None:
                 raise Problem("请先完成 AI 理解与规划。")
@@ -249,6 +277,16 @@ class TaskApplication:
                 if event is not None:
                     self.store.save(state, event)
                 return state
+            if kind == 'manual_plan':
+                if contains_private(body.get('plan')):
+                    raise Problem('方案包含疑似认证信息，请移除后保存。')
+                try:
+                    plan = manual_plan(body.get('plan'))
+                except Problem as error:
+                    raise Problem(str(error)) from error
+                event = edit_plan(state, target, plan, body.get('plan_version'))
+                self.store.save(state, event)
+                return state
             parent_revision = state["revision"]
             result, call_id = self.planner(state, kind, target, feedback)
             event = apply_planning_result(state, kind, target, feedback, result, call_id)
@@ -259,3 +297,22 @@ class TaskApplication:
             return state
         finally:
             self.store.lock.release()
+
+    def set_quality(self, state, body):
+        """Caller holds the Task lock; preferences do not change plan/Run buckets."""
+        if (body.get('revision') != state['revision'] or
+                body.get('quality_revision') != state.get('quality_revision', 0)):
+            raise Problem('质量或任务版本已改变，请刷新。', 409)
+        try:
+            quality = validate_quality(body.get('generation_quality', state.get('generation_quality', 'low')))
+            targets = ({slot['id'] for slot in state['quick_slots']} if quick_v1.is_v1(state) else
+                       {image['id'] for image in state['images'] if image['role'] ==
+                        ('product' if state.get('mode') == 'quick_redesign' else 'reference')})
+            overrides = validate_image_qualities(body.get('image_qualities', state.get('image_qualities', {})), targets)
+        except ValueError as error:
+            raise Problem(str(error)) from error
+        self.writer(self.store.folder(state['id']) / 'generation_settings.json',
+                    {'task_id': state['id'], 'quality_revision': state.get('quality_revision', 0) + 1,
+                     'generation_quality': quality, 'image_qualities': overrides, 'source': 'OPERATOR_SETTINGS',
+                     'updated_at': self.clock()})
+        return self.store.load(state['id'])

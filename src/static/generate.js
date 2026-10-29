@@ -5,9 +5,11 @@ let presentation={blocked:true},selectedTarget=null,localPlanning=false,renderin
 let batch=null,batchTask=null,batchStorageError=false,pageActive=true,lastOperation=null;
 const node=id=>document.getElementById(id),batchRunner=window.ImageBatchRunner;
 const readOnlyWorkspace=document.body.dataset.workspaceReadOnly==='true';
-const running=new Set(),jobs=new Map(),drafts=new Map(),choices=new Map(),selections=new Map();
+const running=new Set(),jobs=new Map(),drafts=new Map(),choices=new Map(),selections=new Map(),rejectDrafts=new Map();
+const qualityOptions=[['low','低｜草稿'],['medium','中｜标准'],['high','高｜精细']];
+const rejectReasons={PRODUCT_FIDELITY:'商品外观或结构错误',CLAIM_ERROR:'卖点、参数、文案不准确',REFERENCE_MISMATCH:'参考理解或适配错误',DESIGN_QUALITY:'布局与专业设计问题',TEXT_LAYOUT:'文字、语言、排版问题',OTHER:'其他'};
 const statuses={NOT_STARTED:'尚未生成',RUNNING:'正在执行',SUCCEEDED:'图片已生成',FAILED:'本次操作失败',INTERRUPTED:'执行状态待确认'};
-const actionNames={image:'修改图片',plan:'修改计划',reference:'修正参考理解',generate:'生成图片',select:'选择版本',pass:'人工 Pass'};
+const actionNames={image:'修改图片',plan:'AI 重新规划（付费）',reference:'修正参考理解',generate:'生成图片',select:'选择版本',pass:'人工 Pass',reject:'拒绝候选'};
 const key=(task,target)=>JSON.stringify([task,target]);
 const draftKey=(task,target,action)=>JSON.stringify([task,target,action]);
 const batchKey=id=>'commerce:image-batch:'+id;
@@ -88,7 +90,7 @@ function renderChoices(){
   const grid=node('generation-cards');grid.replaceChildren();
   current.cards.forEach((card,index)=>{
     const button=el('button',undefined,'image-choice'+(card.id===selectedTarget?' selected':''));
-    button.type='button';button.dataset.cardId=card.id;button.dataset.passed=String(card.has_passed_history);button.dataset.status=displayStatus(card);button.setAttribute('aria-pressed',String(card.id===selectedTarget));
+    button.type='button';button.dataset.taskId=sessionId;button.dataset.cardId=card.id;button.dataset.passed=String(card.has_passed_history);button.dataset.status=displayStatus(card);button.setAttribute('aria-pressed',String(card.id===selectedTarget));
     button.setAttribute('aria-label','选择图片 #'+String(index+1).padStart(2,'0'));
     const image=el('img');image.src=card.image_url||card.reference.url;image.alt=card.image_url?'已保存的生成图缩略图':'尚未生成，显示参考或原图';
     const badge=card.has_passed_history?'已有 Pass':'待审核';
@@ -101,9 +103,10 @@ function renderHistory(card){
   const records=node('interaction-records');records.replaceChildren();
   const state=window.PreparePlan.getState(),rows=[];
   for(const event of state.events||[]){
-    if(event.target!==card.id||!['plan','reference','confirm'].includes(event.action))continue;
-    rows.push({at:event.at,label:event.action==='confirm'?'确认本图计划':actionNames[event.action],text:event.feedback||'已保存对应计划确认。'});
+    if(event.target!==card.id||!['plan','manual_plan','reference','confirm'].includes(event.action))continue;
+    rows.push({at:event.at,label:event.action==='confirm'?'确认本图计划':event.action==='manual_plan'?'HUMAN_EDIT · 人工修订':actionNames[event.action],text:event.feedback||'已保存对应计划确认。'});
   }
+  for(const event of card.review_events||[])rows.push({at:event.created_at,label:(event.action==='reject'?'拒绝':event.action==='pass'?'Pass':'选择版本')+' → V'+event.version,text:(rejectReasons[event.reason]||'')+(event.note?'：'+event.note:'')});
   for(const version of card.versions){
     const parent=card.versions.find(v=>v.run_id===version.parent_run_id);
     rows.push({at:version.created_at,label:(version.action==='revise_image'?'图片修改':'图片生成')+' → V'+version.version,
@@ -126,6 +129,8 @@ function renderDetail(card){
   const large=el('button','查看大图','secondary');large.type='button';large.onclick=()=>showLarge(image.src,image.alt);
   box.append(image,large,el('p','当前版本：'+versionLabel(card)+' · '+(statuses[displayStatus(card)]||'状态待确认')+
     (card.passed_run===card.selected_run&&card.selected_run?' · 已 Pass':' · 当前版本未 Pass'),'image-caption'));
+  box.append(el('p','下一次生成 / 修改质量：'+(qualityOptions.find(([value])=>value===(card.quality||'low'))?.[1]||card.quality)+'；质量不保证商品保真。','muted'));
+  renderQuality(box,card);
   box.append(el('p','本图配置尺寸：'+card.output_size+'；实际 Run 尺寸见 Inspector 请求参数。','muted'));
   if(card.generation_block_reason)box.append(el('p',card.generation_block_reason,'notice'));
   const source=el('details',undefined,'history');source.append(el('summary',card.output_slot?'查看本图位的主要设计参考':current.mode==='quick_redesign'?'查看原始待重设计图片':'查看对应设计参考图'));
@@ -136,7 +141,7 @@ function renderDetail(card){
   const state=window.PreparePlan.getState(),quick=current.mode==='quick_redesign';
   if(!quick){
     const plan=state.plans[card.id];if(plan)box.append(el('p','计划摘要：'+plan.goal,'plan-summary'));
-    const details=window.PreparePlan.renderCardPlan(card,false);details.open=false;box.append(details);
+    const details=window.PreparePlan.renderCardPlan(card,false);details.open=false;box.append(details);if(plan){const edit=el('button','人工编辑方案（免费）','secondary');edit.type='button';edit.dataset.action='manual-plan';edit.disabled=readOnlyWorkspace||mutationBusy()||presentation.blocked;edit.onclick=()=>{details.open=true;const editor=details.querySelector?.('.manual-plan-editor');if(editor)editor.open=true;};box.append(edit);}
     if(state.references[card.id]){const correction=el('button','修正本图参考理解','secondary');correction.onclick=()=>chooseAction('reference');box.append(correction);}
   }else if(card.output_slot){
     box.append(el('p','本图补充要求：'+(card.output_slot.requirements||'未填写，按图位目标和整体要求制作。'),'plan-summary'),
@@ -154,7 +159,7 @@ function renderDetail(card){
   const controls=el('div',undefined,'generation-actions'),busy=mutationBusy(),blocked=readOnlyWorkspace||presentation.blocked||!available;
   if(!quick){
     const confirm=el('button',card.plan_status?.confirmed?'本图计划已确认':'确认本图计划','secondary');
-    confirm.disabled=busy||blocked||card.plan_status?.confirmed||!state.plans[card.id]||state.stale_plans.includes(card.id);
+    confirm.disabled=busy||blocked||Boolean(card.plan_status?.fact_conflict_ids?.length)||card.plan_status?.confirmed||!state.plans[card.id]||state.stale_plans.includes(card.id);
     confirm.onclick=()=>window.PreparePlan.confirmPlan(card.id);controls.append(confirm);
   }
   const generate=el('button','生成图片','primary');
@@ -166,15 +171,51 @@ function renderDetail(card){
   const readOnly=!(card.review_allowed??card.generation_allowed)||card.historical_generation||blocked||card.request_uncertain;
   select.onchange=()=>{if(readOnly){card.selected_run=select.value;card.image_url=card.versions.find(v=>v.run_id===select.value).url;render();}else reviewOne(card.id,'select',select.value);};
   const pass=el('button','Pass · 接受当前版本','secondary');pass.disabled=select.disabled||readOnly||card.passed_run===card.selected_run;
-  pass.onclick=()=>reviewOne(card.id,'pass',card.selected_run);history.append(select,pass);box.append(history);
+  pass.onclick=()=>reviewOne(card.id,'pass',card.selected_run);history.append(select,pass);box.append(history);renderReject(box,card,select.disabled||readOnly);
   if(card.status==='RUNNING'){
     const wait=el('p','图片操作正在执行','waiting');wait.dataset.started=card.started_at;wait.dataset.operation=card.operation==='revise_image'?'图片修改':'图片生成';box.append(wait);
+  }
+}
+function renderQuality(box,card){
+  const state=window.PreparePlan.getState(),area=el('div',undefined,'quality-settings');
+  for(const [scope,title,value] of [['task','任务默认质量',state.generation_quality||'low'],['image','本图质量覆盖',card.quality_override||'']]){
+    const label=el('label',title),select=el('select');select.id=scope==='task'?'task-quality-default':'image-quality-override';
+    if(scope==='image'){const o=el('option','继承任务默认');o.value='';select.append(o);}
+    for(const [v,text] of qualityOptions){const o=el('option',text);o.value=v;select.append(o);}select.value=value;
+    select.disabled=readOnlyWorkspace||mutationBusy()||presentation.blocked||!available;
+    select.onchange=()=>saveQuality(card,scope,select.value);label.append(select);area.append(label);
+  }
+  area.append(el('small','选择后自动保存（不调用模型）；只影响下一次生成/修改，不改写已有 Run。'));box.append(area);
+}
+async function saveQuality(card,scope,value){
+  if(mutationBusy()||presentation.blocked||readOnlyWorkspace)return;
+  const state=window.PreparePlan.getState(),task=state.id,revision=state.revision,overrides={...state.image_qualities};
+  if(scope==='image'){if(value)overrides[card.id]=value;else delete overrides[card.id];}
+  localPlanning=true;render();
+  try{const body=await api('/api/sessions/'+task+'/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'set_quality',revision,quality_revision:state.quality_revision||0,generation_quality:scope==='task'?value:state.generation_quality||'low',image_qualities:overrides})});
+    if(sessionId===task&&window.PreparePlan.getState()?.revision===revision)window.PreparePlan.applyState(body.state);
+    message('质量设置已保存，不调用模型；已有图片和 Pass 保留。',false,task);
+  }catch(error){message(error.message,true,task);}finally{localPlanning=false;try{await refreshFor(task);}catch(error){message(error.message,true,task);}render();}
+}
+function renderReject(box,card,disabled){
+  const run=card.selected_run;if(!run)return;
+  const id=JSON.stringify([sessionId,card.id,run]),draft=rejectDrafts.get(id)||{reason:'',note:''};rejectDrafts.set(id,draft);
+  const area=el('details',undefined,'reject-review');area.append(el('summary','拒绝当前候选 / 记录原因（不调用模型）'));
+  const label=el('label','拒绝原因'),reason=el('select');reason.id='reject-reason';const empty=el('option','请选择原因');empty.value='';reason.append(empty);
+  for(const [value,text] of Object.entries(rejectReasons)){const o=el('option',text);o.value=value;reason.append(o);}reason.value=draft.reason;reason.disabled=disabled;reason.onchange=()=>draft.reason=reason.value;label.append(reason);
+  const noteLabel=el('label','拒绝说明 / 后续修改意见'),note=el('textarea');note.id='reject-note';note.maxLength=12000;note.rows=3;note.value=draft.note;note.disabled=disabled;note.oninput=()=>draft.note=note.value;noteLabel.append(note);
+  const save=el('button','保存 Reject（免费）','secondary');save.type='button';save.id='save-reject';save.disabled=disabled;save.onclick=()=>{if(!draft.reason){message('请选择拒绝原因。',true);return;}return reviewOne(card.id,'reject',run,{reason:draft.reason,note:draft.note});};
+  area.append(label,noteLabel,save,el('p','拒绝不删除图片、不撤销旧 Pass，也不自动修改或调用模型。','muted'));box.append(area);
+  const events=(card.review_events||[]).filter(event=>event.run_id===run&&['pass','reject'].includes(event.action)),last=events.at(-1);
+  if(last?.action==='reject'){
+    box.append(el('p','当前候选已拒绝：'+rejectReasons[last.reason]+(last.note?' · '+last.note:''),'notice'));
+    const reuse=el('button','将拒绝说明填入修改意见','secondary');reuse.type='button';reuse.disabled=disabled;reuse.onclick=()=>{choices.set(key(sessionId,card.id),'image');const draft=draftFor(card,'image');draft.text=[draft.text,last.note||rejectReasons[last.reason]].filter(Boolean).join('\n');draft.serial++;render();};box.append(reuse);
   }
 }
 function renderComposer(card){
   const action=actionFor(card),draft=draftFor(card,action),state=window.PreparePlan.getState(),select=node('edit-action');
   select.replaceChildren();
-  const options=current.mode==='quick_redesign'?[['image','修改图片']]:[['plan','修改计划'],['image','修改图片'],...(state.references[card.id]?[['reference','修正参考理解']]:[])];
+  const options=current.mode==='quick_redesign'?[['image','修改图片']]:[['plan','AI 重新规划本图（付费）'],['image','修改图片'],...(state.references[card.id]?[['reference','修正参考理解']]:[])];
   for(const [value,label] of options){const option=el('option',label);option.value=value;select.append(option);}select.value=action;
   node('edit-target').textContent='Task ID: '+sessionId+'\nImage ID: '+card.id+'（'+imageNumber(card.id)+'）\nImage Version: '+versionLabel(card)+(card.selected_run?' · Run ID: '+card.selected_run:'');
   if(node('edit-feedback').value!==draft.text)node('edit-feedback').value=draft.text;
@@ -187,8 +228,8 @@ function renderComposer(card){
   const stale=hasContent(draft)&&!matchesBase(card,action,draft);
   node('rebase-draft').hidden=!stale;node('rebase-draft').disabled=mutationBusy();
   node('draft-note').textContent=stale?'草稿基于之前的版本，内容已保留。请选回原版本，或明确将草稿用于当前版本后再发送。':
-    action==='image'&&!card.selected_run?'尚未生成图片，不能执行图片修改。':action==='image'?'本次只编辑所选版本；模型不能保证所有未修改区域保持不变。':'只修改本图的'+(action==='plan'?'制作计划，完成后需重新确认。':'参考理解，受影响计划需更新并重新确认。');
-  node('send-edit').textContent=action==='image'?'发送图片修改':action==='plan'?'发送计划修改':'发送参考理解修正';
+    action==='image'&&!card.selected_run?'尚未生成图片，不能执行图片修改。':action==='image'?'本次只编辑所选版本；模型不能保证所有未修改区域保持不变。':'只修改本图的'+(action==='plan'?'制作计划（会调用 Planning 模型），完成后需重新确认；免费编辑请用详情中的「人工编辑方案」。':'参考理解，受影响计划需更新并重新确认。');
+  node('send-edit').textContent=action==='image'?'发送图片修改':action==='plan'?'AI 重新规划本图（付费）':'发送参考理解修正';
   updateSend(card,action,draft);renderHistory(card);
 }
 function updateSend(card=selectedCard(),action=card&&actionFor(card),draft=card&&draftFor(card,action)){
@@ -224,7 +265,7 @@ function freezeOperation(card,action,draft=null,batchItem=null){
   const state=window.PreparePlan.getState();
   return Object.freeze({taskId:sessionId,imageId:card.id,number:imageNumber(card.id),version:versionLabel(card),action,
     stateRevision:state.revision,planRevision:card.generation_revision,reviewRevision:card.confirmed_revision,planVersion:state.plan_status?.[card.id]?.plan_version||null,
-    parentRunId:card.selected_run,cardRevision:card.card_revision,operationId:batchItem?.operation_id||crypto.randomUUID().replaceAll('-',''),
+    parentRunId:card.selected_run,cardRevision:card.card_revision,quality:card.quality||'low',qualityRevision:card.quality_revision||0,operationId:batchItem?.operation_id||crypto.randomUUID().replaceAll('-',''),
     feedback:draft?.text||'',file:draft?.file||null,purpose:draft?.purpose||'',
     draftKey:draft?draftKey(sessionId,card.id,action):null,draftSerial:draft?.serial,batchItem});
 }
@@ -236,7 +277,7 @@ function finishOperation(job,status){job.status=status;job.finished=new Date().t
 async function runImage(op){
   const jobId=key(op.taskId,op.imageId),job=startOperation(op);running.add(jobId);jobs.set(jobId,job);render();
   try{
-    const payload={confirmed_revision:op.planRevision,card_revision:op.cardRevision,operation_id:op.operationId,
+    const payload={quality:op.quality,quality_revision:op.qualityRevision,confirmed_revision:op.planRevision,card_revision:op.cardRevision,operation_id:op.operationId,
       ...(op.batchItem?{batch_only:true}:{}),...(op.action==='image'?{parent_run_id:op.parentRunId,feedback:op.feedback}:{})};
     let options={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)};
     if(op.file){const data=new FormData();for(const [name,value] of Object.entries(payload))data.append(name,String(value));data.append('auxiliary_purpose',op.purpose);data.append('auxiliary',op.file,op.file.name);options={method:'POST',body:data};}
@@ -277,10 +318,10 @@ async function sendModification(){
   }catch(error){finishOperation(job,'FAILED');message('图片 '+op.number+'：'+error.message+'；未自动重试。',true,op.taskId);}
   finally{localPlanning=false;try{await refreshFor(op.taskId);}catch(error){if(sessionId===op.taskId){available=false;message(error.message,true);}}render();}
 }
-async function reviewOne(target,action,runId){
+async function reviewOne(target,action,runId,feedback={}){
   const card=current?.cards.find(c=>c.id===target);if(readOnlyWorkspace||!card||mutationBusy()||presentation.blocked||!(card.review_allowed??card.generation_allowed)||card.historical_generation)return;
   const op=freezeOperation(card,action),jobId=key(op.taskId,op.imageId),job=startOperation(op);running.add(jobId);render();
-  try{await api('/api/sessions/'+op.taskId+'/review/'+op.imageId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed_revision:op.reviewRevision,card_revision:op.cardRevision,action,run_id:runId})});finishOperation(job,'SUCCEEDED');}
+  try{await api('/api/sessions/'+op.taskId+'/review/'+op.imageId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed_revision:op.reviewRevision,card_revision:op.cardRevision,action,run_id:runId,...feedback})});finishOperation(job,'SUCCEEDED');}
   catch(error){finishOperation(job,'FAILED');message(error.message,true,op.taskId);}
   finally{running.delete(jobId);try{await refreshFor(op.taskId);}catch(error){if(sessionId===op.taskId){available=false;message(error.message,true);}}render();}
 }

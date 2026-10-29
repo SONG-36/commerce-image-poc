@@ -300,3 +300,28 @@ test('blocked legacy execution still permits reviewing an existing valid Run wit
   await h.detail('Pass · 接受当前版本').click();
   assert.equal(h.calls.length,1);assert.ok(h.calls[0].url.includes('/review/'));
 });
+
+test('quality selection saves a free preference and freezes the effective quality in the image request',async()=>{
+  const h=harness();h.current.state.generation_quality='medium';h.current.state.image_qualities={};h.current.data.cards[1].quality='medium';h.present();h.choose(2);
+  const quality=walk(h.node('selected-image-detail'),e=>e.id==='image-quality-override');quality.value='high';
+  h.window.PreparePlan.applyState=state=>{h.current.state=state;};
+  h.handler=async(url,options)=>{const body=JSON.parse(options.body);assert.ok(url.endsWith('/action'));assert.equal(body.action,'set_quality');assert.equal(body.generation_quality,'medium');assert.equal(body.image_qualities.reference_002,'high');h.current.data.cards[1].quality='high';h.current.data.cards[1].quality_revision=1;return response({state:{...h.current.state,image_qualities:body.image_qualities,quality_revision:1}});};
+  await quality.onchange();assert.equal(h.calls.length,1);
+  h.handler=async(url,options)=>{const body=JSON.parse(options.body);assert.equal(body.quality,'high');assert.equal(body.quality_revision,1);return response({status:'SUCCEEDED'});};await h.detail('生成图片').click();assert.equal(h.calls.length,2);
+});
+test('reject records the selected Run and note without generating, then explicitly reuses feedback',async()=>{
+  const h=harness();h.choose(2);let reason=walk(h.node('selected-image-detail'),e=>e.id==='reject-reason'),note=walk(h.node('selected-image-detail'),e=>e.id==='reject-note');
+  reason.value='PRODUCT_FIDELITY';reason.onchange();note.value='只修正接口，保留布局';note.oninput();
+  h.handler=async(url,options)=>{const body=JSON.parse(options.body);assert.ok(url.endsWith('/review/reference_002'));assert.equal(body.action,'reject');assert.equal(body.run_id,'run_reference_002');assert.equal(body.reason,'PRODUCT_FIDELITY');assert.equal(body.note,note.value);h.current.data.cards[1].review_events=[{id:'event',action:'reject',run_id:body.run_id,version:1,reason:body.reason,note:body.note,created_at:'2026-10-29T00:00:00Z'}];return response({event:h.current.data.cards[1].review_events[0]});};
+  await walk(h.node('selected-image-detail'),e=>e.id==='save-reject').click();assert.equal(h.calls.length,1);assert.equal(h.current.data.cards[0].passed_run,'run_reference_001');
+  h.detail('将拒绝说明填入修改意见').click();assert.equal(h.node('edit-action').value,'image');assert.equal(h.node('edit-feedback').value,'只修正接口，保留布局');assert.equal(h.calls.length,1);
+});
+
+test('refresh adopts a newer quality preference revision without changing the confirmed plan revision',async()=>{
+  let state={id:'a'.repeat(32),revision:3,generation_quality:'low',quality_revision:0};let requests=0,rendered=null;
+  const fresh={...state,generation_quality:'high',quality_revision:1};
+  const window={PreparePlan:{getState:()=>state,getStatus:()=>({dirty:false,busy:false}),async api(){requests++;return {state:fresh,generation:{cards:[]},generation_allowed:true,ai_configured:false};},applyState(value){state=value;}},ImageGeneration:{clear(){},lock(){},present(data,options){rendered=options;}}};
+  const note=new Element(),document={body:{dataset:{}},getElementById:id=>id==='local-debug-config'?null:note};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/static/workspace.js'),'utf8'),{window,document,JSON,Error});
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(state.revision,3);assert.equal(state.quality_revision,1);assert.equal(state.generation_quality,'high');assert.equal(requests,1);assert.ok(rendered.key.endsWith(':1'));
+});

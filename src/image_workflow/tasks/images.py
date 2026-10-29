@@ -7,6 +7,7 @@ No Flask, SDK, Prompt or new persistent state is introduced.
 
 from file_ops import ExportError
 from image_workflow import Problem
+from image_workflow.generation.request import quality_for
 
 
 class TaskImageApplication:
@@ -24,7 +25,11 @@ class TaskImageApplication:
         if target not in self.generation.targets(state) or not isinstance(body, dict) or body.get('confirmed_revision') != state['revision']:
             raise Problem('任务、图片或确认计划已改变，请刷新。', 409)
         try:
-            event = self.review.review(self.generation, state, target, body.get('action'), body.get('run_id'), body.get('card_revision'))
+            if body.get('action') == 'reject':
+                event = self.review.review(self.generation, state, target, body.get('action'), body.get('run_id'),
+                                           body.get('card_revision'), reason=body.get('reason'), note=body.get('note', ''))
+            else:
+                event = self.review.review(self.generation, state, target, body.get('action'), body.get('run_id'), body.get('card_revision'))
         except (ValueError, OSError) as error:
             raise Problem(self.safe_text(str(error)), 409) from error
         return event
@@ -38,6 +43,7 @@ class TaskImageApplication:
     def revise(self, state, target, body, read_auxiliary):
         if target not in self.generation.targets(state) or not isinstance(body, dict) or body.get('confirmed_revision') != state['revision']:
             raise Problem('任务、图片或确认计划已改变，请刷新；未调用模型。', 409)
+        self.check_quality(state, target, body)
         feedback = body.get('feedback')
         if not isinstance(feedback, str) or not feedback.strip() or len(feedback) > 12000 or not body.get('parent_run_id') or not body.get('operation_id') or not isinstance(body.get('card_revision'), int):
             raise Problem('请选择当前版本并填写修改意见（最多 12000 字）。')
@@ -58,6 +64,7 @@ class TaskImageApplication:
             raise Problem("确认计划的版本已改变，请刷新页面；本次没有调用模型。", 409)
         if target not in self.generation.targets(state):
             raise Problem("指定图片计划不存在。", 404)
+        self.check_quality(state, target, body)
         if state.get("mode") == "quick_redesign" and (not isinstance(body.get("card_revision"), int) or not body.get("operation_id")):
             raise Problem("请刷新图片状态后再提交；本次未调用模型。", 409)
         if body.get('batch_only'):
@@ -68,6 +75,11 @@ class TaskImageApplication:
         except ValueError as error:
             raise Problem(str(error), 409) from error
         return record
+
+    def check_quality(self, state, target, body):
+        if ('quality_revision' in body and body['quality_revision'] != state.get('quality_revision', 0) or
+                'quality' in body and body['quality'] != quality_for(state, target)):
+            raise Problem('生图质量设置已改变，请刷新后确认；未调用模型。', 409)
 
     def export_case(self, session_id):
         self.store.folder(session_id)  # Validate the identifier before filesystem access.

@@ -27,6 +27,7 @@
       <form id="input-form">
         <fieldset class="input-fields" {% if workspace_read_only %}disabled{% endif %}>
         <label>工作模式<select id="task-mode"><option value="product_pack">Listing｜商品资料制图</option><option value="quick_a">Quick-A｜同款快速改版</option><option value="quick_b">Quick-B｜换主体快速改版</option><option value="quick_redesign" hidden disabled>历史 Quick（未分类）</option></select></label>
+        <label>任务默认生图质量<select id="generation-quality"><option value="low">低｜草稿</option><option value="medium" selected>中｜标准</option><option value="high">高｜精细</option></select></label><p class="muted">质量影响渲染与成本，不保证商品保真。旧任务缺少设置时保持 Low；每图可覆盖任务默认。</p>
         <label class="task-name">任务名称<input id="task-title" type="text" maxlength="120" required placeholder="例如：日本站螺丝刀商品图"></label>
         <div class="columns">
           <div><h3><span id="product-label">商品原图</span> <span id="product-count" class="count">0 张</span></h3><div id="product-images" class="image-grid"></div><label class="upload">＋ 添加商品图片<input id="product-files" type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label="上传商品原始图片"></label></div>
@@ -46,14 +47,14 @@
       <div class="section-head output-heading"><div><span class="eyebrow">OUTPUT</span><h2 id="output-title">逐图制作与审核</h2></div><div class="heading-actions"><button id="export-passed" class="secondary" disabled>导出通过的图片</button><button id="export-experiment" class="secondary" disabled>导出实验包</button></div></div>
       <div id="planning-controls" class="panel"><div class="actions"><button id="understand" class="primary" {% if workspace_read_only %}disabled{% endif %}>AI 理解与规划</button><button id="replan" class="secondary" disabled>按当前理解重新规划全部</button><a id="enter-generate" href="#output" hidden>定位图片卡片</a></div><strong id="confirmation-title">先保存商品资料</strong><p id="confirmation-note" class="muted"></p></div>
       <div class="panel batch-controls"><button id="batch-generate" class="primary" disabled>一键生成已确认图片（0 张）</button><span id="batch-count" class="muted">仅选择已确认且从未尝试生成的图片。</span><p id="batch-progress" role="status" aria-live="polite" hidden></p><button id="check-batch" class="secondary" hidden>查询中断请求状态（不重试）</button></div>
-      <p id="workspace-note" class="notice">只有主动点击 AI 理解、计划修正、生成或修改才产生调用费用；不会自动重试。选择版本、Pass、刷新和导出不调用模型。</p>
+      <p id="workspace-note" class="notice">只有主动点击 AI 理解、计划修正、生成或修改才产生调用费用；不会自动重试。人工计划编辑、质量设置、Reject、选择版本、Pass、刷新和导出不调用模型。</p>
       <div id="generation-cards" class="generation-grid image-choices" role="group" aria-label="选择要操作的图片"><p class="empty">保存资料后，这里展示可选择的图片。</p></div>
       <p id="image-operation" role="status" aria-live="polite" hidden></p>
       <p id="select-image-note" class="empty">请选择一张图片，查看详情并进行修改。</p>
       <div id="image-workspace" class="image-workspace" hidden>
         <section class="panel image-detail" aria-labelledby="selected-image-title"><h3 id="selected-image-title">当前图片</h3><div id="selected-image-detail"></div></section>
         <section class="panel image-interaction" aria-labelledby="interaction-title">
-          <h3 id="interaction-title">统一 AI 交互</h3>
+          <h3 id="interaction-title">图片修改与 AI 重新规划</h3>
           <p id="edit-target" class="edit-target"></p>
           <label>操作类型<select id="edit-action" aria-label="当前图片的操作类型"></select></label>
           <div id="edit-auxiliary">

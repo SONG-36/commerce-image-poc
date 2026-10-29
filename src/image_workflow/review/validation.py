@@ -22,13 +22,17 @@ def validate_review_request(pointer, kind, expected_revision):
     # Order matters: stale revision takes precedence over an unknown action.
     if expected_revision != pointer.get('card_revision', 0):
         raise ValueError('图片状态已改变，请刷新后再操作。')
-    if kind not in ('select', 'pass'):
+    if kind not in ('select', 'pass', 'reject'):
         raise ValueError('不支持的图片审核操作。')
 
 
 def validate_pass_selection(pointer, kind, run_id):
-    if kind == 'pass' and run_id != pointer.get('selected_run', pointer.get('last_successful_run')):
+    if kind in ('pass', 'reject') and run_id != pointer.get('selected_run', pointer.get('last_successful_run')):
         raise ValueError('请先选择要审核的图片版本。')
+
+
+REJECT_REASONS = ('PRODUCT_FIDELITY', 'CLAIM_ERROR', 'REFERENCE_MISMATCH',
+                  'DESIGN_QUALITY', 'TEXT_LAYOUT', 'OTHER')
 
 
 def validate_image_bytes(record, data):

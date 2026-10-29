@@ -10,7 +10,7 @@ from typing import Callable
 import zipfile
 
 from persistence.review_state import ReviewFiles
-from .validation import ImageScope, validate_pass_selection, validate_review_request
+from .validation import ImageScope, validate_pass_selection, validate_review_request, REJECT_REASONS
 from .versioning import image_bytes
 
 
@@ -44,11 +44,15 @@ def review_transition(scope, pointer, selected, kind, run_id, expected_revision,
     return event, pointer
 
 
-def apply_review(scope: ImageScope, files: ReviewFiles, kind, run_id, expected_revision, *, io: ReviewIO):
+def apply_review(scope: ImageScope, files: ReviewFiles, kind, run_id, expected_revision, *, io: ReviewIO,
+                 reason=None, note=''):
     """Validate, build and persist one explicit human action; caller owns lock."""
     folder = files.card_folder()
     pointer = files.read_pointer(folder)
     validate_review_request(pointer, kind, expected_revision)
+    if kind == 'reject' and (reason not in REJECT_REASONS or not isinstance(note, str) or len(note) > 12000
+                             or io.contains_private(note)):
+        raise ValueError('请选择有效拒绝原因；说明最多 12000 字，不包含认证信息。')
     _, selected = image_bytes(scope, files, run_id)
     validate_pass_selection(pointer, kind, run_id)
     event_id = io.new_id().hex
@@ -56,6 +60,8 @@ def apply_review(scope: ImageScope, files: ReviewFiles, kind, run_id, expected_r
     created_at = io.utc_now().isoformat()
     event, pointer = review_transition(scope, pointer, selected, kind, run_id, expected_revision,
                                        event_id=event_id, case_id=case_id, created_at=created_at)
+    if kind == 'reject':
+        event.update(reason=reason, note=note, source='HUMAN_REVIEW')
     files.save_review(folder, event, pointer, sanitize=io.sanitize)
     return event
 

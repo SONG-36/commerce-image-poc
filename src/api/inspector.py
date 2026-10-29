@@ -67,7 +67,7 @@ def register_inspector_routes(app, runtime_dir, allowed_task_ids, *, integrated=
             endpoint = request.endpoint
             body = request.get_json(silent=True) if endpoint == 'action' else None
             paid = endpoint in ('generate_one', 'revise_one') or (
-                endpoint == 'action' and (not isinstance(body, dict) or body.get('action') not in ('confirm', 'resolve_conflict')))
+                endpoint == 'action' and (not isinstance(body, dict) or body.get('action') not in ('confirm', 'resolve_conflict', 'manual_plan', 'set_quality')))
             if paid:
                 identity = (request.view_args or {}).get('session_id')
                 if not reader.allows_task(identity):

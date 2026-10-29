@@ -17,6 +17,7 @@ from image_workflow.generation.request import PromptBuilders
 import image_workflow.generation.quick_v1 as quick_v1
 from image_workflow.planning.request import reference_ids
 from .generation_queries import generation_card, generation_operation, request_uncertain
+from image_workflow.generation.request import quality_for
 
 
 @dataclass(frozen=True)
@@ -120,6 +121,10 @@ class GenerationService:
             fresh = self.store.image_state(self.store.load(state['id']), target)
             if fresh['revision'] != state['revision']:
                 raise ValueError('本图确认版本已改变，请刷新；本次未调用模型。')
+            if (fresh.get('quality_revision', 0) != state.get('quality_revision', 0) or
+                    quality_for(fresh, target) !=
+                    quality_for(state, target)):
+                raise ValueError('生图质量已改变，请刷新；本次未调用模型。')
             with self.guard:
                 self.active.add(key)
         except BaseException:
@@ -140,6 +145,8 @@ class GenerationService:
                         same_auxiliary = ((old_auxiliary or {}).get('sha256'), (old_auxiliary or {}).get('purpose')) == ((auxiliary or {}).get('sha256'), (auxiliary or {}).get('purpose'))
                         if previous.get('parent_run_id') != parent_run_id or previous.get('feedback', '') != feedback or not same_auxiliary:
                             raise ValueError('操作标识已用于不同请求，请刷新后再操作。')
+                        if previous.get('parameters', {}).get('quality', 'low') != quality_for(state, target):
+                            raise ValueError('该操作标识已用于不同质量的请求；未重复调用模型。')
                         if previous['status'] not in ['SUCCEEDED', 'FAILED']:
                             raise ValueError('该请求的执行状态待确认，未重复调用模型；费用状态未知。')
                         return previous

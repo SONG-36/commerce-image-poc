@@ -63,8 +63,29 @@ def validate_image_sizes(values, targets, allowed_sizes):
     return dict(values)
 
 
+QUALITIES = ('low', 'medium', 'high')
+
+
+def validate_quality(value):
+    if not isinstance(value, str) or value not in QUALITIES:
+        raise ValueError('生图质量仅支持 low / medium / high。')
+    return value
+
+
+def validate_image_qualities(values, targets):
+    if not isinstance(values, dict) or any(key not in targets for key in values):
+        raise ValueError('逐图质量必须绑定本任务的输出。')
+    return {key: validate_quality(value) for key, value in values.items()}
+
+
+def quality_for(state, target=None, default='low'):
+    value = state.get('image_qualities', {}).get(target, state.get('generation_quality', default))
+    return validate_quality(value)
+
+
 def parameters_for(state, defaults, target=None):
     parameters = dict(defaults)
+    parameters['quality'] = quality_for(state, target, defaults.get('quality', 'low'))
     if state.get('mode') == 'quick_redesign':
         parameters['size'] = state.get('output_size', defaults['size'])
     if state.get('mode') == 'product_pack' and 'listing_slots' in state:

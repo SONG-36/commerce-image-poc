@@ -17,6 +17,16 @@ def fields(value, names):
     return {name: value[name] for name in names}
 
 
+def manual_plan(value):
+    """Human text still uses the existing plan schema, not fact certification."""
+    if not isinstance(value, dict) or set(value) != set(PLAN_FIELDS):
+        raise Problem('请完整填写本图方案的五项内容。')
+    clean = fields(value, PLAN_FIELDS)
+    if any(len(text) > 12000 for text in clean.values()):
+        raise Problem('每项方案最多 12000 字。')
+    return clean
+
+
 def response_shape(action, ids):
     product = {key: "简短中文" for key in PRODUCT_FIELDS}
     ref = {key: "简短中文" for key in REFERENCE_FIELDS}

@@ -11,7 +11,7 @@ from file_ops import safe_path
 from image_workflow import Problem
 from persistence import task_state
 import image_workflow.generation.quick_v1 as quick_v1
-from image_workflow.generation.request import validate_image_sizes
+from image_workflow.generation.request import validate_image_sizes, validate_quality, validate_image_qualities
 from image_workflow.generation.quick_prompt import SIZES
 
 
@@ -39,6 +39,13 @@ class TaskFiles:
                 raise Problem('任务图片路径不在本任务允许范围内。', 409)
             safe_path(self.folder(session_id), image['file'])
         try:
+            settings = safe_path(self.folder(session_id), 'generation_settings.json')
+            if settings.exists():
+                preferences = self.read_json(settings)
+                if not isinstance(preferences, dict) or preferences.get('task_id') != session_id or type(preferences.get('quality_revision')) is not int or preferences['quality_revision'] < 1:
+                    raise ValueError('质量设置归属或版本无效。')
+                for key in ('generation_quality', 'image_qualities', 'quality_revision'):
+                    state[key] = preferences[key]
             quick_v1.validate_scenario(state)
             if quick_v1.is_v1(state):
                 quick_v1.slots_for(state)
@@ -50,7 +57,14 @@ class TaskFiles:
                 targets = {slot['id'] for slot in state['quick_slots']} if quick_v1.is_v1(state) else {
                     image['id'] for image in state['images'] if image['role'] == ('product' if state.get('mode') == 'quick_redesign' else 'reference')}
                 validate_image_sizes(state['image_sizes'], targets, SIZES)
-        except ValueError as error:
+            if 'generation_quality' in state:
+                validate_quality(state['generation_quality'])
+            if 'image_qualities' in state:
+                targets = ({slot['id'] for slot in state['quick_slots']} if quick_v1.is_v1(state) else
+                           {image['id'] for image in state['images'] if image['role'] ==
+                            ('product' if state.get('mode') == 'quick_redesign' else 'reference')})
+                validate_image_qualities(state['image_qualities'], targets)
+        except (ValueError, KeyError, TypeError) as error:
             raise Problem(str(error), 409) from error
         return state
 

@@ -73,11 +73,12 @@ class Store(TaskFiles):
 
     def create(self, text, uploads, title, case_id=None, mode="product_pack", output_size="1024x1536", *,
                quick_business_version=None, quick_slots=None, image_sizes=None,
-               quick_scenario=None, listing_slots=None):
+               quick_scenario=None, listing_slots=None, generation_quality=None, image_qualities=None):
         return create_task(self, text, uploads, title, case_id, mode, output_size, clock=now, new_id=uuid4,
                            contains_private=contains_private, sizes=SIZES, default_requirements=DEFAULT_REQUIREMENTS,
                            quick_business_version=quick_business_version, quick_slots=quick_slots, image_sizes=image_sizes,
-                           quick_scenario=quick_scenario, listing_slots=listing_slots)
+                           quick_scenario=quick_scenario, listing_slots=listing_slots,
+                           generation_quality=generation_quality, image_qualities=image_qualities)
 
     def version(self, state, revision):
         return task_version(self, state, revision)

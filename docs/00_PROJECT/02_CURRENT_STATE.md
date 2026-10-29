@@ -1,5 +1,16 @@
 # Current State
 
+**V1 可用性收口｜2026-10-29：ENGINEERING VERIFIED；BROWSER VERIFIED（匿名 SDK Mock）；BUSINESS ACCEPTANCE PENDING。** 本轮提交前基线 `main / 8bb1c6cff8b558b9310ec763171a4946902a1057`，独立工程提交 SHA 以包含本条的 Commit 为准；未 Push、部署或调用真实模型。下方记录按原日期理解，不代表本轮仍未实现。
+
+- Listing 新增免费 `manual_plan` 操作，保留五项计划 Schema、reference ID、原 AI Call 和前后差异；事件标记 `HUMAN_EDIT`。只递增本图计划版本，撤销本图确认，仍须正式重确认。明显矛盾保留，已处理争议随方案版本失效；人工编辑不认证商品事实、不调用 Planning。AI 重新规划在界面独立标明付费。Quick-A/B 仍无强制 Planning。
+- 质量支持 `low / medium / high`（低｜草稿、中｜标准、高｜精细）。新 Web Task 显式默认 Medium；历史 Task/旧 API 与 CLI 缺字段保持原 Low。Task 默认与逐图覆盖保存、恢复和另存重映射；工作台通过免费 `set_quality` 保存设置，`generation_settings.json` 单独记录设置版本，不改变确认计划或旧 Run 目录。新生成/修改记录实际 quality，过期设置及不同质量复用 operation_id 被拒绝，零自动重试不变；历史 Run/Pass 不被覆盖。
+- 当前模型仍为既有 Images 模型。核对官方 [Image generation / Size and quality options](https://developers.openai.com/api/docs/guides/image-generation#size-and-quality-options) 与本地 SDK 的 Images Edit 参数均支持上述三个值；本轮只用 SDK Mock 验证传参，没有进行真实 Medium/High 质量或费用试验，High 不保证商品保真。
+- Review 新增绑定 Task/图位/确认版本/Run 的 `reject` 事件，六类原因和可选说明写入现有 reviews，保留图片、旧 Pass、历史选择及 ZIP。拒绝不删除、不自动修改、不自动调用模型；说明可由用户主动填入下一次修改意见。未 Pass 不自动解释为已拒绝。
+- 最终完整安全离线回归：Python **466 PASS**；独立 Node **73 PASS**，零失败/错误/跳过（Python 包含 Node 包装，不累加）。新增 15 项 Python 和 5 项 Node 可用性回归；原有黄金指纹、关键断言和 23 条普通应用路由保持，未刷新历史指纹。
+- 实际 Microsoft Edge Chromium + CDP 验证 TEST-01～10：人工保存且 Planning 增量 0、重确认、三档质量保存/刷新/另存、逐图覆盖进入 SDK Mock、Reject/反馈、Select/Pass/历史 ZIP、Quick-A/B 闭环、10 个动态图位删除/新增/另存、尺寸专项正反例、Listing 矛盾处理与证据不足正例均通过；390px 无横向溢出。浏览器最初 TEST-09 因脚本等待旧 Task 卡片超时，按完整 Task 身份等待后重测通过，原失败记录保留。
+- 临时匿名浏览器 Evidence：`/private/tmp/v1-usability-browser-llzs50yq/browser-report.json`、`sdk_mock_calls.json`、`download_integrity.json`、`screenshots/`（临时目录可能清理）；3 次 Planning / 6 次 Images 均为 SDK Mock，真实模型调用 **0**。已核对下载 ZIP 字节对应明确 Pass 的旧 Run。没有读取真实 `.env`、运营 Runtime 或改写历史 Evidence；Pilot 与用户原本的本地服务未改动。
+- 边界：本次通过的是可用性工程与匿名浏览器操作，不代表商品外观、宣称、日语、专业设计或实际模型质量验收通过。真实模型与运营验收仍需独立执行；Mac mini 当前部署版本继续 UNKNOWN / DEFER。下一轮架构审核只需关注本次人工修订/确认、质量设置/Run 参数、Review 反馈及锁/持久化边界，不以此授权 Agent、Knowledge 或 Skills 扩展。
+
 **E1-05 Listing Planning 契约修复｜2026-10-29：OFFLINE ENGINEERING VERIFIED；REAL RERUN NOT PERFORMED。** 保留下方真实失败及既有未提交记录；本轮只改 Planning 请求投影、来源校验与离线测试，不修改 Generation、Review、业务基线或历史 Evidence。
 
 - 明确合法 reference/计划 ID，并在模型输入中去除内部图位 ID；保留参考绑定、类型、逐图要求和尺寸，任务存储身份不变。原始 listing/description/requirements 继续逐字匹配；新增仅限本次提供且启用的具体参考图的 `slot_requirements` 来源，必须带 reference_id、关联受影响计划并逐字匹配该 Brief。模型推断不作为原始来源，运行时约束不等于商品事实认证；无效 ID/来源仍拒绝，不做模糊匹配或自动重映射。

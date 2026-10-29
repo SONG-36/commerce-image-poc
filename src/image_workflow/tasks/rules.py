@@ -103,3 +103,22 @@ def apply_planning_result(state, kind, target, feedback, result, call_id):
     apply_reports(state, result.get('fact_issues', []), call_id)
     state["confirmed"] = False
     return event
+
+
+def edit_plan(state, target, plan, expected_version):
+    """One explicit human revision; retain disputes and every other confirmation."""
+    if target not in reference_ids(state) or target not in state['plans']:
+        raise Problem('本图尚无可编辑方案。', 409)
+    status = plan_status(state, target)
+    if type(expected_version) is not int or expected_version != status['plan_version']:
+        raise Problem('本图方案版本已改变，请刷新后再编辑。', 409)
+    before = copy.deepcopy(state['plans'][target])
+    materialize_confirmations(state)
+    state['plans'][target] = copy.deepcopy(plan)
+    state['plan_versions'][target] = status['plan_version'] + 1
+    state['plan_context'][target] = context_version(state, target)
+    state['plan_confirmations'].pop(target, None)
+    state['confirmed'] = False
+    return {'action': 'manual_plan', 'target': target, 'source': 'HUMAN_EDIT',
+            'before': before, 'after': copy.deepcopy(plan), 'feedback': '',
+            'plan_version': state['plan_versions'][target]}

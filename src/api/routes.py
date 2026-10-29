@@ -109,6 +109,8 @@ def register_routes(app, *, store, generation, tasks, queries, images, case, saf
             try:
                 for key in ('confirmed_revision', 'card_revision'):
                     body[key] = int(body[key])
+                if 'quality_revision' in body:
+                    body['quality_revision'] = int(body['quality_revision'])
             except (KeyError, ValueError) as error:
                 raise Problem('图片版本信息无效，请刷新后重新修改。') from error
         elif isinstance(body, dict) and any(key in body for key in ('auxiliary', 'auxiliary_reference', 'auxiliary_path', 'auxiliary_purpose')):

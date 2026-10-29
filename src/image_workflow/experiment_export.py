@@ -145,6 +145,8 @@ def _export_experiment(store, session_id, *, safe_path, read_json, historical_ca
             return destination
 
         add(session, "state.json", "planning/state.json", required=True)
+        if (session / 'generation_settings.json').exists():
+            add(session, 'generation_settings.json', 'planning/generation_settings.json', required=True)
         add(session, "inputs/texts.json", "inputs/texts.json", required=True)
         for name in ("listing", "description", "requirements", "product_facts"):
             if name not in state["inputs"]:

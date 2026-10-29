@@ -3,7 +3,7 @@
   let snapshot=null,loadingFor=null,sequence=0,syncing=false,failed=false;
   const prepare=window.PreparePlan,images=window.ImageGeneration;
   const readOnly=document.body.dataset.workspaceReadOnly==='true';
-  const key=state=>state?`${state.id}:${state.revision}`:'';
+  const key=state=>state?`${state.id}:${state.revision}:${state.quality_revision||0}`:'';
   function aiAllowed(){
     if(readOnly)return false;
     const element=document.getElementById('local-debug-config');if(!element)return true;
@@ -29,7 +29,7 @@
       const body=await prepare.api(`/api/sessions/${expectedId}/workspace`);
       if(ticket!==sequence||prepare.getState()?.id!==expectedId)return;
       const current=prepare.getState(),status=prepare.getStatus();
-      if(body.state.revision!==current.revision){
+      if(body.state.revision!==current.revision||(body.state.quality_revision||0)!==(current.quality_revision||0)){
         if(status.dirty||status.busy)throw new Error('任务状态已在其他操作中改变；保留当前草稿，请检查后刷新。');
         syncing=true;try{prepare.applyState(body.state,body.activity);}finally{syncing=false;}
       }

@@ -315,3 +315,26 @@ test('classifying a legacy Listing transfers reference sizes into slots without 
   assert.equal(JSON.parse(body.get('listing_slots'))[0].reference_id,'reference_001');
   assert.equal(JSON.stringify(state),before);
 });
+
+test('quality defaults and per-slot choices persist and remap on save-as without mixing references',async()=>{
+  const h=await harness();h.mode('product_pack');h.products(3);h.reference(0);h.add('selling_point');h.reference(3);
+  h.node('generation-quality').value='medium';h.field(0,'quality').value='low';h.field(0,'quality').onchange();h.field(3,'quality').value='high';h.field(3,'quality').onchange();
+  h.reject();await h.submit();let body=h.calls.at(-1).options.body;
+  assert.equal(body.get('generation_quality'),'medium');assert.deepEqual(JSON.parse(body.get('image_qualities')),{reference_001:'low',reference_002:'high'});
+  const state={id:'d'.repeat(32),mode:'product_pack',title:'anonymous',revision:1,inputs:{},images:[
+    {id:'product_001',role:'product',name:'own.png',url:'/own'},
+    {id:'reference_001',role:'reference',name:'unused.png',url:'/unused'},
+    {id:'reference_002',role:'reference',name:'used.png',url:'/used'}],
+    generation_quality:'medium',image_qualities:{reference_002:'high'},listing_slots:[{id:'reference_905',type:'scene',enabled:true,reference_id:'reference_002',requirements:''}],plans:{},plan_status:{},stale_plans:[]};
+  const restored=await harness(state);assert.equal(restored.node('generation-quality').value,'medium');assert.equal(restored.field(3,'quality').value,'high');restored.reject();await restored.submit();body=restored.calls.at(-1).options.body;assert.deepEqual(JSON.parse(body.get('image_qualities')),{reference_001:'high'});
+});
+test('manual plan editor sends exact five fields and a free version-bound operation',async()=>{
+  const plan={goal:'old goal',selling_points:'old claims',design:'old design',scene_style:'old style',risks:'old risks'};
+  const state={id:'e'.repeat(32),mode:'product_pack',title:'anonymous',revision:3,inputs:{},images:[],product:{identity:'fixture'},plans:{reference_001:plan},references:{},plan_status:{reference_001:{plan_version:2,confirmed:true}},stale_plans:[],events:[]};
+  const h=await harness(state),view=h.window.PreparePlan.renderCardPlan({id:'reference_001'},false);
+  const goal=all(view,e=>e.dataset.planField==='goal')[0];goal.value='human goal';goal.oninput();
+  h.handler=async(url,options)=>({ok:true,json:async()=>({state:{...state,revision:4,plans:{reference_001:{...plan,goal:'human goal'}},plan_status:{reference_001:{plan_version:3,confirmed:false}}}})});
+  const save=all(view,e=>e.dataset.action==='save-manual-plan')[0];await save.onclick();
+  const posts=h.calls.filter(c=>c.options?.method==='POST');assert.equal(posts.length,1);const body=JSON.parse(posts[0].options.body);
+  assert.equal(body.action,'manual_plan');assert.equal(body.plan_version,2);assert.equal(body.revision,3);assert.equal(body.target,'reference_001');assert.deepEqual(body.plan,{...plan,goal:'human goal'});assert.match(h.node('message').textContent,/模型调用 0 次/);
+});

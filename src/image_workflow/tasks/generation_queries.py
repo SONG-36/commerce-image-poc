@@ -37,10 +37,19 @@ def generation_card(service, state, target, *, reader, safe_text, defaults, revi
     reference_id = slot['reference_id'] if slot else target
     reference = next(image for image in state["images"] if image["id"] == reference_id)
     error = record.get("error")
+    events_folder = safe_path(folder, 'reviews')
+    events = ([reader(safe_path(folder, 'reviews/' + path.name)) for path in sorted(events_folder.glob('*.json'))]
+              if events_folder.is_dir() else [])
+    events.sort(key=lambda event: (event.get('card_revision', 0), event['id']))
     return {
         "id": target, "plan": state["plans"].get(target), "confirmed_revision": revision,
         "requirements": state["inputs"]["requirements"], "product_facts": state["inputs"].get("product_facts", ""),
         "output_size": parameters_for(state, defaults, target)['size'],
+        **({'quality': parameters_for(state, defaults, target)['quality'],
+            'quality_override': state.get('image_qualities', {}).get(target),
+            'quality_revision': state.get('quality_revision', 0)}
+           if any(key in state for key in ('generation_quality', 'image_qualities', 'quality_revision')) else {}),
+        **({'review_events': events} if events else {}),
         "style_references": [{"name": image["name"], "url": f"/api/sessions/{state['id']}/images/{image['id']}"}
                              for image in state["images"] if state.get("mode") == "quick_redesign" and not slot and image["role"] == "reference"],
         "reference": {"name": reference["name"], "url": f"/api/sessions/{state['id']}/images/{reference_id}"},

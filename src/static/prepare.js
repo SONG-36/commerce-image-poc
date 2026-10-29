@@ -7,7 +7,9 @@ let classifyLegacy=false;
 let quickSlots=[],usedSlotIds=new Set(),nextSlotSerial=101;
 const outputSizes=[['1024x1536','竖图 2:3 · 1024×1536'],['1024x1024','方图 1:1 · 1024×1024'],['1536x1024','横图 3:2 · 1536×1024']];
 let operation=null,remoteBusy=false,progressPoll=null,imageBusy=false;
-const feedbackDrafts=new Map();
+const feedbackDrafts=new Map(),manualDrafts=new Map();
+const qualities=[['low','低｜草稿'],['medium','中｜标准'],['high','高｜精细']];
+function qualityControl(value,change,id){const label=element('label','生图质量（留空继承任务默认）'),select=element('select');select.id=id;const option=element('option','继承任务默认');option.value='';select.append(option);for(const [v,text] of qualities){const o=element('option',text);o.value=v;select.append(o);}select.value=value||'';select.onchange=()=>{change(select.value);markDirty();};label.append(select);return label;}
 const actionNames={understand:'AI 理解与规划',product:'AI 修正商品理解',reference:'AI 修正参考理解',plan:'AI 修改本张计划',replan:'AI 重新规划',confirm:'确认计划'};
 function drawProgress(){const box=$('operation-progress');if(!operation){box.hidden=true;return;}box.hidden=false;box.className=operation.status==='RUNNING'?'waiting':'muted';const end=operation.finished_at?Date.parse(operation.finished_at):Date.now();const seconds=Math.max(0,Math.floor((end-Date.parse(operation.started_at))/1000));box.textContent=`${operation.name} · ${operation.status==='RUNNING'?'正在执行':operation.status==='SUCCEEDED'?'已完成':operation.status==='FAILED'?'失败':'执行状态待确认'} · 已等待 ${seconds} 秒${operation.status==='INTERRUPTED'?'；服务曾中断，服务端执行及费用需核对，未自动重试。':''}`;}
 setInterval(drawProgress,1000);
@@ -33,7 +35,7 @@ function makeSlot(type,original=null){
   const id=original?.id||'reference_'+nextSlotSerial++;usedSlotIds.add(id);
   return {id,type,enabled:original?.enabled||false,requirements:original?.requirements||'',
     dimensionSource:kept.find(image=>image.role==='product'&&image.id===original?.dimension_source_product_id)||null,dimensionConfirmed:original?.dimension_source_confirmed===true,
-    outputSize:original?.output_size||state?.image_sizes?.[id]||defaultSize(),reference:kept.find(image=>image.id===original?.reference_id)||null};
+    outputQuality:state?.image_qualities?.[isQuickV1()?id:original?.reference_id]||'',outputSize:original?.output_size||state?.image_sizes?.[id]||defaultSize(),reference:kept.find(image=>image.id===original?.reference_id)||null};
 }
 function resetSlots(){
   quickSlots.forEach(slot=>{if(slot.reference?.localFile)URL.revokeObjectURL(slot.reference.url);});
@@ -86,7 +88,7 @@ function renderSlots(){
         const declaration=element('label','我声明：该白底素材已标注当前商品真实尺寸（不是系统独立认证）'),check=element('input');check.type='checkbox';check.id=prefix+'-dimension-confirmed';check.checked=slot.dimensionConfirmed;
         check.onchange=()=>{if(!slot.dimensionSource){check.checked=false;notify('请先选择本任务的尺寸专项商品素材。',true);return;}slot.dimensionConfirmed=check.checked;markDirty();};declaration.append(check);row.append(declaration);
       }
-      row.append(sizeControl(slot.outputSize,value=>slot.outputSize=value,prefix+'-size'));
+      row.append(sizeControl(slot.outputSize,value=>slot.outputSize=value,prefix+'-size'),qualityControl(slot.outputQuality,value=>slot.outputQuality=value,prefix+'-quality'));
       const requirementLabel=element('label','补充制作要求（选填）'),requirements=element('textarea');requirements.id=prefix+'-requirements';requirements.rows=2;requirements.maxLength=12000;requirements.value=slot.requirements;requirements.oninput=()=>{slot.requirements=requirements.value;markDirty();};requirementLabel.append(requirements);row.append(requirementLabel);
       row.append(element('p',slot.enabled?'已启用 · 保存后建立输出项':slot.reference?'未启用 · 仅保存参考，不产生输出':'未启用 · 不产生输出','muted'));grid.append(row);
     });
@@ -132,7 +134,7 @@ function renderImages(){
     const container=$(role+'-images');container.replaceChildren();
     const images=[...kept.filter(i=>i.role===role).map(i=>({...i,existing:true})),...pending[role]];
     $(role+'-count').textContent=images.length+' 张';
-    images.forEach(image=>{const wrap=element('div',undefined,'thumb');const source=image.existing?kept.find(item=>item.id===image.id):image;const img=element('img');img.src=image.url;img.alt=image.name;const remove=element('button','×','remove-image');remove.type='button';remove.setAttribute('aria-label','移除 '+image.name);remove.onclick=()=>{if(image.existing)kept=kept.filter(i=>i.id!==image.id);else{pending[role]=pending[role].filter(i=>i!==image);URL.revokeObjectURL(image.url);}renderImages();renderSlots();markDirty();};wrap.append(img,remove,element('small',image.name));if(role==='reference'&&!isQuick())wrap.append(sizeControl(source.outputSize||defaultSize(),value=>source.outputSize=value));container.append(wrap);});
+    images.forEach(image=>{const wrap=element('div',undefined,'thumb');const source=image.existing?kept.find(item=>item.id===image.id):image;const img=element('img');img.src=image.url;img.alt=image.name;const remove=element('button','×','remove-image');remove.type='button';remove.setAttribute('aria-label','移除 '+image.name);remove.onclick=()=>{if(image.existing)kept=kept.filter(i=>i.id!==image.id);else{pending[role]=pending[role].filter(i=>i!==image);URL.revokeObjectURL(image.url);}renderImages();renderSlots();markDirty();};wrap.append(img,remove,element('small',image.name));if(role==='reference'&&!isQuick())wrap.append(sizeControl(source.outputSize||defaultSize(),value=>source.outputSize=value));if(!usesSlots()&&(role===(isQuick()?'product':'reference')))wrap.append(qualityControl(source.outputQuality,value=>source.outputQuality=value,'quality-'+(image.id||image.name)));container.append(wrap);});
   }
 }
 function describe(value, labels){const dl=element('dl',undefined,'details');for(const [key,label] of Object.entries(labels))dl.append(element('dt',label),element('dd',value[key]));return dl;}
@@ -151,14 +153,30 @@ function renderCardPlan(image,editable=true){
   const details=element('details',undefined,'card-plan');const plan=state?.plans[image.id];
   const status=state?.plan_status[image.id],stale=state?.stale_plans.includes(image.id);details.open=Boolean(plan&&!status?.confirmed);
   details.append(element('summary',plan?(stale?'当前计划 · 理解已改变，待更新':`当前计划 V${status.plan_version} · ${status.confirmed?'已确认':'待确认'}`):'制作计划 · 尚未规划'));
-  if(plan){details.append(describe(plan,planFields));if(editable)details.append(feedbackBox('plan',image.id,'本张计划的修改意见','根据意见修改计划'));}
+  if(plan){details.append(describe(plan,planFields),manualEditor(image.id));if(editable)details.append(feedbackBox('plan',image.id,'AI 修改意见（会产生 Planning 调用）','AI 重新规划本图（付费）'));}
   else details.append(element('p','先保存资料并主动点击 AI 理解与规划。','muted'));
   if(state?.references[image.id]){const understanding=element('details',undefined,'history');understanding.append(element('summary','参考图理解与修正'),describe(state.references[image.id],referenceFields));if(editable)understanding.append(feedbackBox('reference',image.id,'修正这张参考图的理解','根据意见修正理解'));details.append(understanding);}
   return details;
 }
+function manualEditor(target){
+  const identity={taskId:state.id,revision:state.revision,planVersion:state.plan_status[target].plan_version};
+  const key=JSON.stringify([identity.taskId,target,identity.planVersion]),draft=manualDrafts.get(key)||{...state.plans[target]};manualDrafts.set(key,draft);
+  const box=element('details',undefined,'manual-plan-editor');box.append(element('summary','人工编辑方案（免费，不调用模型）'));
+  for(const [name,label] of Object.entries(planFields)){const wrap=element('label',label),input=element('textarea');input.rows=3;input.maxLength=12000;input.value=draft[name];input.className='ai-mutation';input.dataset.planField=name;input.oninput=()=>draft[name]=input.value;wrap.append(input);box.append(wrap);}
+  const save=element('button','保存人工修订 · 需重新确认','secondary ai-mutation');save.type='button';save.dataset.action='save-manual-plan';
+  save.onclick=()=>work(async()=>{
+    if(dirty||state.id!==identity.taskId||state.revision!==identity.revision)throw new Error('任务或方案已改变，请刷新后核对；未调用模型。');
+    const body=await api('/api/sessions/'+identity.taskId+'/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'manual_plan',target,revision:identity.revision,plan_version:identity.planVersion,plan:{...draft}})});
+    manualDrafts.delete(key);if(state.id===identity.taskId&&state.revision===identity.revision)applyState(body.state);
+    notify('人工修订已保存（HUMAN_EDIT），模型调用 0 次。请重新确认本图计划；事实争议仍须单独处理。');
+  });
+  box.append(element('p','只修改本图方案，保留原 AI 响应及编辑前后版本。编辑不会认证商品事实或自动消除争议。','muted'),save);
+  const history=element('details');history.append(element('summary','人工修订记录'));
+  for(const event of (state.events||[]).filter(e=>e.action==='manual_plan'&&e.target===target)){const row=element('div');row.append(element('strong','HUMAN_EDIT · V'+event.plan_version));for(const field of Object.keys(planFields))if(event.before[field]!==event.after[field])row.append(element('p',planFields[field]+'：'+event.before[field]+' → '+event.after[field]));history.append(row);}box.append(history);return box;
+}
 function renderFactIssues(container){
   for(const issue of state.fact_issues||[]){
-    const box=element('section',undefined,'feedback');
+    const box=element('section',undefined,'feedback fact-issue');box.dataset.conflictId=issue.conflict_id;
     box.append(element('h4',(issue.issue_type==='VISIBLE_CONTRADICTION'?'图文明显矛盾（模型报告）':'证据不足 · 不等于矛盾')+' · '+issue.resolution_status),
       element('p','争议宣称：'+issue.affected_claim),element('p',issue.text_evidence.source+' 原文：'+issue.text_evidence.quote),
       element('p','可见依据：'+issue.visual_evidence.observation),element('p','受影响图位：'+issue.affected_image_ids.join('、')));
@@ -166,10 +184,10 @@ function renderFactIssues(container){
     if(issue.operator_resolution)box.append(element('p','已有人工决定：'+issue.operator_resolution.decision+'；'+issue.operator_resolution.note+'（仅适用有效版本，非独立认证）'));
     const decision=element('select');decision.className='ai-mutation';
     for(const [value,text] of [['RETAIN','人工决定继续使用'],['CORRECT','修正宣称和计划'],['EXCLUDE','移除宣称并修订计划']]){const option=element('option',text);option.value=value;decision.append(option);}decision.value='RETAIN';
-    const note=element('textarea');note.rows=2;note.maxLength=12000;note.className='ai-mutation';note.placeholder='人工依据/修正或移除的具体宣称；不会改写原始资料';
+    const note=element('textarea');note.rows=2;note.maxLength=12000;note.className='ai-mutation';note.dataset.field='conflict-note';note.placeholder='人工依据/修正或移除的具体宣称；不会改写原始资料';
     const editor=element('details');editor.append(element('summary','修正/移除时填写受影响图位计划（五项均需填写）'));const inputs={};
     for(const id of issue.affected_image_ids){editor.append(element('strong',id));inputs[id]={};for(const [key,label] of Object.entries(planFields)){const wrap=element('label',label),field=element('textarea');field.className='ai-mutation';field.value=state.plans[id]?.[key]||'';field.maxLength=12000;inputs[id][key]=field;wrap.append(field);editor.append(wrap);}}
-    const save=element('button','保存人工处理（不调用 AI），再确认本图计划','secondary ai-mutation');save.type='button';
+    const save=element('button','保存人工处理（不调用 AI），再确认本图计划','secondary ai-mutation');save.type='button';save.dataset.action='resolve-conflict';
     save.onclick=()=>work(async()=>{if(dirty)throw new Error('资料已修改，请先另存新任务。');const payload={action:'resolve_conflict',revision:state.revision,conflict_id:issue.conflict_id,decision:decision.value,note:note.value};
       if(decision.value!=='RETAIN')payload.plans=Object.fromEntries(Object.entries(inputs).map(([id,fields])=>[id,Object.fromEntries(Object.entries(fields).map(([key,input])=>[key,input.value]))]));
       const body=await api('/api/sessions/'+state.id+'/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});applyState(body.state);notify('人工处理已保存。请核对修订计划，再执行原有逐图确认。');});
@@ -187,7 +205,7 @@ function renderResults(){
   $('confirmation-note').textContent=unresolved.length?'有 '+unresolved.length+' 项图文事实争议待人工处理。请在共享资料中查看原文与商品图片依据；受影响计划不能确认或生成。':state?.stale_plans.length?'理解已修正，请更新受影响计划后逐张确认；其他有效确认和旧成图保留。':'在对应卡片点击「确认本图计划」后即可单独生成。修改本张计划只撤销本图确认，不自动批量确认。';
   updateButtons();
 }
-function applyState(value,activity=null){classifyLegacy=false;if(state?.id!==value.id)feedbackDrafts.clear();state=value;dirty=false;window.history.replaceState(null,'','/workspace/'+state.id);$('task-mode').value=state.quick_scenario||state.mode||'product_pack';$('task-title').value=state.title;releasePending();kept=state.images.map(i=>({...i,outputSize:state.image_sizes?.[i.id]||(state.mode==='quick_redesign'?state.output_size:'1024x1536')}));for(const key of ['listing','description','requirements','product_facts'])$(key).value=state.inputs[key]||'';$('output-size').value=state.output_size||'1024x1536';$('product-files').value='';$('reference-files').value='';$('saved-status').textContent=isQuick()?'重设计资料已保存':state.confirmed?'计划已确认':'资料与修改已保存';$('input-note').textContent=state.title+' · 当前任务已保存，刷新后可恢复。';
+function applyState(value,activity=null){classifyLegacy=false;if(state?.id!==value.id)feedbackDrafts.clear();state=value;dirty=false;window.history.replaceState(null,'','/workspace/'+state.id);$('task-mode').value=state.quick_scenario||state.mode||'product_pack';$('task-title').value=state.title;releasePending();kept=state.images.map(i=>({...i,outputQuality:state.image_qualities?.[i.id]||'',outputSize:state.image_sizes?.[i.id]||(state.mode==='quick_redesign'?state.output_size:'1024x1536')}));for(const key of ['listing','description','requirements','product_facts'])$(key).value=state.inputs[key]||'';$('output-size').value=state.output_size||'1024x1536';$('generation-quality').value=state.generation_quality||'low';$('product-files').value='';$('reference-files').value='';$('saved-status').textContent=isQuick()?'重设计资料已保存':state.confirmed?'计划已确认':'资料与修改已保存';$('input-note').textContent=state.title+' · 当前任务已保存，刷新后可恢复。';
   resetSlots();renderSlots();
   remoteBusy=activity?.status==='RUNNING';clearTimeout(progressPoll);
   if(activity){operation={...activity,fromSaved:true,name:actionNames[activity.action]||'AI 操作',status:activity.status==='AI_RESULT_RECEIVED'?'SUCCEEDED':activity.status};drawProgress();}
@@ -198,8 +216,8 @@ async function saveInputs(){
   data.append('mode',isQuick()?'quick_redesign':'product_pack');
   if(hasQuickScenario())data.append('quick_scenario',$('task-mode').value);
   if(isQuick()){data.append('product_facts',$('product_facts').value);data.append('output_size',$('output-size').value);}
-  data.append('title',$('task-title').value);
-  let keep=kept;const imageSizes={};
+  data.append('title',$('task-title').value);data.append('generation_quality',$('generation-quality').value||(state?.generation_quality||(!state?'medium':'low')));
+  let keep=kept;const imageSizes={},imageQualities={};let referenceIdForQuality;
   if(usesSlots()){
     if(!quickSlots.some(slot=>slot.enabled))throw new Error('请至少启用一个图位，并绑定主要设计参考。');
     if(quickSlots.some(slot=>slot.enabled&&!slot.reference))throw new Error('已启用图位必须绑定一张主要设计参考。');
@@ -208,6 +226,7 @@ async function saveInputs(){
     const references=[...keep.filter(image=>image.role==='reference'),...quickSlots.map(slot=>slot.reference).filter(image=>image?.localFile)];
     const referenceId=image=>'reference_'+String(references.indexOf(image)+1).padStart(3,'0');
     const products=[...keep.filter(image=>image.role==='product'),...pending.product];
+    referenceIdForQuality=referenceId;
     const configuration=quickSlots.map(slot=>({...(slot.type==='dimensions'?{dimension_source_product_id:slot.dimensionSource?'product_'+String(products.indexOf(slot.dimensionSource)+1).padStart(3,'0'):null,dimension_source_confirmed:slot.dimensionConfirmed}:{}),id:slot.id,type:slot.type,enabled:slot.enabled,
       reference_id:slot.reference?referenceId(slot.reference):null,requirements:slot.requirements}));
     if(isQuickV1()){
@@ -220,6 +239,8 @@ async function saveInputs(){
     if(!isQuick())[...keep.filter(image=>image.role==='reference'),...pending.reference].forEach((image,index)=>{imageSizes['reference_'+String(index+1).padStart(3,'0')]=image.outputSize||defaultSize();});
     else if(state?.image_sizes)[...keep.filter(image=>image.role==='product'),...pending.product].forEach((image,index)=>{imageSizes['product_'+String(index+1).padStart(3,'0')]=image.outputSize||defaultSize();});
   }
+  if(usesSlots()){quickSlots.forEach(slot=>{if(slot.outputQuality){const target=isQuickV1()?slot.id:(slot.reference?referenceIdForQuality(slot.reference):null);if(target)imageQualities[target]=slot.outputQuality;}});}else{[...keep.filter(i=>i.role===(isQuick()?'product':'reference')),...pending[isQuick()?'product':'reference']].forEach((image,index)=>{if(image.outputQuality)imageQualities[(isQuick()?'product_':'reference_')+String(index+1).padStart(3,'0')]=image.outputQuality;});}
+  data.append('image_qualities',JSON.stringify(imageQualities));
   if(isQuickV1()||(!isQuick()&&!usesSlots())||(isQuick()&&state?.image_sizes))data.append('image_sizes',JSON.stringify(imageSizes));
   if(state){data.append('from_session',state.id);data.append('keep_images',JSON.stringify(keep.map(i=>i.id)));}
   pending.product.forEach(item=>data.append('product',item.file,item.file.name));
@@ -243,7 +264,7 @@ $('load-case').onclick=()=>work(async()=>{const body=await api('/api/case-001',{
 $('input-form').onsubmit=event=>{event.preventDefault();work(async()=>{await saveInputs();$('input-panel').open=false;notify('资料已保存为新任务，旧任务未覆盖；可在下方卡片继续。');});};
 $('understand').onclick=()=>work(async()=>{if(dirty||!state)await saveInputs();await runAction('understand');});
 $('replan').onclick=()=>work(()=>runAction('replan'));
-for(const key of ['listing','description','requirements','task-title','product_facts','output-size'])$(key).addEventListener('input',markDirty);
+for(const key of ['listing','description','requirements','task-title','product_facts','output-size','generation-quality'])$(key).addEventListener('input',markDirty);
 $('task-mode').onchange=()=>{if(usesSlots()&&pending.reference.length){$('task-mode').value='product_pack';notify('请先移除商品图包的共享设计参考，再切换 Quick；新入口请在对应图位上传参考。',true);return;}if(isQuick()&&!$('requirements').value.trim())$('requirements').value=redesignDefault;renderMode();renderImages();markDirty();};
 for(const role of ['product','reference'])$(role+'-files').onchange=event=>{for(const file of event.target.files)pending[role].push({file,name:file.name,url:URL.createObjectURL(file),role,outputSize:defaultSize()});event.target.value='';renderImages();renderSlots();markDirty();};
 $('classify-listing').onclick=()=>{classifyLegacy=true;resetSlots();renderSlots();renderMode();markDirty();};
