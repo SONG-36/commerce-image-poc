@@ -475,8 +475,87 @@ def compatibility_fingerprints(*, details=False):
 
 
 class GenerationCompatibilityTests(unittest.TestCase):
+    @staticmethod
+    def legacy_fixture_context(state, target, parameters):
+        # The goldens predate listing_slots. The shared Web fixture was later
+        # classified for E1-04 guards; keep those guards on the execution state,
+        # but explicitly exercise the original Context contract here.
+        return construction.initial_context({k: v for k, v in state.items() if k != 'listing_slots'},
+                                            target, parameters)
+
     def test_legacy_requests_evidence_state_and_write_order_match(self):
-        self.assertEqual(compatibility_fingerprints(), LEGACY_GOLDEN)
+        with patch.object(service, 'initial_context', side_effect=self.legacy_fixture_context):
+            self.assertEqual(compatibility_fingerprints(), LEGACY_GOLDEN)
+
+    def test_classified_requests_change_only_slot_context_prompt_and_derived_hashes(self):
+        # Do not refresh legacy fingerprints. Check the current execution's
+        # complete payload against the old payload plus the explicit F1 delta.
+        with patch.object(service, 'initial_context', side_effect=self.legacy_fixture_context):
+            before = compatibility_fingerprints(details=True)
+        after = compatibility_fingerprints(details=True)
+        slot = dict(type='selling_point', enabled=True, reference_id='reference_002',
+                    requirements='', output_size='1024x1536')
+
+        def add_slot(context):
+            head = ('session_id', 'confirmed_revision', 'reference_id')
+            return {**{key: context[key] for key in head}, 'output_slot': slot,
+                    **{key: value for key, value in context.items() if key not in head}}
+
+        for scenario, old in before.items():
+            with self.subTest(scenario=scenario):
+                if scenario.startswith('quick') or scenario == 'unknown_size':
+                    self.assertEqual(after[scenario], old)
+                    continue
+                previous = scenario in ('regenerate', 'edit', 'auxiliary', 'too_many_images')
+
+                def digest(text):
+                    # Restore the fixed fixture identities before hashing.
+                    text = text.replace('<TASK>', '1' * 32)
+                    text = re.sub(r'<RUN[0-9]+>', lambda match: '20261021T000000Z-' +
+                                  f'{2 if previous and match[0] == old["record"]["run_id"] else 1:032x}', text)
+                    return sha256(text.encode())
+
+                prompts, hashes = {}, {}
+                for path, data in old['files'].items():
+                    if not path.endswith('/plan.json'):
+                        continue
+                    context = json.loads(data)
+                    updated = add_slot(context)
+                    hashes[digest(json.dumps(context, ensure_ascii=False, sort_keys=True))] = digest(
+                        json.dumps(updated, ensure_ascii=False, sort_keys=True))
+                    prompt = old['files'].get(path.removesuffix('plan.json') + 'prompt.txt')
+                    if prompt is None:
+                        continue
+                    context_text = json.dumps(context, ensure_ascii=False, indent=2)
+                    self.assertEqual(prompt.count(context_text), 1)
+                    changed = prompt.replace(context_text, json.dumps(updated, ensure_ascii=False, indent=2))
+                    rules = construction._listing_slot_rules(updated)
+                    if '<confirmed_image_context>' in prompt:
+                        changed = changed.replace('\n\n<confirmed_image_context>\n',
+                                                  '\n' + rules + '\n<confirmed_image_context>\n', 1)
+                    else:
+                        marker = '本张已确认的有效资料与计划：\n'
+                        changed = changed.replace(marker, rules + marker, 1)
+                    prompts[prompt] = changed
+                    hashes[digest(prompt)] = digest(changed)
+
+                def upgrade(value):
+                    if isinstance(value, dict):
+                        if 'confirmed_plan' in value and 'original_inputs' in value:
+                            return add_slot(value)
+                        return {key: upgrade(item) for key, item in value.items()}
+                    if isinstance(value, list):
+                        return [upgrade(item) for item in value]
+                    if isinstance(value, str):
+                        if value in prompts:
+                            return prompts[value]
+                        if value in hashes:
+                            return hashes[value]
+                        if value.startswith('{\n'):
+                            return json.dumps(upgrade(json.loads(value)), ensure_ascii=False, indent=2) + '\n'
+                    return value
+
+                self.assertEqual(after[scenario], upgrade(old))
 
 
 LEGACY_GOLDEN = {

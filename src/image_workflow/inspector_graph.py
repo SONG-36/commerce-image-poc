@@ -14,18 +14,30 @@ def prompt_segments(prompt, tag, *, quick_v1=False):
     if not isinstance(prompt, str):
         return []
     if quick_v1:
-        labels = {'operator_design_requirements': ('整体要求：', '商品事实说明：'),
-                  'product_constraints_from_operator': ('商品事实说明：', '本图可选补充要求：'),
+        # These are exact saved formats, not guesses based on today's builder.
+        fact_labels = ('商品事实说明：', '运营补充商品资料（来源陈述，非独立认证）：')
+        headings = ('整体要求：', *fact_labels, '本图可选补充要求：', '本次修改意见：')
+        positions = {heading: list(re.finditer(r'^' + re.escape(heading) + r'\n', prompt, re.M))
+                     for heading in headings}
+        facts = [heading for heading in fact_labels if positions[heading]]
+        if len(facts) != 1:
+            return []
+        fact = facts[0]
+        sequence = ('整体要求：', fact, '本图可选补充要求：', '本次修改意见：')
+        if any(len(positions[heading]) != 1 for heading in sequence):
+            return []
+        offsets = [positions[heading][0].start() for heading in sequence]
+        if offsets != sorted(offsets):
+            return []
+        labels = {'operator_design_requirements': ('整体要求：', fact),
+                  'product_constraints_from_operator': (fact, '本图可选补充要求：'),
                   'revision_feedback': ('本次修改意见：', None),
                   'slot_requirements': ('本图可选补充要求：', '本次修改意见：')}
         start, end = labels[tag]
-        # Repeated headings are ambiguous data, not proof of a unique section.
-        if prompt.count('\n' + start + '\n') != 1 or (end and prompt.count('\n' + end + '\n') != 1):
-            return []
-        expression = re.escape(start) + r'\n(.*?)\n' + (re.escape(end) if end else r'\Z')
+        expression = r'^' + re.escape(start) + r'\n(.*?)\n' + (r'(?=^' + re.escape(end) + r'\n)' if end else r'\Z')
     else:
         expression = r'<' + tag + r'>\n?(.*?)\n?</' + tag + '>'
-    return list(re.finditer(expression, prompt, re.S))
+    return list(re.finditer(expression, prompt, re.S | re.M))
 
 
 def context_graph(selection, mode, documents, assets, context):
